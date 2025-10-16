@@ -7,39 +7,52 @@
       "type": "object",
       "description": "Represents a course offered on the platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the course."
+        "id": { "type": "string", "description": "Unique identifier for the course." },
+        "title": { "type": "string", "description": "Title of the course." },
+        "description": { "type": "string", "description": "Description of the course." },
+        "price": { "type": "number", "description": "Price of the course." },
+        "imageUrl": { "type": "string", "description": "URL of the course image." },
+        "isFree": { "type": "boolean", "description": "Indicates if the course is free." },
+        "videos": {
+          "type": "array",
+          "description": "List of videos in the course.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "url": { "type": "string" }
+            },
+            "required": ["id", "title", "url"]
+          }
         },
-        "title": {
-          "type": "string",
-          "description": "Title of the course."
+        "notes": {
+          "type": "array",
+          "description": "List of notes (PDFs) in the course.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "url": { "type": "string" }
+            },
+            "required": ["id", "title", "url"]
+          }
         },
-        "description": {
-          "type": "string",
-          "description": "Description of the course."
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the course."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL of the course image."
-        },
-        "isFree": {
-          "type": "boolean",
-          "description": "Indicates if the course is free."
+        "tests": {
+          "type": "array",
+          "description": "List of test series associated with the course.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            },
+            "required": ["id", "title"]
+          }
         }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "price",
-        "imageUrl",
-        "isFree"
-      ]
+      "required": ["id", "title", "description", "price", "imageUrl", "isFree"]
     },
     "EBook": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -47,44 +60,15 @@
       "type": "object",
       "description": "Represents an e-book available on the platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the e-book."
-        },
-        "title": {
-          "type": "string",
-          "description": "Title of the e-book."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the e-book."
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the e-book."
-        },
-        "fileUrl": {
-          "type": "string",
-          "description": "URL of the e-book file."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL of the e-book image."
-        },
-        "isFree": {
-          "type": "boolean",
-          "description": "Indicates if the e-book is free."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the e-book." },
+        "title": { "type": "string", "description": "Title of the e-book." },
+        "description": { "type": "string", "description": "Description of the e-book." },
+        "price": { "type": "number", "description": "Price of the e-book." },
+        "fileUrl": { "type": "string", "description": "URL of the e-book file." },
+        "imageUrl": { "type": "string", "description": "URL of the e-book image." },
+        "isFree": { "type": "boolean", "description": "Indicates if the e-book is free." }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "price",
-        "fileUrl",
-        "imageUrl",
-        "isFree"
-      ]
+      "required": ["id", "title", "description", "price", "fileUrl", "imageUrl", "isFree"]
     },
     "TestSeries": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -92,42 +76,17 @@
       "type": "object",
       "description": "Represents a test series available on the platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the test series."
-        },
-        "title": {
-          "type": "string",
-          "description": "Title of the test series."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the test series."
-        },
-        "price": {
-          "type": "number",
-          "description": "Price of the test series."
-        },
-        "questionIds": {
-          "type": "array",
-          "description": "List of question IDs associated with the test series.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL of the test series image."
-        }
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "isFree": { "type": "boolean" },
+        "imageUrl": { "type": "string" },
+        "isStandalone": { "type": "boolean" },
+        "courseId": { "type": "string" },
+        "questions": { "type": "array", "items": { "type": "string" } }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "price",
-        "questionIds",
-        "imageUrl"
-      ]
+      "required": ["id", "title", "description", "price", "isFree", "imageUrl", "isStandalone"]
     },
     "Question": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -135,32 +94,12 @@
       "type": "object",
       "description": "Represents a question within a test series.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the question."
-        },
-        "text": {
-          "type": "string",
-          "description": "Text of the question."
-        },
-        "options": {
-          "type": "array",
-          "description": "Available options for the question.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "correctAnswer": {
-          "type": "string",
-          "description": "The correct answer to the question."
-        }
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "correctAnswer": { "type": "string" }
       },
-      "required": [
-        "id",
-        "text",
-        "options",
-        "correctAnswer"
-      ]
+      "required": ["id", "text", "options", "correctAnswer"]
     },
     "Educator": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -168,39 +107,14 @@
       "type": "object",
       "description": "Represents an educator on the platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the educator."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the educator."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL of the educator's image."
-        },
-        "experience": {
-          "type": "number",
-          "description": "Years of teaching experience."
-        },
-        "subject": {
-          "type": "string",
-          "description": "Primary subject taught by the educator."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief biography or description of the educator."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "experience": { "type": "number" },
+        "subject": { "type": "string" },
+        "description": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "imageUrl",
-        "experience",
-        "subject",
-        "description"
-      ]
+      "required": ["id", "name", "imageUrl", "experience", "subject", "description"]
     },
     "LiveClass": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -208,35 +122,13 @@
       "type": "object",
       "description": "Represents a live class scheduled on the platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the live class."
-        },
-        "title": {
-          "type": "string",
-          "description": "Title of the live class."
-        },
-        "startTime": {
-          "type": "string",
-          "description": "Start time of the live class (ISO 8601 format).",
-          "format": "date-time"
-        },
-        "educatorId": {
-          "type": "string",
-          "description": "Reference to the Educator giving this live class."
-        },
-        "youtubeUrl": {
-          "type": "string",
-          "description": "URL of the YouTube live stream."
-        }
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "educatorId": { "type": "string" },
+        "youtubeUrl": { "type": "string" }
       },
-      "required": [
-        "id",
-        "title",
-        "startTime",
-        "educatorId",
-        "youtubeUrl"
-      ]
+      "required": ["id", "title", "startTime", "educatorId", "youtubeUrl"]
     },
     "Enrollment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -244,43 +136,15 @@
       "type": "object",
       "description": "Represents a student's enrollment in a course, test series, or ebook.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the enrollment."
-        },
-        "studentId": {
-          "type": "string",
-          "description": "Reference to the Student who is enrolled."
-        },
-        "itemId": {
-          "type": "string",
-          "description": "Reference to the Course, TestSeries, or EBook that the student is enrolling in."
-        },
-        "itemType": {
-          "type": "string",
-          "description": "Type of the item being enrolled in (e.g., 'course', 'testSeries', 'ebook')."
-        },
-        "enrollmentDate": {
-          "type": "string",
-          "description": "Date of enrollment (ISO 8601 format).",
-          "format": "date-time"
-        },
-        "paymentScreenshotUrl": {
-          "type": "string",
-          "description": "URL of the payment screenshot uploaded by the student."
-        },
-        "isApproved": {
-          "type": "boolean",
-          "description": "Indicates whether the enrollment has been approved by an admin."
-        }
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemType": { "type": "string", "enum": ["course", "ebook", "testSeries", "previous-year-paper"] },
+        "enrollmentDate": { "type": "string", "format": "date-time" },
+        "paymentScreenshotUrl": { "type": "string" },
+        "isApproved": { "type": "boolean" }
       },
-      "required": [
-        "id",
-        "studentId",
-        "itemId",
-        "itemType",
-        "enrollmentDate"
-      ]
+      "required": ["id", "studentId", "itemId", "itemType", "enrollmentDate"]
     },
     "Student": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -288,29 +152,12 @@
       "type": "object",
       "description": "Represents a student using the platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the student."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the student."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the student.",
-          "format": "email"
-        },
-        "profileImageUrl": {
-          "type": "string",
-          "description": "URL of the student's profile image."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "profileImageUrl": { "type": "string" }
       },
-      "required": [
-        "id",
-        "name",
-        "email"
-      ]
+      "required": ["id", "name", "email"]
     },
     "Promotion": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -318,37 +165,13 @@
       "type": "object",
       "description": "Represents a promotion displayed in the promotion scroller.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the promotion."
-        },
-        "text": {
-          "type": "string",
-          "description": "Text of the promotion message."
-        },
-        "link": {
-          "type": "string",
-          "description": "URL link for the promotion.",
-          "format": "uri"
-        },
-        "startDate": {
-          "type": "string",
-          "description": "Start date of the promotion (ISO 8601 format).",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "End date of the promotion (ISO 8601 format).",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "link": { "type": "string", "format": "uri" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "text",
-        "link",
-        "startDate",
-        "endDate"
-      ]
+      "required": ["id", "text", "link", "startDate", "endDate"]
     },
     "Book": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -356,37 +179,15 @@
       "type": "object",
       "description": "Represents a physical book available for purchase.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "author": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "price": {
-          "type": "number"
-        },
-        "verificationCharge": {
-          "type": "number"
-        },
-        "imageUrl": {
-          "type": "string"
-        }
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "verificationCharge": { "type": "number" },
+        "imageUrl": { "type": "string" }
       },
-      "required": [
-        "id",
-        "title",
-        "author",
-        "description",
-        "price",
-        "verificationCharge",
-        "imageUrl"
-      ]
+      "required": ["id", "title", "author", "description", "price", "verificationCharge", "imageUrl"]
     },
     "BookOrder": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -394,79 +195,28 @@
       "type": "object",
       "description": "Represents an order for a physical book.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "bookId": {
-          "type": "string"
-        },
-        "studentId": {
-          "type": "string"
-        },
+        "id": { "type": "string" },
+        "bookId": { "type": "string" },
+        "studentId": { "type": "string" },
         "shippingAddress": {
           "type": "object",
           "properties": {
-            "name": {
-              "type": "string"
-            },
-            "address": {
-              "type": "string"
-            },
-            "city": {
-              "type": "string"
-            },
-            "state": {
-              "type": "string"
-            },
-            "zipCode": {
-              "type": "string"
-            },
-            "mobile": {
-              "type": "string"
-            }
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zipCode": { "type": "string" },
+            "mobile": { "type": "string" }
           },
-          "required": [
-            "name",
-            "address",
-            "city",
-            "state",
-            "zipCode",
-            "mobile"
-          ]
+          "required": ["name", "address", "city", "state", "zipCode", "mobile"]
         },
-        "status": {
-          "type": "string",
-          "enum": [
-            "pending",
-            "approved",
-            "rejected",
-            "shipped"
-          ]
-        },
-        "paymentScreenshotUrl": {
-          "type": "string"
-        },
-        "orderDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "tentativeDeliveryDate": {
-          "type": "string",
-          "format": "date"
-        },
-        "trackingLink": {
-          "type": "string"
-        }
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "shipped"] },
+        "paymentScreenshotUrl": { "type": "string" },
+        "orderDate": { "type": "string", "format": "date-time" },
+        "tentativeDeliveryDate": { "type": "string", "format": "date" },
+        "trackingLink": { "type": "string" }
       },
-      "required": [
-        "id",
-        "bookId",
-        "studentId",
-        "shippingAddress",
-        "status",
-        "paymentScreenshotUrl",
-        "orderDate"
-      ]
+      "required": ["id", "bookId", "studentId", "shippingAddress", "status", "paymentScreenshotUrl", "orderDate"]
     },
     "Coupon": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -474,42 +224,15 @@
       "type": "object",
       "description": "Represents a discount coupon.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "code": {
-          "type": "string"
-        },
-        "discountType": {
-          "type": "string",
-          "enum": [
-            "percentage",
-            "fixed"
-          ]
-        },
-        "discountValue": {
-          "type": "number"
-        },
-        "expiryDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "maxUses": {
-          "type": "number"
-        },
-        "usedCount": {
-          "type": "number"
-        }
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "discountValue": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date-time" },
+        "maxUses": { "type": "number" },
+        "usedCount": { "type": "number" }
       },
-      "required": [
-        "id",
-        "code",
-        "discountType",
-        "discountValue",
-        "expiryDate",
-        "maxUses",
-        "usedCount"
-      ]
+      "required": ["id", "code", "discountType", "discountValue", "expiryDate", "maxUses", "usedCount"]
     },
      "PreviousYearPaper": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -525,15 +248,7 @@
         "fileUrl": { "type": "string" },
         "imageUrl": { "type": "string" }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "price",
-        "isFree",
-        "fileUrl",
-        "imageUrl"
-      ]
+      "required": ["id", "title", "description", "price", "isFree", "fileUrl", "imageUrl"]
     }
   },
   "auth": {
@@ -548,187 +263,95 @@
         "path": "/courses/{courseId}",
         "definition": {
           "entityName": "Course",
-          "schema": {
-            "$ref": "#/backend/entities/Course"
-          },
-          "description": "Stores course details. Accessible to all users for reading, but only admins can create, update, or delete. Includes all course information.",
-          "params": [
-            {
-              "name": "courseId",
-              "description": "Unique identifier for the course."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Course" }
         }
       },
       {
         "path": "/ebooks/{ebookId}",
         "definition": {
           "entityName": "EBook",
-          "schema": {
-            "$ref": "#/backend/entities/EBook"
-          },
-          "description": "Stores eBook details. Accessible to all users for reading, but only admins can create, update, or delete. Includes all eBook information.",
-          "params": [
-            {
-              "name": "ebookId",
-              "description": "Unique identifier for the e-book."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/EBook" }
         }
       },
       {
         "path": "/test_series/{testSeriesId}",
         "definition": {
           "entityName": "TestSeries",
-          "schema": {
-            "$ref": "#/backend/entities/TestSeries"
-          },
-          "description": "Stores test series details. Accessible to all users for reading, but only admins can create, update, or delete. Includes all test series information.",
-          "params": [
-            {
-              "name": "testSeriesId",
-              "description": "Unique identifier for the test series."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/TestSeries" }
         }
       },
       {
         "path": "/questions/{questionId}",
         "definition": {
           "entityName": "Question",
-          "schema": {
-            "$ref": "#/backend/entities/Question"
-          },
-          "description": "Stores individual question details. Accessible to admins for management.",
-          "params": [
-            {
-              "name": "questionId",
-              "description": "Unique identifier for the question."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Question" }
         }
       },
       {
         "path": "/educators/{educatorId}",
         "definition": {
           "entityName": "Educator",
-          "schema": {
-            "$ref": "#/backend/entities/Educator"
-          },
-          "description": "Stores educator details. Accessible to all users for reading, but only admins can create, update, or delete. Includes all educator information.",
-          "params": [
-            {
-              "name": "educatorId",
-              "description": "Unique identifier for the educator."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Educator" }
         }
       },
       {
         "path": "/live_classes/{liveClassId}",
         "definition": {
           "entityName": "LiveClass",
-          "schema": {
-            "$ref": "#/backend/entities/LiveClass"
-          },
-          "description": "Stores live class details. Accessible to all users for reading, but only admins can create, update, or delete. Includes all live class information.",
-          "params": [
-            {
-              "name": "liveClassId",
-              "description": "Unique identifier for the live class."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/LiveClass" }
         }
       },
       {
         "path": "/users/{studentId}",
         "definition": {
           "entityName": "Student",
-          "schema": {
-            "$ref": "#/backend/entities/Student"
-          },
-          "description": "Stores student profile data. Only the student can read/write their own data.",
-          "params": [
-            {
-              "name": "studentId",
-              "description": "Unique identifier for the student, matching their Firebase Auth UID."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Student" }
         }
       },
       {
         "path": "/promotions/{promotionId}",
         "definition": {
           "entityName": "Promotion",
-          "schema": {
-            "$ref": "#/backend/entities/Promotion"
-          },
-          "description": "Stores promotion details for the promotion scroller. Accessible to all users for reading, but only admins can create, update, or delete. Includes all promotion information.",
-          "params": [
-            {
-              "name": "promotionId",
-              "description": "Unique identifier for the promotion."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Promotion" }
         }
       },
       {
-        "path": "/users/{studentId}/enrollments/{enrollmentId}",
+        "path": "/enrollments/{enrollmentId}",
         "definition": {
           "entityName": "Enrollment",
-          "schema": {
-            "$ref": "#/backend/entities/Enrollment"
-          },
-          "description": "Stores enrollment requests made by students. Includes denormalized 'studentId' for authorization. Only the student can create their own enrollment requests. Admins can approve or reject.",
-          "params": [
-            {
-              "name": "studentId",
-              "description": "Unique identifier for the student."
-            },
-            {
-              "name": "enrollmentId",
-              "description": "Unique identifier for the enrollment request."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Enrollment" }
         }
       },
       {
         "path": "/books/{bookId}",
         "definition": {
           "entityName": "Book",
-          "schema": {
-            "$ref": "#/backend/entities/Book"
-          }
+          "schema": { "$ref": "#/backend/entities/Book" }
         }
       },
       {
         "path": "/bookOrders/{orderId}",
         "definition": {
           "entityName": "BookOrder",
-          "schema": {
-            "$ref": "#/backend/entities/BookOrder"
-          }
+          "schema": { "$ref": "#/backend/entities/BookOrder" }
         }
       },
       {
         "path": "/coupons/{couponId}",
         "definition": {
           "entityName": "Coupon",
-          "schema": {
-            "$ref": "#/backend/entities/Coupon"
-          }
+          "schema": { "$ref": "#/backend/entities/Coupon" }
         }
       },
       {
         "path": "/previousYearPapers/{paperId}",
         "definition": {
           "entityName": "PreviousYearPaper",
-          "schema": {
-            "$ref": "#/backend/entities/PreviousYearPaper"
-          }
+          "schema": { "$ref": "#/backend/entities/PreviousYearPaper" }
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to support the 'Learn with munedra' app, focusing on secure access, scalability, and maintainability. It incorporates denormalization for authorization independence and segregates data based on access needs. User-owned data (student profiles) are stored under `/users/{userId}`. Courses, eBooks, TestSeries, Questions, Educators, Promotions and LiveClasses are stored in root collections to allow global listing and admin management. Enrollment requests are stored in a subcollection to allow easy listing and management per user, along with details from the parent document being denormalized for authorization independence. This design ensures clear ownership, simplifies security rules, and optimizes query performance. The use of consistent naming conventions and explicit state modeling further enhances clarity and debuggability."
+    ]
   }
 }
+
+    

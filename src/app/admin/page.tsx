@@ -23,7 +23,8 @@ import {
   BookOpen,
   ShoppingBag,
   ClipboardList,
-  Newspaper
+  Newspaper,
+  FilePlus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,14 +36,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, errorEmitter, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import Image from 'next/image';
 
 const adminNavItems = [
   { value: 'add-course', icon: PlusCircle, label: 'Add Course' },
+  { value: 'add-content', icon: FilePlus, label: 'Add Content to Course' },
   { value: 'add-ebook', icon: BookOpen, label: 'Add E-book' },
+  { value: 'add-test-series', icon: PenSquare, label: 'Add Test Series' },
   { value: 'add-previous-paper', icon: Newspaper, label: 'Add Previous Paper'},
   { value: 'add-educator', icon: UserPlus, label: 'Add Educator' },
   { value: 'add-live-class', icon: Video, label: 'Add Live Class' },
@@ -74,7 +77,7 @@ function CreateCourseForm() {
   const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
     reader.readAsDataURL(file);
   });
 
@@ -184,7 +187,7 @@ function CreateEbookForm() {
     const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file.'));
+        reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
         reader.readAsDataURL(file);
     });
 
@@ -302,7 +305,7 @@ function CreatePreviousPaperForm() {
     const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file.'));
+        reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
         reader.readAsDataURL(file);
     });
 
@@ -425,7 +428,7 @@ function AddEducatorForm() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('Failed to read file.'));
+      reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
       reader.readAsDataURL(file);
     });
   };
@@ -900,7 +903,7 @@ function AddBookForm() {
     const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('Failed to read file.'));
+        reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
         reader.readAsDataURL(file);
     });
 
@@ -1156,6 +1159,264 @@ function AddCouponForm() {
     );
 }
 
+const contentSchema = z.object({
+  courseId: z.string().min(1, 'Please select a course.'),
+  contentType: z.enum(['video', 'note', 'test']),
+  title: z.string().min(3, 'Title is required.'),
+  url: z.string().url('A valid URL is required.'),
+});
+
+function AddContentForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const { data: courses, isLoading: isLoadingCourses } = useCollection(coursesQuery);
+  
+  const form = useForm<z.infer<typeof contentSchema>>({
+    resolver: zodResolver(contentSchema),
+    defaultValues: { title: '', url: '' },
+  });
+
+  async function onSubmit(values: z.infer<typeof contentSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const courseRef = doc(firestore, 'courses', values.courseId);
+    const content = {
+      id: doc(collection(firestore, 'sub')).id, // Generate a random ID
+      title: values.title,
+      url: values.url,
+    };
+
+    let updateData = {};
+    if (values.contentType === 'video') {
+      updateData = { videos: arrayUnion(content) };
+    } else if (values.contentType === 'note') {
+      updateData = { notes: arrayUnion(content) };
+    } else {
+      updateData = { tests: arrayUnion(content) };
+    }
+
+    updateDoc(courseRef, updateData)
+      .then(() => {
+        toast({ title: 'Success!', description: 'Content added successfully.' });
+        form.reset();
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: courseRef.path,
+          operation: 'update',
+          requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => setIsSubmitting(false));
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="courseId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Course</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl><SelectTrigger><SelectValue placeholder={isLoadingCourses ? 'Loading...' : 'Select a course'} /></SelectTrigger></FormControl>
+                <SelectContent>
+                  {!isLoadingCourses && courses?.map(course => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="contentType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Content Type</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl><SelectTrigger><SelectValue placeholder="Select content type" /></SelectTrigger></FormControl>
+                <SelectContent>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="note">Note (PDF)</SelectItem>
+                  <SelectItem value="test">Test Series</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField control={form.control} name="title" render={({ field }) => (
+          <FormItem><FormLabel>Content Title</FormLabel><FormControl><Input placeholder="e.g., Introduction to React" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <FormField control={form.control} name="url" render={({ field }) => (
+          <FormItem><FormLabel>Content URL</FormLabel><FormControl><Input placeholder="https://youtube.com/watch?v=..." {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Add Content
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
+
+const testSeriesSchema = z.object({
+  title: z.string().min(5, 'Title is required'),
+  description: z.string().min(10, 'Description is required'),
+  price: z.coerce.number().min(0),
+  isFree: z.boolean().default(false),
+  isStandalone: z.boolean().default(true),
+  courseId: z.string().optional(),
+  imageUrl: z.any().refine(files => files?.length == 1, 'Image is required.'),
+}).refine(data => data.isStandalone || (!data.isStandalone && data.courseId), {
+  message: "A course must be selected for non-standalone test series.",
+  path: ["courseId"],
+});
+
+
+function AddTestSeriesForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const { data: courses, isLoading: isLoadingCourses } = useCollection(coursesQuery);
+
+  const form = useForm<z.infer<typeof testSeriesSchema>>({
+    resolver: zodResolver(testSeriesSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      price: 0,
+      isFree: false,
+      isStandalone: true,
+    },
+  });
+
+  const isStandalone = form.watch('isStandalone');
+
+  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
+    reader.readAsDataURL(file);
+  });
+
+  async function onSubmit(values: z.infer<typeof testSeriesSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
+      setIsSubmitting(false);
+      return;
+    }
+    
+    const imageUrl = await fileToDataUrl(values.imageUrl[0]);
+    const testSeriesRef = doc(collection(firestore, 'test_series'));
+
+    const testSeriesData = {
+      id: testSeriesRef.id,
+      title: values.title,
+      description: values.description,
+      price: values.isFree ? 0 : values.price,
+      isFree: values.isFree,
+      imageUrl,
+      isStandalone: values.isStandalone,
+      courseId: values.isStandalone ? null : values.courseId,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await setDoc(testSeriesRef, testSeriesData);
+
+      if (!values.isStandalone && values.courseId) {
+        const courseRef = doc(firestore, 'courses', values.courseId);
+        await updateDoc(courseRef, {
+          tests: arrayUnion({ id: testSeriesRef.id, title: values.title })
+        });
+      }
+      
+      toast({ title: 'Success!', description: 'Test Series added successfully.' });
+      form.reset();
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add test series.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField control={form.control} name="title" render={({ field }) => (
+          <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g., Complete Physics Test Series" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <FormField control={form.control} name="description" render={({ field }) => (
+          <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the test series" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <FormField control={form.control} name="isStandalone" render={({ field }) => (
+          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+            <div className="space-y-1 leading-none"><FormLabel>Standalone (Purchasable Separately)</FormLabel></div>
+          </FormItem>
+        )} />
+
+        {isStandalone ? (
+          <>
+            <FormField control={form.control} name="price" render={({ field }) => (
+              <FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" placeholder="e.g., 199" {...field} disabled={form.watch('isFree')} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="isFree" render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <div className="space-y-1 leading-none"><FormLabel>Free Test Series</FormLabel></div>
+              </FormItem>
+            )} />
+          </>
+        ) : (
+          <FormField
+            control={form.control}
+            name="courseId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Associate with Course</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder={isLoadingCourses ? 'Loading...' : 'Select a course'} /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {!isLoadingCourses && courses?.map(course => <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        <FormField control={form.control} name="imageUrl" render={({ field }) => (
+          <FormItem><FormLabel>Image</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Add Test Series
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
+
+
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('add-course');
   
@@ -1163,8 +1424,12 @@ export default function AdminDashboardPage() {
     switch (activeTab) {
       case 'add-course':
         return <Card><CardHeader><CardTitle>Create a New Course</CardTitle></CardHeader><CardContent className="pt-6"><CreateCourseForm /></CardContent></Card>;
+      case 'add-content':
+        return <Card><CardHeader><CardTitle>Add Content to Course</CardTitle></CardHeader><CardContent className="pt-6"><AddContentForm /></CardContent></Card>;
       case 'add-ebook':
         return <Card><CardHeader><CardTitle>Add a New E-book</CardTitle></CardHeader><CardContent className="pt-6"><CreateEbookForm /></CardContent></Card>;
+      case 'add-test-series':
+        return <Card><CardHeader><CardTitle>Add a New Test Series</CardTitle></CardHeader><CardContent className="pt-6"><AddTestSeriesForm /></CardContent></Card>;
       case 'add-previous-paper':
         return <Card><CardHeader><CardTitle>Add Previous Year Paper</CardTitle></CardHeader><CardContent className="pt-6"><CreatePreviousPaperForm /></CardContent></Card>;
       case 'add-educator':
@@ -1222,5 +1487,7 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
