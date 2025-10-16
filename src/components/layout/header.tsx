@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -40,7 +41,7 @@ export function Header() {
             </Button>
             <Link href="/" className="flex items-center gap-2 text-xl font-bold font-headline text-primary">
               <GraduationCap className="h-7 w-7" />
-              <span className="inline-block">Learn with munedra</span>
+              <span className="inline-block">L W M</span>
             </Link>
           </div>
           <div className="flex items-center gap-4">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -8,7 +9,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter
+  SidebarFooter,
+  useSidebar
 } from '@/components/ui/sidebar';
 import { useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,6 +22,11 @@ import { usePathname } from 'next/navigation';
 export function MobileSidebar() {
   const { user } = useUser();
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
+
+  const handleLinkClick = () => {
+    setOpenMobile(false);
+  }
 
   return (
     <Sidebar side="left" collapsible="offcanvas">
@@ -43,6 +50,7 @@ export function MobileSidebar() {
                 asChild
                 className={`h-auto rounded-none p-4 justify-start ${pathname === item.href ? 'bg-primary/20 text-primary font-bold' : 'font-normal'}`}
                 isActive={pathname === item.href}
+                onClick={handleLinkClick}
               >
                 <Link href={item.href}>
                   <item.icon className="h-5 w-5 mr-3" />
