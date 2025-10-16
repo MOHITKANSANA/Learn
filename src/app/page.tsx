@@ -4,7 +4,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Card,
-  CardContent
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { dashboardItems } from '@/lib/data';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -21,7 +24,7 @@ import Autoplay from "embla-carousel-autoplay"
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -30,8 +33,15 @@ export default function Home() {
 
   const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
+  
   const promotionsQuery = useMemoFirebase(() => collection(firestore, 'promotions'), [firestore]);
   const { data: promotions, isLoading: isLoadingPromotions } = useCollection(promotionsQuery);
+
+  const freeCoursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', true)) : null, [firestore]);
+  const { data: freeCourses, isLoading: isLoadingFreeCourses } = useCollection(freeCoursesQuery);
+  
+  const paidCoursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', false)) : null, [firestore]);
+  const { data: paidCourses, isLoading: isLoadingPaidCourses } = useCollection(paidCoursesQuery);
 
 
   useEffect(() => {
@@ -55,7 +65,7 @@ export default function Home() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <section>
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">Hello {user?.displayName?.split(' ')[0] || 'Student'}!</h1>
@@ -107,6 +117,47 @@ export default function Home() {
             );
           })}
         </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-bold mb-4">Free Courses</h2>
+        {isLoadingFreeCourses ? (
+          <div className="flex justify-center items-center h-24">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : freeCourses && freeCourses.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {freeCourses.map(course => (
+              <Link href={`/courses/${course.id}`} key={course.id}>
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
+                  <CardHeader><CardTitle className="text-base truncate">{course.title}</CardTitle></CardHeader>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        ) : <p className="text-muted-foreground">No free courses available at the moment.</p>}
+      </section>
+
+      <section>
+        <h2 className="text-xl font-bold mb-4">Paid Courses</h2>
+        {isLoadingPaidCourses ? (
+          <div className="flex justify-center items-center h-24">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : paidCourses && paidCourses.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {paidCourses.map(course => (
+              <Link href={`/courses/${course.id}`} key={course.id}>
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                  <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
+                  <CardHeader><CardTitle className="text-base truncate">{course.title}</CardTitle></CardHeader>
+                  <CardFooter><p className="font-bold text-primary">₹{course.price}</p></CardFooter>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        ) : <p className="text-muted-foreground">No paid courses available at the moment.</p>}
       </section>
 
        <section>

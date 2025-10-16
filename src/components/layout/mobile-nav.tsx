@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link';
-import { Home, Compass, Video, User, Bell } from 'lucide-react';
+import { Home, Library, ShoppingBag, Bell, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
-  { href: '/courses', icon: Compass, label: 'Explore' },
-  { href: '/live-classes', icon: Video, label: 'Classes' },
+  { href: '/my-library', icon: Library, label: 'Library' },
+  { href: '/my-orders', icon: ShoppingBag, label: 'Orders' },
   { href: '/notifications', icon: Bell, label: 'Alerts' },
   { href: '/profile', icon: User, label: 'Profile' },
 ];

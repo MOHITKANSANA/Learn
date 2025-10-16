@@ -17,7 +17,8 @@ import {
   Rss,
   Shield,
   Bot,
-  Swords
+  Swords,
+  ShoppingBag
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -84,8 +85,13 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
   },
   {
     title: 'My Library',
-    href: '#',
+    href: '/my-library',
     icon: Library,
+  },
+  {
+    title: 'My Orders',
+    href: '/my-orders',
+    icon: ShoppingBag,
   },
   {
     title: 'Social Media',
@@ -209,5 +215,3 @@ export const books = [
     image: PlaceHolderImages.find(img => img.id === 'book-4'),
   },
 ];
-
-    
