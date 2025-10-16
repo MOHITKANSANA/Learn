@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "book-1",
+      "description": "A modern programming book with a blue cover.",
+      "imageUrl": "https://picsum.photos/seed/book1/300/400",
+      "imageHint": "book cover"
+    },
+    {
+      "id": "book-2",
+      "description": "An open book on a wooden table.",
+      "imageUrl": "https://picsum.photos/seed/book2/300/400",
+      "imageHint": "open book"
+    },
+    {
+      "id": "book-3",
+      "description": "A stack of colorful textbooks.",
+      "imageUrl": "https://picsum.photos/seed/book3/300/400",
+      "imageHint": "stacked books"
+    },
+    {
+      "id": "book-4",
+      "description": "A person reading a book in a library.",
+      "imageUrl": "https://picsum.photos/seed/book4/300/400",
+      "imageHint": "person reading"
+    }
+  ]
 }
