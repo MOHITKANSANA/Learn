@@ -66,7 +66,7 @@ export default function CoursesPage() {
         {courses && courses.length > 0 ? (
           courses.map((course) => (
             <Card key={course.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300">
-              <Link href={`/courses/${course.id}`} className='flex flex-col h-full'>
+              <Link href={`/courses/${course.id}`} className="flex flex-col flex-grow">
                 <CardHeader className="p-0">
                   <Image
                     src={course.imageUrl}
@@ -80,19 +80,19 @@ export default function CoursesPage() {
                   <CardTitle className="text-lg font-headline mb-1">{course.title}</CardTitle>
                   <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
                 </CardContent>
-                <CardFooter className="p-4 mt-auto">
-                  <div className="flex justify-between items-center w-full">
-                    <p className="text-lg font-bold text-primary">{course.isFree ? 'Free' : `₹${course.price}`}</p>
-                    {course.isFree ? (
-                      <Button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleFreeEnrollment(course); }}>Enroll Now</Button>
-                    ) : (
-                      <Button asChild onClick={(e) => {e.stopPropagation();}}>
-                        <Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link>
-                      </Button>
-                    )}
-                  </div>
-                </CardFooter>
               </Link>
+              <CardFooter className="p-4 mt-auto">
+                <div className="flex justify-between items-center w-full">
+                  <p className="text-lg font-bold text-primary">{course.isFree ? 'Free' : `₹${course.price}`}</p>
+                  {course.isFree ? (
+                    <Button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleFreeEnrollment(course); }}>Enroll Now</Button>
+                  ) : (
+                    <Button asChild>
+                      <Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link>
+                    </Button>
+                  )}
+                </div>
+              </CardFooter>
             </Card>
           ))
         ) : (
