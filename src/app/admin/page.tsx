@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -95,11 +95,23 @@ function AddEducatorForm() {
 
   async function onSubmit(values: z.infer<typeof educatorSchema>) {
     setIsSubmitting(true);
+    if (!firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Firestore is not initialized.',
+      });
+      setIsSubmitting(false);
+      return;
+    }
     try {
       const file = values.educatorImage[0];
       const imageUrl = await fileToDataUrl(file);
 
-      const docRef = await addDoc(collection(firestore, 'educators'), {
+      const newDocRef = doc(collection(firestore, 'educators'));
+
+      await setDoc(newDocRef, {
+        id: newDocRef.id,
         name: values.name,
         imageUrl: imageUrl,
         experience: values.experience,
@@ -107,9 +119,6 @@ function AddEducatorForm() {
         description: values.description,
         createdAt: serverTimestamp(),
       });
-
-      // Now update the document with its own ID
-      await setDoc(doc(firestore, 'educators', docRef.id), { id: docRef.id }, { merge: true });
 
       toast({
         title: 'Success!',
@@ -240,14 +249,23 @@ function AddLiveClassForm() {
 
   async function onSubmit(values: z.infer<typeof liveClassSchema>) {
     setIsSubmitting(true);
+    if (!firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Firestore is not initialized.',
+      });
+      setIsSubmitting(false);
+      return;
+    }
     try {
-        const docRef = await addDoc(collection(firestore, 'live_classes'), {
+        const newDocRef = doc(collection(firestore, 'live_classes'));
+        await setDoc(newDocRef, {
+            id: newDocRef.id,
             ...values,
             startTime: new Date(values.startTime),
             createdAt: serverTimestamp(),
         });
-
-        await setDoc(doc(firestore, 'live_classes', docRef.id), { id: docRef.id }, { merge: true });
 
         toast({
             title: "Success!",
@@ -374,14 +392,24 @@ function AddPromotionForm() {
 
   async function onSubmit(values: z.infer<typeof promotionSchema>) {
     setIsSubmitting(true);
+    if (!firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Firestore is not initialized.',
+      });
+      setIsSubmitting(false);
+      return;
+    }
     try {
-      const docRef = await addDoc(collection(firestore, 'promotions'), {
+      const newDocRef = doc(collection(firestore, 'promotions'));
+      await setDoc(newDocRef, {
+        id: newDocRef.id,
         ...values,
         startDate: new Date(),
         endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default 7 days
         createdAt: serverTimestamp(),
       });
-      await setDoc(doc(firestore, 'promotions', docRef.id), { id: docRef.id }, { merge: true });
       toast({
         title: 'Success!',
         description: 'Promotion added successfully.',
@@ -450,12 +478,12 @@ export default function AdminDashboardPage() {
         </header>
 
         <Tabs defaultValue={adminNavItems[0].value} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-4">
              {adminNavItems.map((item) => {
               const Icon = item.icon;
               return (
-                <TabsTrigger key={item.value} value={item.value}>
-                  <Icon className="h-5 w-5 mr-2" />
+                <TabsTrigger key={item.value} value={item.value} className="flex-col h-auto p-4 gap-2">
+                  <Icon className="h-6 w-6" />
                   <span>{item.label}</span>
                 </TabsTrigger>
               )
@@ -528,3 +556,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
