@@ -96,6 +96,7 @@ function AddEducatorForm() {
         createdAt: serverTimestamp(),
       });
 
+      // Now update the document with its own ID
       await setDoc(doc(firestore, 'educators', docRef.id), { id: docRef.id }, { merge: true });
 
       toast({
@@ -405,5 +406,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
