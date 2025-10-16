@@ -1176,7 +1176,7 @@ function AddContentForm() {
   
   const form = useForm<z.infer<typeof contentSchema>>({
     resolver: zodResolver(contentSchema),
-    defaultValues: { title: '', url: '' },
+    defaultValues: { courseId: '', contentType: 'video', title: '', url: '' },
   });
 
   async function onSubmit(values: z.infer<typeof contentSchema>) {
@@ -1199,9 +1199,11 @@ function AddContentForm() {
       updateData = { videos: arrayUnion(content) };
     } else if (values.contentType === 'note') {
       updateData = { notes: arrayUnion(content) };
-    } else {
-      updateData = { tests: arrayUnion(content) };
+    } else { // 'test'
+        const testContent = {id: content.id, title: content.title}; // For tests in course, we only store id and title
+        updateData = { tests: arrayUnion(testContent) };
     }
+
 
     updateDoc(courseRef, updateData)
       .then(() => {
@@ -1249,7 +1251,7 @@ function AddContentForm() {
                 <SelectContent>
                   <SelectItem value="video">Video</SelectItem>
                   <SelectItem value="note">Note (PDF)</SelectItem>
-                  <SelectItem value="test">Test Series</SelectItem>
+                  <SelectItem value="test">Test Series (ID)</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -1260,7 +1262,11 @@ function AddContentForm() {
           <FormItem><FormLabel>Content Title</FormLabel><FormControl><Input placeholder="e.g., Introduction to React" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
         <FormField control={form.control} name="url" render={({ field }) => (
-          <FormItem><FormLabel>Content URL</FormLabel><FormControl><Input placeholder="https://youtube.com/watch?v=..." {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem>
+            <FormLabel>{form.watch('contentType') === 'test' ? 'Test Series ID' : 'Content URL'}</FormLabel>
+            <FormControl><Input placeholder={form.watch('contentType') === 'test' ? "Enter the ID of the test series" : "https://youtube.com/watch?v=..."} {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
         )} />
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1291,7 +1297,7 @@ function AddTestSeriesForm() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const coursesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'courses') : null), [firestore]);
   const { data: courses, isLoading: isLoadingCourses } = useCollection(coursesQuery);
 
   const form = useForm<z.infer<typeof testSeriesSchema>>({
@@ -1302,6 +1308,7 @@ function AddTestSeriesForm() {
       price: 0,
       isFree: false,
       isStandalone: true,
+      courseId: ''
     },
   });
 
@@ -1335,26 +1342,29 @@ function AddTestSeriesForm() {
       isStandalone: values.isStandalone,
       courseId: values.isStandalone ? null : values.courseId,
       createdAt: serverTimestamp(),
+      questions: []
     };
 
-    try {
-      await setDoc(testSeriesRef, testSeriesData);
-
-      if (!values.isStandalone && values.courseId) {
-        const courseRef = doc(firestore, 'courses', values.courseId);
-        await updateDoc(courseRef, {
-          tests: arrayUnion({ id: testSeriesRef.id, title: values.title })
+    setDoc(testSeriesRef, testSeriesData).then(async () => {
+        if (!values.isStandalone && values.courseId) {
+            const courseRef = doc(firestore, 'courses', values.courseId);
+            const content = { id: testSeriesRef.id, title: values.title };
+            await updateDoc(courseRef, { tests: arrayUnion(content) }).catch((e) => {
+                 toast({ variant: 'destructive', title: 'Error', description: 'Failed to associate test series with course.' });
+            });
+        }
+        toast({ title: 'Success!', description: 'Test Series added successfully.' });
+        form.reset();
+    }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: testSeriesRef.path,
+            operation: 'create',
+            requestResourceData: testSeriesData,
         });
-      }
-      
-      toast({ title: 'Success!', description: 'Test Series added successfully.' });
-      form.reset();
-    } catch (e) {
-      console.error(e);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add test series.' });
-    } finally {
-      setIsSubmitting(false);
-    }
+        errorEmitter.emit('permission-error', permissionError);
+    }).finally(() => {
+        setIsSubmitting(false);
+    });
   }
 
   return (
@@ -1487,7 +1497,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
-
-    
