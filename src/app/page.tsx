@@ -116,19 +116,19 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Carousel opts={{ align: "start", loop: true }}>
+          <Carousel opts={{ align: "start" }} className="w-full">
             <CarouselContent>
               {educators?.map((educator) => (
                 <CarouselItem key={educator.id} className="basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-1/6">
-                  <div className="text-center">
+                  <div className="text-center p-1">
                     <Image
                       src={educator.imageUrl}
                       alt={educator.name}
-                      width={100}
-                      height={100}
-                      className="rounded-full mx-auto mb-2 border-2 border-primary"
+                      width={120}
+                      height={120}
+                      className="rounded-full mx-auto mb-2 border-2 border-primary aspect-square object-cover"
                     />
-                    <p className="font-semibold text-sm sm:text-base">{educator.name}</p>
+                    <p className="font-semibold text-sm sm:text-base truncate">{educator.name}</p>
                   </div>
                 </CarouselItem>
               ))}

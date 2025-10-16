@@ -13,7 +13,17 @@ import {
   Video,
   UserPlus,
   Loader2,
-  Megaphone
+  Megaphone,
+  DollarSign,
+  User,
+  BookCopy,
+  GalleryHorizontal,
+  PenSquare,
+  BadgeIndianRupee,
+  Youtube,
+  Ticket,
+  Languages,
+  Settings
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, errorEmitter } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
+import Link from 'next/link';
 
 
 const adminNavItems = [
@@ -139,12 +150,6 @@ function AddEducatorForm() {
           requestResourceData: educatorData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        
-        toast({
-            variant: 'destructive',
-            title: 'Error Adding Educator',
-            description: 'Could not add educator. Check permissions.',
-        });
       })
       .finally(() => {
         setIsSubmitting(false);
@@ -291,12 +296,6 @@ function AddLiveClassForm() {
               requestResourceData: liveClassData,
             });
             errorEmitter.emit('permission-error', permissionError);
-
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Failed to schedule live class. Check permissions."
-            });
         })
         .finally(() => {
             setIsSubmitting(false);
@@ -444,11 +443,6 @@ function AddPromotionForm() {
           requestResourceData: promotionData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to add promotion. Check permissions.',
-        });
       })
       .finally(() => {
         setIsSubmitting(false);
@@ -494,94 +488,113 @@ function AddPromotionForm() {
 }
 
 
+const dashboardLinks = [
+    { href: '#', icon: DollarSign, label: 'Revenue' },
+    { href: '#', icon: PlusCircle, label: 'Add Content' },
+    { href: '#', icon: Edit, label: 'Manage Content' },
+    { href: '#', icon: Users, label: 'Manage Users' },
+    { href: '/book-shala', icon: BookCopy, label: 'Book Shala' },
+    { href: '/motivation', icon: Megaphone, label: 'Motivation' },
+    { href: '#', icon: GalleryHorizontal, label: 'Gallery' },
+    { href: '#', icon: User, label: 'Course Enrollments' },
+    { href: '#', icon: PenSquare, label: 'Test Enrollments' },
+    { href: '#', icon: Book, label: 'E-Book Enrollments' },
+    { href: '#', icon: PenSquare, label: 'Paper Enrollments' },
+    { href: '#', icon: BadgeIndianRupee, label: 'Scholarships' },
+    { href: '#', icon: Youtube, label: 'Kids Tube' },
+    { href: '#', icon: Ticket, label: 'Coupons' },
+    { href: '#', icon: Megaphone, label: 'Promotions' },
+    { href: '#', icon: PlusCircle, label: 'PWA Installations' },
+    { href: '#', icon: Languages, label: 'HTML Editor' },
+    { href: '#', icon: Settings, label: 'App Settings' },
+]
+
+
 export default function AdminDashboardPage() {
+  const [activeTab, setActiveTab] = useState('add-educator');
+  
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'add-course':
+        return <Card>
+                  <CardHeader><CardTitle>Create a New Course</CardTitle></CardHeader>
+                  <CardContent><CreateCourseForm /></CardContent>
+               </Card>;
+      case 'edit-course':
+        return <Card>
+                  <CardHeader><CardTitle>Edit Existing Course</CardTitle></CardHeader>
+                  <CardContent><p>Edit course details here.</p></CardContent>
+               </Card>;
+      case 'add-educator':
+        return <Card>
+                  <CardHeader><CardTitle>Add a New Educator</CardTitle></CardHeader>
+                  <CardContent><AddEducatorForm /></CardContent>
+               </Card>;
+      case 'add-live-class':
+        return <Card>
+                  <CardHeader><CardTitle>Schedule a New Live Class</CardTitle></CardHeader>
+                  <CardContent><AddLiveClassForm /></CardContent>
+               </Card>;
+      case 'enrollments':
+        return <Card>
+                  <CardHeader><CardTitle>Manage Enrollments</CardTitle></CardHeader>
+                  <CardContent><p>View and manage enrollments.</p></CardContent>
+               </Card>;
+      case 'promotions':
+        return <Card>
+                  <CardHeader><CardTitle>Add New Promotion</CardTitle></CardHeader>
+                  <CardContent><AddPromotionForm /></CardContent>
+               </Card>;
+      default:
+        return null;
+    }
+  }
+
   return (
     <div className="bg-background text-foreground min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
-          <h1 className="text-4xl font-bold text-primary">Admin Dashboard</h1>
+          <h1 className="text-4xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground mt-2">
             Manage your application content and users.
           </p>
         </header>
 
-        <Tabs defaultValue={adminNavItems[0].value} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-4">
-             {adminNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <TabsTrigger key={item.value} value={item.value} className="flex-col h-auto p-4 gap-2">
-                  <Icon className="h-6 w-6" />
-                  <span>{item.label}</span>
-                </TabsTrigger>
-              )
-            })}
-          </TabsList>
-            
-          <TabsContent value="add-course">
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Create a New Course</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <CreateCourseForm />
-                  </CardContent>
-              </Card>
-          </TabsContent>
-          <TabsContent value="edit-course">
-               <Card>
-                  <CardHeader>
-                      <CardTitle>Edit Existing Course Content</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                     <p>Here you can add PDFs, live classes, notes, and test series to your existing courses.</p>
-                  </CardContent>
-              </Card>
-          </TabsContent>
-          <TabsContent value="add-educator">
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Add a New Educator</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <AddEducatorForm />
-                  </CardContent>
-              </Card>
-          </TabsContent>
-           <TabsContent value="add-live-class">
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Schedule a New Live Class</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <AddLiveClassForm />
-                  </CardContent>
-              </Card>
-          </TabsContent>
-          <TabsContent value="enrollments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Enrollments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>Manage your enrollments here.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="promotions">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Add New Promotion</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <AddPromotionForm />
-                </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <Card className="mb-8">
+          <CardContent className="p-4">
+             <div className="grid grid-cols-2 gap-4">
+                {adminNavItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                     <Button 
+                       key={item.value}
+                       variant={activeTab === item.value ? "default" : "outline"}
+                       onClick={() => setActiveTab(item.value)}
+                       className="justify-start text-left h-auto py-2"
+                     >
+                        <Icon className="h-5 w-5 mr-2"/>
+                        <span>{item.label}</span>
+                     </Button>
+                  )
+                })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div>
+          {renderContent()}
+        </div>
+        
+         <Card className="mt-8">
+            <CardHeader>
+                <CardTitle>Total Revenue</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-4xl font-bold">₹ 0.00</p>
+            </CardContent>
+        </Card>
+
       </div>
     </div>
   );
 }
-
-    
