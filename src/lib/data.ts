@@ -1,14 +1,14 @@
 import type { LucideIcon } from 'lucide-react';
 import { 
   BookOpenCheck,
-  ClipboardList,
+  Book,
+  Gift,
+  Library,
   PlaySquare,
-  BrainCircuit,
-  BotMessageSquare,
-  Swords,
-  History,
-  BookMarked,
-  Sparkles
+  Heart,
+  Trophy,
+  User,
+  Ticket
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -27,10 +27,28 @@ export const dashboardItems: DashboardItem[] = [
     description: 'Explore our wide range of expert-led courses.',
   },
   {
-    title: 'Test Series',
-    href: '/test-series',
-    icon: ClipboardList,
-    description: 'Practice with our comprehensive test series.',
+    title: 'Book Shala',
+    href: '/book-shala',
+    icon: Book,
+    description: 'Your one-stop shop for educational books.',
+  },
+  {
+    title: 'Free Courses',
+    href: '/courses',
+    icon: Ticket,
+    description: 'Access free courses.',
+  },
+  {
+    title: 'Refer & Earn',
+    href: '#',
+    icon: Gift,
+    description: 'Refer friends and earn rewards.',
+  },
+  {
+    title: 'My Library',
+    href: '#',
+    icon: Library,
+    description: 'Your personal collection of content.',
   },
   {
     title: 'Live Classes',
@@ -39,40 +57,22 @@ export const dashboardItems: DashboardItem[] = [
     description: 'Join live classes with top educators.',
   },
   {
-    title: 'AI Tests',
-    href: '/ai-test',
-    icon: BrainCircuit,
-    description: 'Generate practice tests on any subject with AI.',
-  },
-  {
-    title: 'AI Tutor',
-    href: '/ai-tutor',
-    icon: BotMessageSquare,
-    description: 'Get instant answers to your questions from an AI tutor.',
-  },
-  {
-    title: 'Battle Quiz',
-    href: '/battle-quiz',
-    icon: Swords,
-    description: 'Challenge your friends in a fun quiz battle.',
-  },
-  {
-    title: 'Previous Papers',
-    href: '/previous-papers',
-    icon: History,
-    description: 'Access a vast library of previous year papers.',
-  },
-  {
-    title: 'E-books',
-    href: '/ebooks',
-    icon: BookMarked,
-    description: 'Browse our collection of digital books.',
-  },
-  {
     title: 'Motivation',
     href: '/motivation',
-    icon: Sparkles,
-    description: 'Get your daily dose of motivation and inspiration.',
+    icon: Heart,
+    description: 'Get your daily dose of motivation.',
+  },
+  {
+    title: 'Scholarship',
+    href: '#',
+    icon: Trophy,
+    description: 'Apply for scholarships.',
+  },
+  {
+    title: 'Profile',
+    href: '#',
+    icon: User,
+    description: 'View and edit your profile.',
   },
 ];
 
@@ -123,5 +123,38 @@ export const books = [
     price: '19.99',
     description: 'Discover effective strategies for learning any skill and improving your memory.',
     image: PlaceHolderImages.find(img => img.id === 'book-4'),
+  },
+];
+
+export const educators = [
+  {
+    id: '1',
+    name: 'Arun',
+    image: PlaceHolderImages.find(img => img.id === 'educator-1'),
+  },
+  {
+    id: '2',
+    name: 'Mohit',
+    image: PlaceHolderImages.find(img => img.id === 'educator-2'),
+  },
+  {
+    id: '3',
+    name: 'Priya',
+    image: PlaceHolderImages.find(img => img.id === 'educator-3'),
+  },
+  {
+    id: '4',
+    name: 'Rahul',
+    image: PlaceHolderImages.find(img => img.id === 'educator-4'),
+  },
+    {
+    id: '5',
+    name: 'Aisha',
+    image: PlaceHolderImages.find(img => img.id === 'educator-5'),
+  },
+    {
+    id: '6',
+    name: 'Karan',
+    image: PlaceHolderImages.find(img => img.id === 'educator-6'),
   },
 ];

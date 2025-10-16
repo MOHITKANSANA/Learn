@@ -23,6 +23,42 @@
       "description": "A person reading a book in a library.",
       "imageUrl": "https://picsum.photos/seed/book4/300/400",
       "imageHint": "person reading"
+    },
+    {
+      "id": "educator-1",
+      "description": "Profile picture of an educator.",
+      "imageUrl": "https://picsum.photos/seed/educator1/100/100",
+      "imageHint": "educator profile"
+    },
+    {
+      "id": "educator-2",
+      "description": "Profile picture of an educator.",
+      "imageUrl": "https://picsum.photos/seed/educator2/100/100",
+      "imageHint": "educator profile"
+    },
+    {
+      "id": "educator-3",
+      "description": "Profile picture of an educator.",
+      "imageUrl": "https://picsum.photos/seed/educator3/100/100",
+      "imageHint": "educator profile"
+    },
+    {
+      "id": "educator-4",
+      "description": "Profile picture of an educator.",
+      "imageUrl": "https://picsum.photos/seed/educator4/100/100",
+      "imageHint": "educator profile"
+    },
+    {
+      "id": "educator-5",
+      "description": "Profile picture of an educator.",
+      "imageUrl": "https://picsum.photos/seed/educator5/100/100",
+      "imageHint": "educator profile"
+    },
+    {
+      "id": "educator-6",
+      "description": "Profile picture of an educator.",
+      "imageUrl": "https://picsum.photos/seed/educator6/100/100",
+      "imageHint": "educator profile"
     }
   ]
 }
