@@ -95,9 +95,9 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     icon: ShoppingBag,
   },
   {
-    title: 'Social Media',
-    href: '#',
-    icon: Users,
+    title: 'Feed',
+    href: '/feed',
+    icon: Rss,
   },
   {
     title: 'Book Shala',
@@ -136,7 +136,7 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
   },
   {
     title: 'Scholarship',
-    href: '#',
+    href: '/scholarship',
     icon: Trophy,
   },
   {
@@ -153,11 +153,6 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'GoLingua',
     href: '#',
     icon: Languages,
-  },
-  {
-    title: 'Feed',
-    href: '#',
-    icon: Rss,
   },
   {
       title: 'Admin',
@@ -216,3 +211,5 @@ export const books = [
     image: PlaceHolderImages.find(img => img.id === 'book-4'),
   },
 ];
+
+    

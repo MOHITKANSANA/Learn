@@ -64,7 +64,7 @@ export default function Home() {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
-  }, [user, isUserLoading]);
+  }, [user, isUserLoading, router]);
 
   const handleFreeEnrollment = async (course: any, e: React.MouseEvent) => {
     e.preventDefault();
@@ -133,7 +133,7 @@ export default function Home() {
            </Card>
         ) : promotions && promotions.length > 0 ? (
           <Carousel
-            plugins={[Autoplay({ delay: 3000 })]}
+            plugins={[Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: true })]}
             opts={{ align: "start", loop: true }}
           >
             <CarouselContent>
@@ -180,7 +180,7 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : freeCourses && freeCourses.length > 0 ? (
-          <Carousel opts={{ align: "start", loop: freeCourses.length > 2 }} plugins={[Autoplay({ delay: 5000 })]} className="w-full">
+          <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: true })]} className="w-full">
             <CarouselContent>
                 {freeCourses.map(course => {
                     const isEnrolled = enrolledCourseIds.has(course.id);
@@ -216,7 +216,7 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : paidCourses && paidCourses.length > 0 ? (
-           <Carousel opts={{ align: "start", loop: paidCourses.length > 2 }} plugins={[Autoplay({ delay: 4000, reverse: true })]} className="w-full">
+           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: true, playOnInit: true })]} className="w-full">
             <CarouselContent>
                 {paidCourses.map(course => {
                      const isEnrolled = enrolledCourseIds.has(course.id);
@@ -249,30 +249,28 @@ export default function Home() {
        <section>
         <h2 className="text-xl font-bold mb-4">Our Educators</h2>
         {isLoadingEducators ? (
-          <div className="flex justify-center items-center h-24">
+          <div className="flex justify-center items-center h-48">
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Carousel opts={{ align: "start" }} className="w-full">
-            <CarouselContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {educators?.map((educator) => (
-                <CarouselItem key={educator.id} className="basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-1/6">
-                  <div className="text-center p-1">
-                    <Image
+                <Link href={`/educators/${educator.id}`} key={educator.id} className="group">
+                  <Card className="text-center p-4 h-full bg-card hover:bg-card/80 transition-colors">
+                     <Image
                       src={educator.imageUrl}
                       alt={educator.name}
                       width={120}
                       height={120}
-                      className="rounded-full mx-auto mb-2 border-2 border-primary aspect-square object-cover"
+                      className="rounded-full mx-auto mb-3 border-2 border-primary aspect-square object-cover"
                     />
-                    <p className="font-semibold text-sm sm:text-base truncate">{educator.name}</p>
-                  </div>
-                </CarouselItem>
+                    <p className="font-bold text-base truncate">{educator.name}</p>
+                    <p className="text-sm text-muted-foreground">{educator.subject}</p>
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{educator.description}</p>
+                  </Card>
+                </Link>
               ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
-          </Carousel>
+            </div>
         )}
       </section>
 
@@ -288,3 +286,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

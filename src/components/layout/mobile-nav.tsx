@@ -1,15 +1,15 @@
 'use client'
 
 import Link from 'next/link';
-import { Home, Library, ShoppingBag, Bell, User } from 'lucide-react';
+import { Home, Library, ShoppingBag, Bell, Rss } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
   { href: '/my-library', icon: Library, label: 'Library' },
   { href: '/my-orders', icon: ShoppingBag, label: 'Orders' },
-  { href: '/notifications', icon: Bell, label: 'Alerts' },
-  { href: '/profile', icon: User, label: 'Profile' },
+  { href: '/feed', icon: Rss, label: 'Feed' },
+  { href: '/live-classes', icon: Bell, label: 'Alerts' },
 ];
 
 export function MobileNav() {
@@ -31,3 +31,5 @@ export function MobileNav() {
     </nav>
   );
 }
+
+    

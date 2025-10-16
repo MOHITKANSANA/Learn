@@ -249,6 +249,63 @@
         "imageUrl": { "type": "string" }
       },
       "required": ["id", "title", "description", "price", "isFree", "fileUrl", "imageUrl"]
+    },
+    "FeedPost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FeedPost",
+      "type": "object",
+      "description": "Represents a post in the user feed.",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorImage": { "type": "string" },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "pollOptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "text": { "type": "string" }, "votes": { "type": "number" } },
+            "required": ["text", "votes"]
+          }
+        },
+        "likes": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "authorName", "createdAt"]
+    },
+    "Note": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Note",
+      "type": "object",
+      "description": "Represents a user's personal note on a video.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "videoId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "courseId", "videoId", "content", "createdAt"]
+    },
+    "ChatMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatMessage",
+      "type": "object",
+      "description": "Represents a chat message in a video session.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorImage": { "type": "string" },
+        "videoId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "authorName", "videoId", "text", "createdAt"]
     }
   },
   "auth": {
@@ -348,6 +405,27 @@
         "definition": {
           "entityName": "PreviousYearPaper",
           "schema": { "$ref": "#/backend/entities/PreviousYearPaper" }
+        }
+      },
+      {
+        "path": "/feed_posts/{postId}",
+        "definition": {
+          "entityName": "FeedPost",
+          "schema": { "$ref": "#/backend/entities/FeedPost" }
+        }
+      },
+       {
+        "path": "/video_notes/{noteId}",
+        "definition": {
+          "entityName": "Note",
+          "schema": { "$ref": "#/backend/entities/Note" }
+        }
+      },
+      {
+        "path": "/video_chat/{chatId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": { "$ref": "#/backend/entities/ChatMessage" }
         }
       }
     ]
