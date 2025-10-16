@@ -26,7 +26,7 @@ export function Header() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    router.push('/');
+    router.push('/login');
   };
 
   return (
@@ -40,7 +40,7 @@ export function Header() {
             </Button>
             <Link href="/" className="flex items-center gap-2 text-xl font-bold font-headline text-primary">
               <GraduationCap className="h-7 w-7" />
-              <span className="hidden sm:inline-block">Learn with munedra</span>
+              <span className="inline-block">Learn with munedra</span>
             </Link>
           </div>
           <div className="flex items-center gap-4">
