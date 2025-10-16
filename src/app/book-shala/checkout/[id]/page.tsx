@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -75,7 +76,7 @@ export default function BookCheckoutPage() {
   const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
+    reader.onerror = () => reject(new Error('Failed to read file.'));
     reader.readAsDataURL(file);
   });
 
@@ -253,3 +254,5 @@ export default function BookCheckoutPage() {
     </div>
   );
 }
+
+    

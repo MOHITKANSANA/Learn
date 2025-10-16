@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -73,7 +74,7 @@ function CreateCourseForm() {
   const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
+    reader.onerror = () => reject(new Error('Failed to read file.'));
     reader.readAsDataURL(file);
   });
 
@@ -183,7 +184,7 @@ function CreateEbookForm() {
     const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
+        reader.onerror = () => reject(new Error('Failed to read file.'));
         reader.readAsDataURL(file);
     });
 
@@ -301,7 +302,7 @@ function CreatePreviousPaperForm() {
     const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
+        reader.onerror = () => reject(new Error('Failed to read file.'));
         reader.readAsDataURL(file);
     });
 
@@ -424,7 +425,7 @@ function AddEducatorForm() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
+      reader.onerror = () => reject(new Error('Failed to read file.'));
       reader.readAsDataURL(file);
     });
   };
@@ -899,7 +900,7 @@ function AddBookForm() {
     const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
+        reader.onerror = () => reject(new Error('Failed to read file.'));
         reader.readAsDataURL(file);
     });
 
@@ -1221,3 +1222,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
