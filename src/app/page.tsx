@@ -64,7 +64,7 @@ export default function Home() {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading]);
 
   const handleFreeEnrollment = async (course: any, e: React.MouseEvent) => {
     e.preventDefault();
@@ -180,7 +180,7 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : freeCourses && freeCourses.length > 0 ? (
-          <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: true })]} className="w-full">
+          <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]} className="w-full group">
             <CarouselContent>
                 {freeCourses.map(course => {
                     const isEnrolled = enrolledCourseIds.has(course.id);
@@ -203,8 +203,8 @@ export default function Home() {
                     )
                 })}
             </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
+            <CarouselPrevious className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CarouselNext className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity" />
           </Carousel>
         ) : <p className="text-muted-foreground">No free courses available at the moment.</p>}
       </section>
@@ -216,7 +216,7 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : paidCourses && paidCourses.length > 0 ? (
-           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: true, playOnInit: true })]} className="w-full">
+           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: true })]} className="w-full group">
             <CarouselContent>
                 {paidCourses.map(course => {
                      const isEnrolled = enrolledCourseIds.has(course.id);
@@ -240,8 +240,8 @@ export default function Home() {
                     )
                 })}
             </CarouselContent>
-            <CarouselPrevious className="hidden sm:flex" />
-            <CarouselNext className="hidden sm:flex" />
+            <CarouselPrevious className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CarouselNext className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity" />
           </Carousel>
         ) : <p className="text-muted-foreground">No paid courses available at the moment.</p>}
       </section>
@@ -286,5 +286,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
