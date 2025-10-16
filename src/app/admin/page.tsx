@@ -1,48 +1,25 @@
 import {
   Book,
-  BookMarked,
   Clapperboard,
-  ClipboardList,
-  Contact,
-  Ticket,
-  GalleryHorizontal,
-  History,
-  IndianRupee,
-  LayoutDashboard,
-  Newspaper,
-  Presentation,
-  Settings,
-  Sparkles,
-  Swords,
-  Upload,
   Users,
-  Youtube,
-  FileCode,
-  Smartphone,
-  Trophy,
+  LayoutDashboard,
+  Ticket,
+  FileText,
+  User,
+  MonitorPlay
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const adminNavItems = [
-  { icon: IndianRupee, label: 'Revenue' },
-  { icon: Upload, label: 'Add Content' },
-  { icon: LayoutDashboard, label: 'Manage Content' },
-  { icon: Users, label: 'Manage Users' },
-  { icon: Book, label: 'Book Shala' },
-  { icon: Sparkles, label: 'Motivation' },
-  { icon: GalleryHorizontal, label: 'Gallery' },
-  { icon: Contact, label: 'Course Enrollments' },
-  { icon: ClipboardList, label: 'Test Enrollments' },
-  { icon: BookMarked, label: 'E-Book Enrollments' },
-  { icon: Newspaper, label: 'Paper Enrollments' },
-  { icon: Trophy, label: 'Scholarships' },
-  { icon: Youtube, label: 'Kids Tube' },
-  { icon: Ticket, label: 'Coupons' },
-  { icon: Presentation, label: 'Promotions' },
-  { icon: Smartphone, label: 'PWA Installations' },
-  { icon: FileCode, label: 'HTML Editor' },
-  { icon: Settings, label: 'App Settings' },
+  { icon: LayoutDashboard, label: 'Dashboard', content: <p>Welcome to your dashboard!</p> },
+  { icon: Clapperboard, label: 'Live Classes', content: <p>Manage your live classes here.</p> },
+  { icon: Book, label: 'Courses', content: <p>Manage your courses here.</p> },
+  { icon: FileText, label: 'E-Books', content: <p>Manage your e-books here.</p> },
+  { icon: FileText, label: 'Test Series', content: <p>Manage your test series here.</p> },
+  { icon: Users, label: 'Educators', content: <p>Manage your educators here.</p> },
+  { icon: Users, label: 'Enrollments', content: <p>Manage your enrollments here.</p> },
+  { icon: Ticket, label: 'Coupons', content: <p>Manage your coupons here.</p> },
 ];
 
 export default function AdminDashboardPage() {
@@ -56,78 +33,58 @@ export default function AdminDashboardPage() {
           </p>
         </header>
 
-        <Tabs defaultValue="Revenue" className="w-full">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-2 bg-transparent p-0">
-            {adminNavItems.slice(0, 2).map((item) => (
-               <TabsTrigger key={item.label} value={item.label} className="bg-card border-border border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg">
-                {item.label}
-              </TabsTrigger>
-            ))}
+        <Tabs defaultValue={adminNavItems[0].label} className="w-full" orientation="vertical">
+          <TabsList className="w-full md:w-48 flex-col h-full items-start">
+            {adminNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <TabsTrigger key={item.label} value={item.label} className="w-full justify-start data-[state=active]:bg-primary/20 data-[state=active]:text-primary data-[state=active]:shadow-none">
+                  <Icon className="h-5 w-5 mr-3" />
+                  <span>{item.label}</span>
+                </TabsTrigger>
+              )
+            })}
           </TabsList>
+          
+          <div className="w-full md:pl-4">
+            {adminNavItems.map(item => (
+              <TabsContent key={item.label} value={item.label}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{item.label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {item.content}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            ))}
 
-          <Card className="mt-6 bg-card/50">
-            <CardContent className="p-6">
-               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-6">
-                {adminNavItems.slice(2).map(item => {
-                    const Icon = item.icon;
-                    return (
-                        <button key={item.label} className="flex flex-col items-center justify-center gap-2 text-center text-muted-foreground hover:text-primary transition-colors duration-200">
-                           <div className="p-3 bg-muted rounded-full">
-                             <Icon className="h-6 w-6" />
-                           </div>
-                           <span className="text-sm font-medium">{item.label}</span>
-                        </button>
-                    )
-                })}
-               </div>
-            </CardContent>
-          </Card>
-
-           <TabsContent value="Revenue" className="mt-6">
+             <TabsContent value="Live Classes">
               <Card>
                 <CardHeader>
-                  <CardTitle>Total Revenue</CardTitle>
+                  <CardTitle>Live Classes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold">₹ 0.00</p>
+                  <div className="aspect-w-16 aspect-h-9">
+                    <iframe
+                      src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                      title="YouTube video player"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full rounded-lg min-h-[400px]"
+                    ></iframe>
+                  </div>
                 </CardContent>
               </Card>
-           </TabsContent>
-        </Tabs>
-        
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Live Class - Youtube Player</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-w-16 aspect-h-9">
-                <iframe
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full rounded-lg"
-                ></iframe>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </TabsContent>
 
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Previous Year Paper PDF</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="w-full h-[600px] border rounded-lg overflow-hidden">
-                 <iframe src="https://arxiv.org/pdf/2303.08774.pdf" className="w-full h-full" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          </div>
+        </Tabs>
       </div>
     </div>
   );
 }
+
+    

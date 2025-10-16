@@ -20,6 +20,7 @@ export default {
         body: ['PT Sans', 'sans-serif'],
         headline: ['PT Sans', 'sans-serif'],
         code: ['monospace'],
+        sans: ["PT Sans", "sans-serif"],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -104,3 +105,5 @@ export default {
   },
   plugins: [require('tailwindcss-animate')],
 } satisfies Config;
+
+    
