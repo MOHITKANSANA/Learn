@@ -26,7 +26,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
 
 const adminNavItems = [
   { value: 'manage-content', icon: Book, label: 'Manage Content' },
@@ -67,7 +67,6 @@ function AddEducatorForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const storage = getStorage();
 
   const form = useForm<z.infer<typeof educatorSchema>>({
     resolver: zodResolver(educatorSchema),
@@ -76,13 +75,20 @@ function AddEducatorForm() {
     },
   });
 
+  const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
   async function onSubmit(values: z.infer<typeof educatorSchema>) {
     setIsSubmitting(true);
     try {
       const file = values.educatorImage[0];
-      const storageRef = ref(storage, `educators/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const imageUrl = await getDownloadURL(snapshot.ref);
+      const imageUrl = await fileToDataUrl(file);
 
       const docRef = await addDoc(collection(firestore, 'educators'), {
         name: values.name,
@@ -97,6 +103,11 @@ function AddEducatorForm() {
         description: 'Educator added successfully.',
       });
       form.reset();
+      // Manually clear the file input
+      const fileInput = document.getElementById('educatorImage') as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = '';
+      }
     } catch (error: any) {
       console.error("Error adding educator:", error);
       toast({
@@ -132,7 +143,7 @@ function AddEducatorForm() {
             <FormItem>
               <FormLabel>Educator Image</FormLabel>
               <FormControl>
-                 <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} />
+                 <Input id="educatorImage" type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -162,7 +173,7 @@ function AddLiveClassForm() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
+  const educatorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'educators') : null, [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
 
 
