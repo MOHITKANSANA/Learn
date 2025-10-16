@@ -48,7 +48,7 @@ export default function Home() {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading]);
 
   const colors = [
     "bg-blue-500", "bg-orange-500", "bg-green-500",
