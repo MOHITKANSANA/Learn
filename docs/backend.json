@@ -510,6 +510,30 @@
         "maxUses",
         "usedCount"
       ]
+    },
+     "PreviousYearPaper": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PreviousYearPaper",
+      "type": "object",
+      "description": "Represents a previous year question paper.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "isFree": { "type": "boolean" },
+        "fileUrl": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "price",
+        "isFree",
+        "fileUrl",
+        "imageUrl"
+      ]
     }
   },
   "auth": {
@@ -694,10 +718,17 @@
             "$ref": "#/backend/entities/Coupon"
           }
         }
+      },
+      {
+        "path": "/previousYearPapers/{paperId}",
+        "definition": {
+          "entityName": "PreviousYearPaper",
+          "schema": {
+            "$ref": "#/backend/entities/PreviousYearPaper"
+          }
+        }
       }
     ],
     "reasoning": "The Firestore structure is designed to support the 'Learn with munedra' app, focusing on secure access, scalability, and maintainability. It incorporates denormalization for authorization independence and segregates data based on access needs. User-owned data (student profiles) are stored under `/users/{userId}`. Courses, eBooks, TestSeries, Questions, Educators, Promotions and LiveClasses are stored in root collections to allow global listing and admin management. Enrollment requests are stored in a subcollection to allow easy listing and management per user, along with details from the parent document being denormalized for authorization independence. This design ensures clear ownership, simplifies security rules, and optimizes query performance. The use of consistent naming conventions and explicit state modeling further enhances clarity and debuggability."
   }
 }
-
-    

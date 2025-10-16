@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -24,7 +23,7 @@ const checkoutSchema = z.object({
   couponCode: z.string().optional(),
 });
 
-type ItemType = 'course' | 'ebook' | 'testSeries';
+type ItemType = 'course' | 'ebook' | 'previous-year-paper' | 'testSeries';
 
 export default function CheckoutPage() {
   const { toast } = useToast();
@@ -44,7 +43,14 @@ export default function CheckoutPage() {
 
   const itemRef = useMemoFirebase(() => {
     if (!firestore || !itemId || !itemType) return null;
-    const collectionName = itemType === 'ebook' ? 'ebooks' : 'courses';
+    let collectionName = '';
+    switch(itemType) {
+      case 'course': collectionName = 'courses'; break;
+      case 'ebook': collectionName = 'ebooks'; break;
+      case 'previous-year-paper': collectionName = 'previousYearPapers'; break;
+      // Add other types here
+      default: return null;
+    }
     return doc(firestore, collectionName, itemId);
   }, [firestore, itemId, itemType]);
 
@@ -66,6 +72,9 @@ export default function CheckoutPage() {
     if (!code || !firestore || !item) return;
 
     setCouponError(null);
+    setAppliedCoupon(null);
+    setFinalPrice(item.price);
+
     const couponsRef = collection(firestore, 'coupons');
     const q = query(couponsRef, where('code', '==', code));
     const querySnapshot = await getDocs(q);
@@ -75,9 +84,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    const coupon = querySnapshot.docs[0].data();
+    const coupon = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
     
-    // Validate coupon
     if (new Date(coupon.expiryDate.seconds * 1000) < new Date()) {
         setCouponError('This coupon has expired.');
         return;
@@ -87,7 +95,7 @@ export default function CheckoutPage() {
         return;
     }
 
-    let discountedPrice = finalPrice;
+    let discountedPrice = item.price;
     if (coupon.discountType === 'percentage') {
       discountedPrice = item.price * (1 - coupon.discountValue / 100);
     } else {
@@ -114,7 +122,6 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     const screenshotFile = values.paymentScreenshot[0];
-    // In a real app, upload to Firebase Storage instead of using a data URL
     const screenshotUrl = await fileToDataUrl(screenshotFile);
 
     const enrollmentRef = doc(collection(firestore, 'enrollments'));
@@ -171,7 +178,7 @@ export default function CheckoutPage() {
               <Image src={item.imageUrl} alt={item.title} width={100} height={100} className="rounded-md object-cover" />
               <div>
                 <h3 className="font-semibold text-lg">{item.title}</h3>
-                <p className="text-muted-foreground">{itemType}</p>
+                <p className="text-muted-foreground capitalize">{itemType.replace('-', ' ')}</p>
               </div>
             </div>
             <div className="mt-4 space-y-2">
@@ -257,5 +264,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
-    

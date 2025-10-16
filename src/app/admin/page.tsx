@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -22,7 +21,8 @@ import {
   Settings,
   BookOpen,
   ShoppingBag,
-  ClipboardList
+  ClipboardList,
+  Newspaper
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,7 @@ import Image from 'next/image';
 const adminNavItems = [
   { value: 'add-course', icon: PlusCircle, label: 'Add Course' },
   { value: 'add-ebook', icon: BookOpen, label: 'Add E-book' },
+  { value: 'add-previous-paper', icon: Newspaper, label: 'Add Previous Paper'},
   { value: 'add-educator', icon: UserPlus, label: 'Add Educator' },
   { value: 'add-live-class', icon: Video, label: 'Add Live Class' },
   { value: 'enrollments', icon: Users, label: 'Enrollments' },
@@ -278,6 +279,123 @@ function CreateEbookForm() {
     );
 }
 
+const previousPaperSchema = z.object({
+  title: z.string().min(5, 'Title must be at least 5 characters.'),
+  description: z.string().min(10, 'Description must be at least 10 characters.'),
+  price: z.coerce.number().min(0, 'Price cannot be negative.'),
+  paperImage: z.any().refine(files => files?.length == 1, 'Image is required.'),
+  fileUrl: z.string().url('A valid file URL is required.'),
+  isFree: z.boolean().default(false),
+});
+
+function CreatePreviousPaperForm() {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+    const firestore = useFirestore();
+
+    const form = useForm<z.infer<typeof previousPaperSchema>>({
+        resolver: zodResolver(previousPaperSchema),
+        defaultValues: { title: '', description: '', price: 0, fileUrl: '', isFree: false },
+    });
+
+    const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+
+    async function onSubmit(values: z.infer<typeof previousPaperSchema>) {
+        setIsSubmitting(true);
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not initialized.' });
+            setIsSubmitting(false);
+            return;
+        }
+
+        const imageUrl = await fileToDataUrl(values.paperImage[0]);
+        const newDocRef = doc(collection(firestore, 'previousYearPapers'));
+        const paperData = {
+            id: newDocRef.id,
+            title: values.title,
+            description: values.description,
+            price: values.isFree ? 0 : values.price,
+            imageUrl,
+            fileUrl: values.fileUrl,
+            isFree: values.isFree,
+            createdAt: serverTimestamp(),
+        };
+
+        setDoc(newDocRef, paperData)
+            .then(() => {
+                toast({ title: 'Success!', description: 'Previous Year Paper added successfully.' });
+                form.reset();
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: newDocRef.path,
+                    operation: 'create',
+                    requestResourceData: paperData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            })
+            .finally(() => setIsSubmitting(false));
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField control={form.control} name="title" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Paper Title</FormLabel>
+                        <FormControl><Input placeholder="e.g., UPSC Prelims 2022" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Paper Description</FormLabel>
+                        <FormControl><Textarea placeholder="Describe the paper..." {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="price" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Price</FormLabel>
+                        <FormControl><Input type="number" placeholder="e.g., 99" {...field} disabled={form.watch('isFree')} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                 <FormField control={form.control} name="fileUrl" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Paper File URL</FormLabel>
+                        <FormControl><Input type="url" placeholder="https://example.com/paper.pdf" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="isFree" render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        <div className="space-y-1 leading-none">
+                            <FormLabel>Free Paper</FormLabel>
+                        </div>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="paperImage" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Paper Image</FormLabel>
+                        <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Add Paper
+                </Button>
+            </form>
+        </Form>
+    );
+}
 
 const educatorSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -603,17 +721,30 @@ function ManageEnrollments() {
   const { data: enrollments, isLoading } = useCollection(enrollmentsQuery);
   const { toast } = useToast();
 
-  const handleApproval = async (enrollmentId: string, isApproved: boolean) => {
+  const handleApproval = async (enrollmentId: string, approve: boolean) => {
     if (!firestore) return;
     const enrollmentRef = doc(firestore, 'enrollments', enrollmentId);
-    try {
-      await updateDoc(enrollmentRef, { isApproved });
-      toast({ title: 'Success', description: `Enrollment ${isApproved ? 'approved' : 'rejected'}.` });
-    } catch (error) {
-      console.error("Error updating enrollment: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update enrollment.' });
-    }
-  };
+    
+    const enrollmentToUpdate = enrollments?.find(e => e.id === enrollmentId);
+    if (!enrollmentToUpdate) return;
+    
+    const updatedData = { isApproved: approve };
+
+    updateDoc(enrollmentRef, updatedData)
+      .then(() => {
+        toast({ title: 'Success', description: `Enrollment ${approve ? 'approved' : 'rejected'}.` });
+      })
+      .catch(async (serverError) => {
+          const permissionError = new FirestorePermissionError({
+              path: enrollmentRef.path,
+              operation: 'update',
+              requestResourceData: updatedData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to update enrollment.' });
+      });
+};
+
 
   if (isLoading) return <Loader2 className="animate-spin" />;
 
@@ -623,7 +754,7 @@ function ManageEnrollments() {
         enrollments.map(enrollment => (
           <Card key={enrollment.id}>
             <CardHeader>
-              <CardTitle>Enrollment for {enrollment.itemId}</CardTitle>
+              <CardTitle>Enrollment for {enrollment.itemName || enrollment.itemId}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <p>Student ID: {enrollment.studentId}</p>
@@ -859,8 +990,8 @@ function ManageBookOrders() {
         if (!firestore || !editingOrder) return;
         const orderRef = doc(firestore, 'bookOrders', editingOrder.id);
         try {
-            await updateDoc(orderRef, { ...values });
-            toast({ title: 'Success', description: 'Order details updated.' });
+            await updateDoc(orderRef, { ...values, status: 'shipped' });
+            toast({ title: 'Success', description: 'Order details updated and marked as shipped.' });
             setEditingOrder(null);
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update order details.' });
@@ -875,12 +1006,14 @@ function ManageBookOrders() {
                 <Card key={order.id}>
                     <CardHeader>
                         <CardTitle>Order #{order.id.substring(0, 6)}</CardTitle>
-                        <p className="text-sm text-muted-foreground">Book ID: {order.bookId}</p>
+                        <p className="text-sm text-muted-foreground">Status: <span className="font-bold">{order.status}</span></p>
                     </CardHeader>
                     <CardContent>
                         <p><strong>Student ID:</strong> {order.studentId}</p>
-                        <p><strong>Status:</strong> {order.status}</p>
-                        <Link href={order.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Screenshot</Link>
+                        <p><strong>Book ID:</strong> {order.bookId}</p>
+                         <p><strong>Shipping To:</strong> {order.shippingAddress.name}, {order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.zipCode}</p>
+                        <p><strong>Mobile:</strong> {order.shippingAddress.mobile}</p>
+                        <Link href={order.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Payment Screenshot</Link>
                     </CardContent>
                     <CardContent className="flex gap-2 flex-wrap">
                         {order.status === 'pending' && (
@@ -890,16 +1023,15 @@ function ManageBookOrders() {
                             </>
                         )}
                          {order.status === 'approved' && (
-                             <Button size="sm" onClick={() => handleStatusChange(order.id, 'shipped')}>Mark as Shipped</Button>
+                             <Button size="sm" onClick={() => setEditingOrder(order)}>Add Shipping Details</Button>
                          )}
-                        <Button size="sm" variant="outline" onClick={() => setEditingOrder(order)}>Edit Details</Button>
                     </CardContent>
                 </Card>
             )) : <p>No book orders found.</p>}
 
             {editingOrder && (
                 <Card className="mt-4">
-                    <CardHeader><CardTitle>Edit Order #{editingOrder.id.substring(0, 6)}</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Ship Order #{editingOrder.id.substring(0, 6)}</CardTitle></CardHeader>
                     <CardContent>
                         <form onSubmit={(e) => {
                             e.preventDefault();
@@ -918,7 +1050,7 @@ function ManageBookOrders() {
                                 <Input id="trackingLink" name="trackingLink" type="url" placeholder="https://tracking.example.com/..." defaultValue={editingOrder.trackingLink} />
                             </div>
                             <div className="flex gap-2">
-                                <Button type="submit">Update Order</Button>
+                                <Button type="submit">Mark as Shipped</Button>
                                 <Button variant="ghost" onClick={() => setEditingOrder(null)}>Cancel</Button>
                             </div>
                         </form>
@@ -1026,6 +1158,8 @@ export default function AdminDashboardPage() {
         return <Card><CardHeader><CardTitle>Create a New Course</CardTitle></CardHeader><CardContent className="pt-6"><CreateCourseForm /></CardContent></Card>;
       case 'add-ebook':
         return <Card><CardHeader><CardTitle>Add a New E-book</CardTitle></CardHeader><CardContent className="pt-6"><CreateEbookForm /></CardContent></Card>;
+      case 'add-previous-paper':
+        return <Card><CardHeader><CardTitle>Add Previous Year Paper</CardTitle></CardHeader><CardContent className="pt-6"><CreatePreviousPaperForm /></CardContent></Card>;
       case 'add-educator':
         return <Card><CardHeader><CardTitle>Add a New Educator</CardTitle></CardHeader><CardContent className="pt-6"><AddEducatorForm /></CardContent></Card>;
       case 'add-live-class':
@@ -1081,5 +1215,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

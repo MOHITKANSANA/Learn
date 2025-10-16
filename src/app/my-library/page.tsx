@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { Loader2, BookOpen, PlayCircle } from 'lucide-react';
+import { Loader2, BookOpen, PlayCircle, FileText } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +22,7 @@ export default function MyLibraryPage() {
 
   const courses = enrollments?.filter(e => e.itemType === 'course') || [];
   const ebooks = enrollments?.filter(e => e.itemType === 'ebook') || [];
+  const papers = enrollments?.filter(e => e.itemType === 'previous-year-paper') || [];
 
   if (isLoading) {
     return (
@@ -40,9 +40,10 @@ export default function MyLibraryPage() {
       </div>
 
       <Tabs defaultValue="courses" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="courses">Courses ({courses.length})</TabsTrigger>
           <TabsTrigger value="ebooks">E-books ({ebooks.length})</TabsTrigger>
+          <TabsTrigger value="papers">Papers ({papers.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="courses">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
@@ -74,7 +75,7 @@ export default function MyLibraryPage() {
                         </CardHeader>
                         <CardContent>
                             <Button asChild className="w-full">
-                                <Link href={`/ebooks/read/${item.itemId}`}>
+                                <Link href={item.fileUrl} target="_blank" rel="noopener noreferrer">
                                     <BookOpen className="mr-2 h-4 w-4" />
                                     Read Now
                                 </Link>
@@ -84,9 +85,27 @@ export default function MyLibraryPage() {
                  )) : <p className="col-span-full text-center text-muted-foreground">You have not acquired any e-books yet.</p>}
             </div>
         </TabsContent>
+         <TabsContent value="papers">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
+                 {papers.length > 0 ? papers.map(item => (
+                     <Card key={item.id} className="overflow-hidden">
+                        <Image src={item.itemImage} alt={item.itemName} width={300} height={400} className="w-full h-60 object-cover" />
+                        <CardHeader>
+                            <CardTitle className="text-lg">{item.itemName}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Button asChild className="w-full">
+                                <Link href={item.fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Download
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                 )) : <p className="col-span-full text-center text-muted-foreground">You have not acquired any papers yet.</p>}
+            </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-    
