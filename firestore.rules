@@ -1,167 +1,215 @@
 /**
- * @fileoverview Firestore Security Rules for Learn with munendra app.
+ * @fileoverview Firestore Security Rules for the 'Learn with munedra' app.
  *
  * Core Philosophy:
- * This ruleset implements a hybrid security model, combining public read access for content catalogs with strict ownership and admin-controlled write access. User-specific data is protected via ownership checks.
+ * This ruleset prioritizes a secure, scalable, and maintainable data access model.
+ * It enforces strict ownership for user profiles and limits write access to admins for core content.
+ * Read access is generally open for public content, with controlled access for private user data.
  *
  * Data Structure:
- * - Courses, EBooks, TestSeries, Questions, Educators, Promotions, and LiveClasses are stored in top-level collections for public read access and admin-only writes.
- * - Student profiles are stored under `/users/{userId}` and are accessible only to the corresponding user.
- * - Enrollment requests are stored under `/users/{userId}/enrollments/{enrollmentId}`. Students can create requests, and admins can approve/reject them. The `studentId` field is denormalized into the enrollment document for efficient authorization.
+ * - `/courses/{courseId}`: Publicly readable, admin-writeable course data.
+ * - `/ebooks/{ebookId}`: Publicly readable, admin-writeable ebook data.
+ * - `/test_series/{testSeriesId}`: Publicly readable, admin-writeable test series data.
+ * - `/questions/{questionId}`: Admin-only question data.
+ * - `/educators/{educatorId}`: Publicly readable, admin-writeable educator data.
+ * - `/live_classes/{liveClassId}`: Publicly readable, admin-writeable live class data.
+ * - `/users/{studentId}`: Private student profile data, accessible only to the student.
+ * - `/promotions/{promotionId}`: Publicly readable, admin-writeable promotion data.
+ * - `/users/{studentId}/enrollments/{enrollmentId}`: Enrollment requests, created by students and managed by admins.
  *
  * Key Security Decisions:
- * - Listing all users is disallowed to protect user privacy.
- * - Strict ownership is enforced for user profiles and enrollment requests.
- * - Admin privileges are not explicitly modeled in this initial ruleset but can be added later by introducing an `isAdmin()` function and appropriate role-based checks.
+ * - Public read access for courses, ebooks, test series, educators, live classes, and promotions.
+ * - Strict ownership model for student profiles under `/users/{studentId}`.
+ * - Admin-only write access for core content (courses, ebooks, test series, questions, educators, live classes, and promotions).
+ * - Enrollment requests are created by students for themselves.
+ *
+ * Denormalization for Authorization:
+ * - Enrollment documents are stored under `/users/{studentId}/enrollments/{enrollmentId}` to simplify ownership checks.
+ *
+ * Structural Segregation:
+ * - Private student profile data is stored under `/users/{studentId}` to ensure privacy and enforce ownership.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read courses, but only admins can create, update, or delete them.
+     * @description Allows public read access and admin-only write access to course data.
      * @path /courses/{courseId}
-     * @allow (get, list): if true
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Public read access with admin-only writes.
+     * @allow get, list: if true;
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Public read, admin-only write for course content.
      */
     match /courses/{courseId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role check
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
     }
 
     /**
-     * @description Allows anyone to read eBooks, but only admins can create, update, or delete them.
+     * @description Allows public read access and admin-only write access to ebook data.
      * @path /ebooks/{ebookId}
-     * @allow (get, list): if true
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Public read access with admin-only writes.
+     * @allow get, list: if true;
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Public read, admin-only write for ebook content.
      */
     match /ebooks/{ebookId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role check
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
     }
 
     /**
-     * @description Allows anyone to read test series, but only admins can create, update, or delete them.
+     * @description Allows public read access and admin-only write access to test series data.
      * @path /test_series/{testSeriesId}
-     * @allow (get, list): if true
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Public read access with admin-only writes.
+     * @allow get, list: if true;
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Public read, admin-only write for test series content.
      */
     match /test_series/{testSeriesId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role check
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
     }
 
     /**
-     * @description Allows only admins to manage questions.
+     * @description Allows admin-only access to question data.
      * @path /questions/{questionId}
-     * @allow (get, list): if false. Questions are not readable by default.
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Admin-only access for sensitive data.
+     * @allow get, list: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Admin-only access for question management.
      */
     match /questions/{questionId} {
-      allow get, list: if false; // Listing questions might not be safe for non-admins.
-      allow create, update, delete: if false; // TODO: Add admin role check
+      allow get, list: if false; // TODO: Add admin validation once the roles are defined.
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
     }
 
     /**
-     * @description Allows anyone to read educator profiles, but only admins can create, update, or delete them.
+     * @description Allows public read access and admin-only write access to educator data.
      * @path /educators/{educatorId}
-     * @allow (get, list): if true
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Public read access with admin-only writes.
+     * @allow get, list: if true;
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Public read, admin-only write for educator content.
      */
     match /educators/{educatorId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role check
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
     }
 
     /**
-     * @description Allows anyone to read live class details, but only admins can create, update, or delete them.
+     * @description Allows public read access and admin-only write access to live class data.
      * @path /live_classes/{liveClassId}
-     * @allow (get, list): if true
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Public read access with admin-only writes.
+     * @allow get, list: if true;
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Public read, admin-only write for live class content.
      */
     match /live_classes/{liveClassId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role check
-    }
-
-    /**
-     * @description Allows anyone to read promotions, but only admins can create, update, or delete them.
-     * @path /promotions/{promotionId}
-     * @allow (get, list): if true
-     * @deny (create, update, delete): Always. Admins are not yet implemented in this ruleset.
-     * @principle Public read access with admin-only writes.
-     */
-    match /promotions/{promotionId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role check
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
     }
 
     /**
      * @description Allows a student to read and write their own profile data.
      * @path /users/{studentId}
-     * @allow (get, list): if isOwner(studentId)
-     * @allow (create): if isOwner(studentId)
-     * @allow (update): if isExistingOwner(studentId)
-     * @allow (delete): if isExistingOwner(studentId)
-     * @deny Example: A user attempts to update another user's profile.
-     * @principle Enforces document ownership for writes.
+     * @allow get: if isOwner(studentId);
+     * @allow list: if false;
+     * @allow create: if isOwner(studentId);
+     * @allow update: if isOwner(studentId) && resource != null;
+     * @allow delete: if isOwner(studentId) && resource != null;
+     * @deny get: if !isSignedIn();
+     * @deny create: if !isSignedIn();
+     * @deny update: if !isSignedIn();
+     * @deny delete: if !isSignedIn();
+     * @principle Enforces document ownership for student profiles.
      */
     match /users/{studentId} {
       allow get: if isOwner(studentId);
-      allow list: if false; // Disallowing user listing.
+      allow list: if false;
       allow create: if isOwner(studentId);
-      allow update: if isExistingOwner(studentId);
-      allow delete: if isExistingOwner(studentId);
+      allow update: if isOwner(studentId) && resource != null;
+      allow delete: if isOwner(studentId) && resource != null;
     }
 
     /**
-     * @description Allows a student to create enrollment requests and allows admins to approve or reject them.
+     * @description Allows public read access and admin-only write access to promotion data.
+     * @path /promotions/{promotionId}
+     * @allow get, list: if true;
+     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
+     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
+     * @deny get: if false;
+     * @deny list: if false;
+     * @principle Public read, admin-only write for promotion content.
+     */
+    match /promotions/{promotionId} {
+      allow get, list: if true;
+      allow create: if false; // TODO: Add admin validation once the roles are defined.
+      allow update: if false; // TODO: Add admin validation once the roles are defined.
+      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+    }
+
+    /**
+     * @description Allows a student to create enrollment requests for themselves. Admins can approve or reject.
      * @path /users/{studentId}/enrollments/{enrollmentId}
-     * @allow (create): if isOwner(studentId) && request.resource.data.studentId == studentId
-     * @allow (get, list, update, delete): if isOwner(studentId)
-     * @deny Example: A user attempts to create an enrollment for another user.
-     * @principle Enforces document ownership for writes and validates relational integrity.
+     * @allow get: if isOwner(studentId); // Allow students to read their own enrollment requests.
+     * @allow list: if isOwner(studentId);
+     * @allow create: if isSignedIn() && request.auth.uid == studentId; // Only the authenticated student can create enrollment requests for themselves.
+     * @allow update: if false; // TODO: Add admin validation for approval/rejection using the roles.
+     * @allow delete: if false; // TODO: Add admin validation for deletion using the roles.
+     * @deny get: if !isSignedIn();
+     * @deny create: if !isSignedIn();
+     * @deny update: if !isSignedIn();
+     * @deny delete: if !isSignedIn();
+     * @principle Enforces student ownership for enrollment requests and admin management.
      */
     match /users/{studentId}/enrollments/{enrollmentId} {
-      allow get: if isOwner(studentId);
+      allow get: if isOwner(studentId); // Allow students to read their own enrollment requests.
       allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId) && request.resource.data.studentId == studentId;
-      allow update: if isOwner(studentId) && resource != null;
-      allow delete: if isExistingOwner(studentId);
+      allow create: if isSignedIn() && request.auth.uid == studentId; // Only the authenticated student can create enrollment requests for themselves.
+      allow update: if false; // TODO: Add admin validation for approval/rejection using the roles.
+      allow delete: if false; // TODO: Add admin validation for deletion using the roles.
     }
+  }
 
-    // --- Helper Functions ---
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
 
-    /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user's UID matches the provided userId.
-     * @param {string} userId The user ID to compare against the authenticated user's UID.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of an existing document.
-     * @param {string} userId The user ID to compare against the authenticated user's UID.
-     * @return {boolean} True if the user is the owner and the document exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
   }
 }
