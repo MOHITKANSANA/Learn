@@ -24,8 +24,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, errorEmitter } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const adminNavItems = [
@@ -104,42 +105,50 @@ function AddEducatorForm() {
       setIsSubmitting(false);
       return;
     }
-    try {
-      const file = values.educatorImage[0];
-      const imageUrl = await fileToDataUrl(file);
+    
+    const file = values.educatorImage[0];
+    const imageUrl = await fileToDataUrl(file);
 
-      const newDocRef = doc(collection(firestore, 'educators'));
+    const newDocRef = doc(collection(firestore, 'educators'));
+    const educatorData = {
+      id: newDocRef.id,
+      name: values.name,
+      imageUrl: imageUrl,
+      experience: values.experience,
+      subject: values.subject,
+      description: values.description,
+      createdAt: serverTimestamp(),
+    };
 
-      await setDoc(newDocRef, {
-        id: newDocRef.id,
-        name: values.name,
-        imageUrl: imageUrl,
-        experience: values.experience,
-        subject: values.subject,
-        description: values.description,
-        createdAt: serverTimestamp(),
+    setDoc(newDocRef, educatorData)
+      .then(() => {
+        toast({
+          title: 'Success!',
+          description: 'Educator added successfully.',
+        });
+        form.reset();
+        const fileInput = document.getElementById('educatorImage') as HTMLInputElement;
+        if (fileInput) {
+          fileInput.value = '';
+        }
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: newDocRef.path,
+          operation: 'create',
+          requestResourceData: educatorData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        
+        toast({
+            variant: 'destructive',
+            title: 'Error Adding Educator',
+            description: 'Could not add educator. Check permissions.',
+        });
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-
-      toast({
-        title: 'Success!',
-        description: 'Educator added successfully.',
-      });
-      form.reset();
-      // Manually clear the file input
-      const fileInput = document.getElementById('educatorImage') as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = '';
-      }
-    } catch (error: any) {
-      console.error("Error adding educator:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to add educator. Please try again.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   }
 
   return (
@@ -258,31 +267,40 @@ function AddLiveClassForm() {
       setIsSubmitting(false);
       return;
     }
-    try {
-        const newDocRef = doc(collection(firestore, 'live_classes'));
-        await setDoc(newDocRef, {
-            id: newDocRef.id,
-            ...values,
-            startTime: new Date(values.startTime),
-            createdAt: serverTimestamp(),
-        });
+    
+    const newDocRef = doc(collection(firestore, 'live_classes'));
+    const liveClassData = {
+        id: newDocRef.id,
+        ...values,
+        startTime: new Date(values.startTime),
+        createdAt: serverTimestamp(),
+    };
 
-        toast({
-            title: "Success!",
-            description: "Live class scheduled successfully."
-        });
-        form.reset();
+    setDoc(newDocRef, liveClassData)
+        .then(() => {
+            toast({
+                title: "Success!",
+                description: "Live class scheduled successfully."
+            });
+            form.reset();
+        })
+        .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+              path: newDocRef.path,
+              operation: 'create',
+              requestResourceData: liveClassData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
 
-    } catch (error: any) {
-        console.error("Error scheduling live class:", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: error.message || "Failed to schedule live class. Please try again."
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to schedule live class. Check permissions."
+            });
+        })
+        .finally(() => {
+            setIsSubmitting(false);
         });
-    } finally {
-        setIsSubmitting(false);
-    }
   }
 
 
@@ -401,30 +419,40 @@ function AddPromotionForm() {
       setIsSubmitting(false);
       return;
     }
-    try {
-      const newDocRef = doc(collection(firestore, 'promotions'));
-      await setDoc(newDocRef, {
-        id: newDocRef.id,
-        ...values,
-        startDate: new Date(),
-        endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default 7 days
-        createdAt: serverTimestamp(),
+    
+    const newDocRef = doc(collection(firestore, 'promotions'));
+    const promotionData = {
+      id: newDocRef.id,
+      ...values,
+      startDate: new Date(),
+      endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default 7 days
+      createdAt: serverTimestamp(),
+    };
+
+    setDoc(newDocRef, promotionData)
+      .then(() => {
+        toast({
+          title: 'Success!',
+          description: 'Promotion added successfully.',
+        });
+        form.reset();
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: newDocRef.path,
+          operation: 'create',
+          requestResourceData: promotionData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to add promotion. Check permissions.',
+        });
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
-      toast({
-        title: 'Success!',
-        description: 'Promotion added successfully.',
-      });
-      form.reset();
-    } catch (error: any) {
-      console.error('Error adding promotion:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to add promotion. Please try again.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   }
 
   return (
