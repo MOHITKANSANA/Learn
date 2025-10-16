@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Course": {
@@ -317,6 +318,11 @@
           "type": "string",
           "description": "Text of the promotion message."
         },
+        "link": {
+          "type": "string",
+          "description": "URL link for the promotion.",
+          "format": "uri"
+        },
         "startDate": {
           "type": "string",
           "description": "Start date of the promotion (ISO 8601 format).",
@@ -326,15 +332,12 @@
           "type": "string",
           "description": "End date of the promotion (ISO 8601 format).",
           "format": "date-time"
-        },
-        "courseId": {
-          "type": "string",
-          "description": "Reference to the Course that is being promoted. (Relationship: Promotion N:1 Course)"
         }
       },
       "required": [
         "id",
         "text",
+        "link",
         "startDate",
         "endDate"
       ]

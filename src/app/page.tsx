@@ -17,6 +17,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import Autoplay from "embla-carousel-autoplay"
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -29,6 +30,9 @@ export default function Home() {
 
   const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
+  const promotionsQuery = useMemoFirebase(() => collection(firestore, 'promotions'), [firestore]);
+  const { data: promotions, isLoading: isLoadingPromotions } = useCollection(promotionsQuery);
+
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -57,13 +61,34 @@ export default function Home() {
           <h1 className="text-2xl font-bold">Hello {user?.displayName?.split(' ')[0] || 'Student'}!</h1>
           <Button>Support</Button>
         </div>
-        <Card className="bg-primary/90">
-            <CardContent className="p-3">
-              <p className="text-center text-primary-foreground font-semibold">
-                शन please support 🙏
-              </p>
-            </CardContent>
-          </Card>
+        {isLoadingPromotions ? (
+          <Card className="bg-primary/90">
+             <CardContent className="p-3">
+               <Loader2 className="h-4 w-4 animate-spin text-primary-foreground mx-auto" />
+             </CardContent>
+           </Card>
+        ) : promotions && promotions.length > 0 ? (
+          <Carousel
+            plugins={[Autoplay({ delay: 3000 })]}
+            opts={{ align: "start", loop: true }}
+          >
+            <CarouselContent>
+              {promotions.map((promo) => (
+                <CarouselItem key={promo.id}>
+                   <Link href={promo.link || '#'} target="_blank" rel="noopener noreferrer">
+                    <Card className="bg-primary/90">
+                      <CardContent className="p-3">
+                        <p className="text-center text-primary-foreground font-semibold">
+                          {promo.text}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+        ) : null}
       </section>
 
       <section>

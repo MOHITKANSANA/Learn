@@ -8,12 +8,12 @@ import * as z from 'zod';
 import {
   Book,
   Users,
-  Ticket,
   PlusCircle,
   Edit,
   Video,
   UserPlus,
-  Loader2
+  Loader2,
+  Megaphone
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,7 +31,7 @@ import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/fires
 const adminNavItems = [
   { value: 'manage-content', icon: Book, label: 'Manage Content' },
   { value: 'enrollments', icon: Users, label: 'Enrollments' },
-  { value: 'coupons', icon: Ticket, label: 'Coupons' },
+  { value: 'promotions', icon: Megaphone, label: 'Promotions' },
 ];
 
 function CreateCourseForm() {
@@ -351,6 +351,89 @@ function AddLiveClassForm() {
   )
 }
 
+const promotionSchema = z.object({
+  text: z.string().min(5, { message: 'Promotion text must be at least 5 characters.' }),
+  link: z.string().url({ message: 'Please enter a valid URL.' }),
+});
+
+function AddPromotionForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const form = useForm<z.infer<typeof promotionSchema>>({
+    resolver: zodResolver(promotionSchema),
+    defaultValues: {
+      text: '',
+      link: '',
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof promotionSchema>) {
+    setIsSubmitting(true);
+    try {
+      const docRef = await addDoc(collection(firestore, 'promotions'), {
+        ...values,
+        startDate: new Date(),
+        endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default 7 days
+        createdAt: serverTimestamp(),
+      });
+      await setDoc(doc(firestore, 'promotions', docRef.id), { id: docRef.id }, { merge: true });
+      toast({
+        title: 'Success!',
+        description: 'Promotion added successfully.',
+      });
+      form.reset();
+    } catch (error: any) {
+      console.error('Error adding promotion:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to add promotion. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="text"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Promotion Text</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Summer Sale! 50% Off" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="link"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Link URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/sale" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Add Promotion
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
 
 export default function AdminDashboardPage() {
   return (
@@ -364,7 +447,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <Tabs defaultValue={adminNavItems[0].value} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
              {adminNavItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -439,14 +522,14 @@ export default function AdminDashboardPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="coupons">
-            <Card>
-              <CardHeader>
-                <CardTitle>Coupons</CardTitle>
-              </CardHeader>
-              <CardContent>
-                Manage your coupons here.
-              </CardContent>
+          <TabsContent value="promotions">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Add New Promotion</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <AddPromotionForm />
+                </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
