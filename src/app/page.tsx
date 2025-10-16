@@ -24,12 +24,17 @@ import Autoplay from "embla-carousel-autoplay"
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState(new Set());
 
   const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
@@ -42,7 +47,18 @@ export default function Home() {
   
   const paidCoursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', false)) : null, [firestore]);
   const { data: paidCourses, isLoading: isLoadingPaidCourses } = useCollection(paidCoursesQuery);
-
+  
+  const enrollmentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemType', '==', 'course'));
+  }, [firestore, user]);
+  const { data: enrollments, isLoading: areEnrollmentsLoading } = useCollection(enrollmentsQuery);
+  
+  useEffect(() => {
+    if (enrollments) {
+      setEnrolledCourseIds(new Set(enrollments.map(e => e.itemId)));
+    }
+  }, [enrollments]);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -50,13 +66,47 @@ export default function Home() {
     }
   }, [user, isUserLoading]);
 
+  const handleFreeEnrollment = async (course: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
+      return;
+    }
+     if (enrolledCourseIds.has(course.id)) {
+      toast({ title: 'Already Enrolled', description: 'This course is already in your library.' });
+      return;
+    }
+
+    const enrollmentRef = doc(collection(firestore, 'enrollments'));
+    const enrollmentData = {
+      id: enrollmentRef.id,
+      studentId: user.uid,
+      itemId: course.id,
+      itemType: 'course',
+      enrollmentDate: serverTimestamp(),
+      isApproved: true,
+      itemName: course.title,
+      itemImage: course.imageUrl,
+    };
+    try {
+      await setDoc(enrollmentRef, enrollmentData);
+      toast({ title: 'Success!', description: `You have enrolled in ${course.title}.` });
+      router.push('/my-library');
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not enroll in the course.' });
+    }
+  };
+
+
   const colors = [
     "bg-blue-500", "bg-orange-500", "bg-green-500",
     "bg-purple-500", "bg-pink-500", "bg-red-500",
     "bg-rose-500", "bg-yellow-500", "bg-gray-500"
   ];
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || areEnrollmentsLoading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[60vh]">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -122,41 +172,73 @@ export default function Home() {
       <section>
         <h2 className="text-xl font-bold mb-4">Free Courses</h2>
         {isLoadingFreeCourses ? (
-          <div className="flex justify-center items-center h-24">
+          <div className="flex justify-center items-center h-48">
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : freeCourses && freeCourses.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {freeCourses.map(course => (
-              <Link href={`/courses/${course.id}`} key={course.id}>
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                  <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
-                  <CardHeader><CardTitle className="text-base truncate">{course.title}</CardTitle></CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <Carousel opts={{ align: "start", loop: freeCourses.length > 4 }} plugins={[Autoplay({ delay: 5000 })]} className="w-full">
+            <CarouselContent>
+                {freeCourses.map(course => {
+                    const isEnrolled = enrolledCourseIds.has(course.id);
+                    return (
+                        <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4">
+                            <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
+                                <Link href={`/courses/${course.id}`} className="flex flex-col flex-grow">
+                                    <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
+                                    <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
+                                </Link>
+                                <CardFooter className="p-3 mt-auto">
+                                    {isEnrolled ? (
+                                        <Button variant="secondary" size="sm" asChild className="w-full"><Link href={`/courses/content/${course.id}`}>Start Learning</Link></Button>
+                                    ) : (
+                                        <Button size="sm" className="w-full" onClick={(e) => handleFreeEnrollment(course, e)}>Enroll Now</Button>
+                                    )}
+                                </CardFooter>
+                            </Card>
+                        </CarouselItem>
+                    )
+                })}
+            </CarouselContent>
+            <CarouselPrevious className="hidden sm:flex" />
+            <CarouselNext className="hidden sm:flex" />
+          </Carousel>
         ) : <p className="text-muted-foreground">No free courses available at the moment.</p>}
       </section>
 
       <section>
         <h2 className="text-xl font-bold mb-4">Paid Courses</h2>
         {isLoadingPaidCourses ? (
-          <div className="flex justify-center items-center h-24">
+          <div className="flex justify-center items-center h-48">
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : paidCourses && paidCourses.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {paidCourses.map(course => (
-              <Link href={`/courses/${course.id}`} key={course.id}>
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                  <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
-                  <CardHeader><CardTitle className="text-base truncate">{course.title}</CardTitle></CardHeader>
-                  <CardFooter><p className="font-bold text-primary">₹{course.price}</p></CardFooter>
-                </Card>
-              </Link>
-            ))}
-          </div>
+           <Carousel opts={{ align: "start", loop: paidCourses.length > 4 }} plugins={[Autoplay({ delay: 4000 })]} className="w-full">
+            <CarouselContent>
+                {paidCourses.map(course => {
+                     const isEnrolled = enrolledCourseIds.has(course.id);
+                    return (
+                        <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4">
+                            <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
+                                <Link href={`/courses/${course.id}`} className="flex flex-col flex-grow">
+                                    <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
+                                    <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
+                                </Link>
+                                <CardFooter className="p-3 mt-auto flex justify-between items-center">
+                                    <p className="font-bold text-primary">₹{course.price}</p>
+                                    {isEnrolled ? (
+                                        <Button variant="secondary" size="sm" asChild><Link href={`/courses/content/${course.id}`}>Start Learning</Link></Button>
+                                    ) : (
+                                        <Button size="sm" asChild><Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link></Button>
+                                    )}
+                                </CardFooter>
+                            </Card>
+                        </CarouselItem>
+                    )
+                })}
+            </CarouselContent>
+            <CarouselPrevious className="hidden sm:flex" />
+            <CarouselNext className="hidden sm:flex" />
+          </Carousel>
         ) : <p className="text-muted-foreground">No paid courses available at the moment.</p>}
       </section>
 

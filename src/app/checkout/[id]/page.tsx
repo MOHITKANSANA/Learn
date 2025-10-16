@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { doc, collection, setDoc, serverTimestamp, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -66,6 +66,9 @@ export default function CheckoutPage() {
 
   const form = useForm<z.infer<typeof checkoutSchema>>({
     resolver: zodResolver(checkoutSchema),
+    defaultValues: {
+        couponCode: '',
+    }
   });
 
   const handleApplyCoupon = async () => {
@@ -81,18 +84,18 @@ export default function CheckoutPage() {
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
-      setCouponError('Invalid coupon code.');
+      setCouponError('अमान्य कूपन कोड।');
       return;
     }
 
     const coupon = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
     
     if (new Date(coupon.expiryDate.seconds * 1000) < new Date()) {
-        setCouponError('This coupon has expired.');
+        setCouponError('यह कूपन समाप्त हो गया है।');
         return;
     }
     if (coupon.usedCount >= coupon.maxUses) {
-        setCouponError('This coupon has reached its usage limit.');
+        setCouponError('यह कूपन अपनी उपयोग सीमा तक पहुँच गया है।');
         return;
     }
 
@@ -105,13 +108,13 @@ export default function CheckoutPage() {
 
     setFinalPrice(Math.max(0, discountedPrice));
     setAppliedCoupon(coupon);
-    toast({ title: 'Success!', description: 'Coupon applied successfully.' });
+    toast({ title: 'सफलता!', description: 'कूपन सफलतापूर्वक लागू हो गया है।' });
   };
   
   const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.onerror = (error) => reject(new Error('फ़ाइल पढ़ने में विफल: ' + error));
     reader.readAsDataURL(file);
   });
 
@@ -122,25 +125,25 @@ export default function CheckoutPage() {
     }
     setIsSubmitting(true);
 
-    const screenshotFile = values.paymentScreenshot[0];
-    const screenshotUrl = await fileToDataUrl(screenshotFile);
-
-    const enrollmentRef = doc(collection(firestore, 'enrollments'));
-    const enrollmentData = {
-        id: enrollmentRef.id,
-        studentId: user.uid,
-        itemId: item.id,
-        itemType: itemType,
-        itemName: item.title,
-        itemImage: item.imageUrl,
-        pricePaid: finalPrice,
-        couponUsed: appliedCoupon ? appliedCoupon.code : null,
-        enrollmentDate: serverTimestamp(),
-        paymentScreenshotUrl: screenshotUrl,
-        isApproved: false,
-    };
-
     try {
+        const screenshotFile = values.paymentScreenshot[0];
+        const screenshotUrl = await fileToDataUrl(screenshotFile);
+
+        const enrollmentRef = doc(collection(firestore, 'enrollments'));
+        const enrollmentData = {
+            id: enrollmentRef.id,
+            studentId: user.uid,
+            itemId: item.id,
+            itemType: itemType,
+            itemName: item.title,
+            itemImage: item.imageUrl,
+            pricePaid: finalPrice,
+            couponUsed: appliedCoupon ? appliedCoupon.code : null,
+            enrollmentDate: serverTimestamp(),
+            paymentScreenshotUrl: screenshotUrl,
+            isApproved: false,
+        };
+
         await setDoc(enrollmentRef, enrollmentData);
 
         if (appliedCoupon) {
@@ -230,7 +233,7 @@ export default function CheckoutPage() {
                  {couponError && <p className="text-sm text-destructive">{couponError}</p>}
                 
                 <p className="text-sm font-semibold text-center bg-primary/10 p-3 rounded-md">
-                  Please pay ₹{(finalPrice ?? item.price).toFixed(2)} and upload the screenshot.
+                  कृपया ₹{(finalPrice ?? item.price).toFixed(2)} का भुगतान करें और स्क्रीनशॉट अपलोड करें।
                 </p>
 
                 <FormField
@@ -265,5 +268,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
-    

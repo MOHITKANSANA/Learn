@@ -21,6 +21,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const isVideoPage = pathname.startsWith('/courses/video/');
+
+  if (isVideoPage) {
+    return <>{children}</>;
+  }
 
   if (isUserLoading) {
     return (

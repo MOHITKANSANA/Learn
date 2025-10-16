@@ -2,8 +2,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, setDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Loader2, PlayCircle, Lock } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ export default function CourseDetailPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const courseId = params.id as string;
+  const [isEnrolled, setIsEnrolled] = useState(false);
 
   const courseRef = useMemoFirebase(() => 
     firestore && courseId ? doc(firestore, 'courses', courseId) : null,
@@ -25,9 +26,33 @@ export default function CourseDetailPage() {
   );
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
 
+  const enrollmentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, 'enrollments'),
+      where('studentId', '==', user.uid),
+      where('itemId', '==', courseId)
+    );
+  }, [firestore, user, courseId]);
+
+  const { data: enrollments, isLoading: isEnrollmentsLoading } = useCollection(enrollmentsQuery);
+
+  useEffect(() => {
+    if (enrollments && enrollments.length > 0) {
+      setIsEnrolled(true);
+    } else {
+      setIsEnrolled(false);
+    }
+  }, [enrollments]);
+
   const handleFreeEnrollment = async () => {
     if (!user || !firestore || !course) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
+      return;
+    }
+     if (isEnrolled) {
+      toast({ title: 'Already Enrolled', description: 'You are already enrolled in this course.' });
+      router.push(`/courses/content/${course.id}`);
       return;
     }
 
@@ -54,7 +79,7 @@ export default function CourseDetailPage() {
   };
 
 
-  if (isCourseLoading) {
+  if (isCourseLoading || isEnrollmentsLoading) {
     return <div className="flex justify-center items-center h-[60vh]"><Loader2 className="h-16 w-16 animate-spin" /></div>;
   }
 
@@ -73,7 +98,14 @@ export default function CourseDetailPage() {
           <CardDescription className="text-lg text-muted-foreground mb-4">{course.description}</CardDescription>
           <div className="flex items-center justify-between mt-6">
              <p className="text-3xl font-bold text-primary">{course.isFree ? 'Free' : `₹${course.price}`}</p>
-             {course.isFree ? (
+             {isEnrolled ? (
+                <Button size="lg" asChild>
+                    <Link href={`/courses/content/${course.id}`}>
+                        <PlayCircle className="mr-2 h-5 w-5" />
+                        Start Learning
+                    </Link>
+                </Button>
+             ) : course.isFree ? (
                 <Button size="lg" onClick={handleFreeEnrollment}>
                     <PlayCircle className="mr-2 h-5 w-5" />
                     Enroll Now
