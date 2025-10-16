@@ -60,6 +60,9 @@ function CreateCourseForm() {
 
 const educatorSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  experience: z.coerce.number().min(0, { message: 'Experience cannot be negative.' }),
+  subject: z.string().min(2, { message: 'Subject must be at least 2 characters.' }),
+  description: z.string().min(10, { message: 'Description must be at least 10 characters.' }),
   educatorImage: z.any().refine(files => files?.length == 1, "Image is required."),
 });
 
@@ -72,6 +75,9 @@ function AddEducatorForm() {
     resolver: zodResolver(educatorSchema),
     defaultValues: {
       name: '',
+      experience: 0,
+      subject: '',
+      description: '',
     },
   });
 
@@ -93,6 +99,9 @@ function AddEducatorForm() {
       const docRef = await addDoc(collection(firestore, 'educators'), {
         name: values.name,
         imageUrl: imageUrl,
+        experience: values.experience,
+        subject: values.subject,
+        description: values.description,
         createdAt: serverTimestamp(),
       });
 
@@ -132,6 +141,45 @@ function AddEducatorForm() {
               <FormLabel>Educator Name</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., Dr. Arun Sharma" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="experience"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Years of Experience</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="e.g., 5" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="subject"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Subject</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Physics" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Describe the educator's expertise..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -330,7 +378,7 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="manage-content">
              <Tabs defaultValue="add-course" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2">
                     <TabsTrigger value="add-course"><PlusCircle className="mr-2 h-4 w-4" /> Add Course</TabsTrigger>
                     <TabsTrigger value="edit-course"><Edit className="mr-2 h-4 w-4" /> Edit Course</TabsTrigger>
                     <TabsTrigger value="add-educator"><UserPlus className="mr-2 h-4 w-4" /> Add Educator</TabsTrigger>
