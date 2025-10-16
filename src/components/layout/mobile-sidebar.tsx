@@ -35,7 +35,7 @@ export function MobileSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-0">
+      <SidebarContent className="p-0 bg-background">
         <SidebarMenu className="gap-0">
           {sidebarNavItems.map((item) => (
             <SidebarMenuItem key={item.title} className="p-0">
