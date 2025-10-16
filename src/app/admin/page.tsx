@@ -3,13 +3,8 @@
 
 import {
   Book,
-  Clapperboard,
   Users,
-  LayoutDashboard,
   Ticket,
-  FileText,
-  User,
-  MonitorPlay,
   PlusCircle,
   Edit
 } from 'lucide-react';
@@ -21,7 +16,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
 const adminNavItems = [
-  { value: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { value: 'manage-content', icon: Book, label: 'Manage Content' },
   { value: 'enrollments', icon: Users, label: 'Enrollments' },
   { value: 'coupons', icon: Ticket, label: 'Coupons' },
@@ -63,7 +57,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <Tabs defaultValue={adminNavItems[0].value} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
              {adminNavItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -74,17 +68,6 @@ export default function AdminDashboardPage() {
               )
             })}
           </TabsList>
-          
-          <TabsContent value="dashboard">
-            <Card>
-              <CardHeader>
-                <CardTitle>Dashboard</CardTitle>
-              </CardHeader>
-              <CardContent>
-                Welcome to your dashboard!
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="manage-content">
              <Tabs defaultValue="add-course" className="w-full">

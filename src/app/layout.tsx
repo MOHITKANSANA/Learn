@@ -1,3 +1,5 @@
+
+'use client';
 import type { Metadata } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/layout/header';
@@ -6,11 +8,57 @@ import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { MobileSidebar } from '@/components/layout/mobile-sidebar';
+import { usePathname } from 'next/navigation';
+import { useUser } from '@/firebase';
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: 'Learn with munedra',
   description: 'Your personalized learning platform',
 };
+
+function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user, isUserLoading } = useUser();
+  const pathname = usePathname();
+
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+
+  if (isUserLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        {/* You can add a global spinner here */}
+      </div>
+    );
+  }
+
+  if (isAuthPage) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <main className="flex-grow flex items-center">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full">
+            {children}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider>
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <MobileSidebar />
+        <main className="flex-grow">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8 h-full">
+            {children}
+          </div>
+        </main>
+        <Footer />
+      </div>
+      <Toaster />
+    </SidebarProvider>
+  );
+}
+
 
 export default function RootLayout({
   children,
@@ -23,22 +71,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+        <title>{String(metadata.title)}</title>
+        <meta name="description" content={metadata.description ?? ''} />
       </head>
       <body className="font-body bg-background antialiased h-full">
         <FirebaseClientProvider>
-          <SidebarProvider>
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <MobileSidebar />
-              <main className="flex-grow">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8 h-full">
-                  {children}
-                </div>
-              </main>
-              <Footer />
-            </div>
-            <Toaster />
-          </SidebarProvider>
+          <AppLayout>{children}</AppLayout>
         </FirebaseClientProvider>
       </body>
     </html>
