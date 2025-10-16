@@ -33,6 +33,8 @@ export default function CheckoutPage() {
   const [finalPrice, setFinalPrice] = useState<number | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -74,47 +76,58 @@ export default function CheckoutPage() {
   const handleApplyCoupon = async () => {
     const code = form.getValues('couponCode');
     if (!code || !firestore || !item) return;
-
+    
+    setIsApplyingCoupon(true);
     setCouponError(null);
     setAppliedCoupon(null);
     setFinalPrice(item.price);
 
     const couponsRef = collection(firestore, 'coupons');
-    const q = query(couponsRef, where('code', '==', code));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      setCouponError('अमान्य कूपन कोड।');
-      return;
-    }
-
-    const coupon = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+    const q = query(couponsRef, where('code', '==', code.toUpperCase()));
     
-    if (new Date(coupon.expiryDate.seconds * 1000) < new Date()) {
-        setCouponError('यह कूपन समाप्त हो गया है।');
-        return;
-    }
-    if (coupon.usedCount >= coupon.maxUses) {
-        setCouponError('यह कूपन अपनी उपयोग सीमा तक पहुँच गया है।');
-        return;
-    }
+    try {
+        const querySnapshot = await getDocs(q);
 
-    let discountedPrice = item.price;
-    if (coupon.discountType === 'percentage') {
-      discountedPrice = item.price * (1 - coupon.discountValue / 100);
-    } else {
-      discountedPrice = item.price - coupon.discountValue;
-    }
+        if (querySnapshot.empty) {
+          setCouponError('अमान्य कूपन कोड।');
+          setIsApplyingCoupon(false);
+          return;
+        }
 
-    setFinalPrice(Math.max(0, discountedPrice));
-    setAppliedCoupon(coupon);
-    toast({ title: 'सफलता!', description: 'कूपन सफलतापूर्वक लागू हो गया है।' });
+        const coupon = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+        
+        if (new Date(coupon.expiryDate.seconds * 1000) < new Date()) {
+            setCouponError('यह कूपन समाप्त हो गया है।');
+            setIsApplyingCoupon(false);
+            return;
+        }
+        if (coupon.usedCount >= coupon.maxUses) {
+            setCouponError('यह कूपन अपनी उपयोग सीमा तक पहुँच गया है।');
+            setIsApplyingCoupon(false);
+            return;
+        }
+
+        let discountedPrice = item.price;
+        if (coupon.discountType === 'percentage') {
+          discountedPrice = item.price * (1 - coupon.discountValue / 100);
+        } else {
+          discountedPrice = item.price - coupon.discountValue;
+        }
+
+        setFinalPrice(Math.max(0, discountedPrice));
+        setAppliedCoupon(coupon);
+        toast({ title: 'सफलता!', description: 'कूपन सफलतापूर्वक लागू हो गया है।' });
+    } catch (e) {
+        setCouponError('कूपन लागू करने में त्रुटि हुई।');
+    } finally {
+        setIsApplyingCoupon(false);
+    }
   };
   
   const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(new Error('फ़ाइल पढ़ने में विफल: ' + error));
+    reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
     reader.readAsDataURL(file);
   });
 
@@ -228,7 +241,10 @@ export default function CheckoutPage() {
                             </FormItem>
                         )}
                         />
-                    <Button type="button" onClick={handleApplyCoupon} className="self-end">Apply</Button>
+                    <Button type="button" onClick={handleApplyCoupon} className="self-end" disabled={isApplyingCoupon}>
+                        {isApplyingCoupon && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Apply
+                    </Button>
                  </div>
                  {couponError && <p className="text-sm text-destructive">{couponError}</p>}
                 

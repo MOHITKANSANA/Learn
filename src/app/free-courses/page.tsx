@@ -12,13 +12,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export default function CoursesPage() {
+export default function FreeCoursesPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
 
-  const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', false)) : null, [firestore]);
+  const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', true)) : null, [firestore]);
   const { data: courses, isLoading: areCoursesLoading } = useCollection(coursesQuery);
   
   const enrollmentsQuery = useMemoFirebase(() => {
@@ -36,7 +36,7 @@ export default function CoursesPage() {
   }, [enrollments]);
 
   const handleFreeEnrollment = async (course: any) => {
-    if (!user || !firestore) {
+     if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
       return;
     }
@@ -44,7 +44,7 @@ export default function CoursesPage() {
     const q = query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemId', '==', course.id));
     const existingEnrollment = await getDocs(q);
     if (!existingEnrollment.empty) {
-      toast({ title: 'Already Enrolled', description: 'You are already enrolled in this course.' });
+      toast({ title: 'Already Enrolled', description: 'This course is already in your library.' });
       return;
     }
 
@@ -81,8 +81,8 @@ export default function CoursesPage() {
   return (
     <div>
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold font-headline">All Paid Courses</h1>
-        <p className="text-muted-foreground mt-2">Find your next learning adventure.</p>
+        <h1 className="text-4xl font-bold font-headline">All Free Courses</h1>
+        <p className="text-muted-foreground mt-2">Start learning for free today.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {courses && courses.length > 0 ? (
@@ -106,24 +106,22 @@ export default function CoursesPage() {
                   </CardContent>
                 </Link>
                 <CardFooter className="p-4 mt-auto">
-                  <div className="flex justify-between items-center w-full">
-                    <p className="text-lg font-bold text-primary">{course.isFree ? 'Free' : `₹${course.price}`}</p>
-                    {isEnrolled ? (
-                      <Button variant="secondary" asChild>
-                        <Link href={`/courses/content/${course.id}`}>Start Learning</Link>
-                      </Button>
-                    ) : (
-                      <Button asChild>
-                        <Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link>
-                      </Button>
-                    )}
-                  </div>
+                    <div className="flex justify-between items-center w-full">
+                        <p className="text-lg font-bold text-primary">Free</p>
+                        {isEnrolled ? (
+                        <Button variant="secondary" asChild>
+                            <Link href={`/courses/content/${course.id}`}>Start Learning</Link>
+                        </Button>
+                        ) : (
+                        <Button onClick={() => handleFreeEnrollment(course)}>Enroll Now</Button>
+                        )}
+                    </div>
                 </CardFooter>
               </Card>
             )
           })
         ) : (
-          <p className="col-span-full text-center text-muted-foreground">No paid courses available at the moment.</p>
+          <p className="col-span-full text-center text-muted-foreground">No free courses available at the moment.</p>
         )}
       </div>
     </div>

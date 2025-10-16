@@ -3,12 +3,91 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
+import { doc, collection, query, where, addDoc } from 'firebase/firestore';
 import { Loader2, Video, FileText, MessageSquare, BookOpen, ExternalLink, PlayCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
+
+function DoubtSection({ courseId }: { courseId: string }) {
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [doubt, setDoubt] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const doubtsQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, `courses/${courseId}/doubts`)) : null,
+    [firestore, courseId]
+  );
+  const { data: doubts, isLoading: isLoadingDoubts } = useCollection(doubtsQuery);
+
+  const handleDoubtSubmit = async () => {
+    if (!doubt.trim() || !user || !firestore) return;
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(firestore, `courses/${courseId}/doubts`), {
+        text: doubt,
+        author: user.displayName || 'Anonymous',
+        authorId: user.uid,
+        authorImage: user.photoURL || `https://picsum.photos/seed/${user.uid}/40/40`,
+        createdAt: new Date(),
+      });
+      setDoubt('');
+      toast({ title: 'Success', description: 'Your doubt has been posted.' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to post your doubt.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Ask a Doubt</CardTitle>
+        <CardDescription>Have a question? Post it here for educators and fellow students to answer.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {user && (
+          <div className="space-y-2">
+            <Textarea
+              placeholder="Type your doubt here..."
+              value={doubt}
+              onChange={(e) => setDoubt(e.target.value)}
+              disabled={isSubmitting}
+            />
+            <Button onClick={handleDoubtSubmit} disabled={isSubmitting || !doubt.trim()}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Post Doubt
+            </Button>
+          </div>
+        )}
+        <div className="space-y-4">
+          <h3 className="font-semibold">Recent Doubts</h3>
+          {isLoadingDoubts ? <Loader2 className="animate-spin" /> :
+            doubts && doubts.length > 0 ? doubts.map((d: any) => (
+              <div key={d.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                 <Image src={d.authorImage} alt={d.author} width={40} height={40} className="rounded-full" />
+                 <div>
+                    <p className="font-semibold text-sm">{d.author}</p>
+                    <p>{d.text}</p>
+                 </div>
+              </div>
+            )) : (
+              <p className="text-center text-muted-foreground py-10">No doubts have been asked yet.</p>
+            )
+          }
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 export default function CourseContentPage() {
   const params = useParams();
@@ -16,15 +95,17 @@ export default function CourseContentPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const courseId = params.id as string;
+  const { toast } = useToast();
 
-  const courseRef = useMemoFirebase(() => 
+
+  const courseRef = useMemoFirebase(() =>
     firestore && courseId ? doc(firestore, 'courses', courseId) : null,
     [firestore, courseId]
   );
   const { data: course, isLoading: isCourseLoading } = useDoc(courseRef);
 
   // Check enrollment
-  const enrollmentQuery = useMemoFirebase(() => 
+  const enrollmentQuery = useMemoFirebase(() =>
     firestore && user ? query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemId', '==', courseId)) : null,
     [firestore, user, courseId]
   );
@@ -37,9 +118,9 @@ export default function CourseContentPage() {
             title: 'Access Denied',
             description: 'You are not enrolled in this course.',
         });
-        router.push(`/courses/${courseId}`);
+        router.push(`/courses`);
     }
-  }, [enrollments, isEnrollmentLoading, router, courseId]);
+  }, [enrollments, isEnrollmentLoading, router, courseId, toast]);
 
   if (isCourseLoading || isEnrollmentLoading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin" /></div>;
@@ -122,23 +203,9 @@ export default function CourseContentPage() {
             </TabsContent>
 
              <TabsContent value="doubts" className="mt-6">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Ask a Doubt</CardTitle>
-                        <CardDescription>Have a question? Post it here for educators and fellow students to answer.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-center text-muted-foreground py-10">
-                            <p>Doubt forum coming soon!</p>
-                        </div>
-                    </CardContent>
-                 </Card>
+                 <DoubtSection courseId={courseId} />
             </TabsContent>
         </Tabs>
     </div>
   );
 }
-
-// We need a toast definition for the useEffect
-import { useToast } from '@/hooks/use-toast';
-const { toast } = useToast();

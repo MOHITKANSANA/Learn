@@ -24,7 +24,7 @@ import Autoplay from "embla-carousel-autoplay"
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 
@@ -36,10 +36,10 @@ export default function Home() {
   
   const [enrolledCourseIds, setEnrolledCourseIds] = useState(new Set());
 
-  const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
+  const educatorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'educators') : null, [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
   
-  const promotionsQuery = useMemoFirebase(() => collection(firestore, 'promotions'), [firestore]);
+  const promotionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'promotions') : null, [firestore]);
   const { data: promotions, isLoading: isLoadingPromotions } = useCollection(promotionsQuery);
 
   const freeCoursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', true)) : null, [firestore]);
@@ -74,8 +74,12 @@ export default function Home() {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
       return;
     }
-     if (enrolledCourseIds.has(course.id)) {
+    // Prevent re-enrollment
+    const q = query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemId', '==', course.id));
+    const existingEnrollment = await getDocs(q);
+    if (!existingEnrollment.empty) {
       toast({ title: 'Already Enrolled', description: 'This course is already in your library.' });
+      router.push(`/courses/content/${course.id}`);
       return;
     }
 
@@ -176,14 +180,14 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : freeCourses && freeCourses.length > 0 ? (
-          <Carousel opts={{ align: "start", loop: freeCourses.length > 4 }} plugins={[Autoplay({ delay: 5000 })]} className="w-full">
+          <Carousel opts={{ align: "start", loop: freeCourses.length > 2 }} plugins={[Autoplay({ delay: 5000 })]} className="w-full">
             <CarouselContent>
                 {freeCourses.map(course => {
                     const isEnrolled = enrolledCourseIds.has(course.id);
                     return (
-                        <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4">
+                        <CarouselItem key={course.id} className="basis-1/2 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
-                                <Link href={`/courses/${course.id}`} className="flex flex-col flex-grow">
+                                <Link href={isEnrolled ? `/courses/content/${course.id}` : `/checkout/${course.id}?type=course`} className="flex flex-col flex-grow">
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
                                     <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
                                 </Link>
@@ -212,14 +216,14 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : paidCourses && paidCourses.length > 0 ? (
-           <Carousel opts={{ align: "start", loop: paidCourses.length > 4 }} plugins={[Autoplay({ delay: 4000 })]} className="w-full">
+           <Carousel opts={{ align: "start", loop: paidCourses.length > 2 }} plugins={[Autoplay({ delay: 4000, reverse: true })]} className="w-full">
             <CarouselContent>
                 {paidCourses.map(course => {
                      const isEnrolled = enrolledCourseIds.has(course.id);
                     return (
-                        <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4">
+                        <CarouselItem key={course.id} className="basis-1/2 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
-                                <Link href={`/courses/${course.id}`} className="flex flex-col flex-grow">
+                                <Link href={isEnrolled ? `/courses/content/${course.id}` : `/checkout/${course.id}?type=course`} className="flex flex-col flex-grow">
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
                                     <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
                                 </Link>

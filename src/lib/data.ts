@@ -18,7 +18,8 @@ import {
   Shield,
   Bot,
   Swords,
-  ShoppingBag
+  ShoppingBag,
+  BadgePercent
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -30,9 +31,14 @@ type DashboardItem = {
 
 export const dashboardItems: DashboardItem[] = [
   {
-    title: 'Courses',
+    title: 'Paid Courses',
     href: '/courses',
     icon: BookOpenCheck,
+  },
+  {
+    title: 'Free Courses',
+    href: '/free-courses',
+    icon: Gift,
   },
   {
     title: 'E-books',
@@ -55,11 +61,6 @@ export const dashboardItems: DashboardItem[] = [
     icon: Newspaper,
   },
   {
-    title: 'AI Tutor',
-    href: '/ai-tutor',
-    icon: Bot,
-  },
-  {
     title: 'Book Shala',
     href: '/book-shala',
     icon: Library,
@@ -70,8 +71,8 @@ export const dashboardItems: DashboardItem[] = [
     icon: Swords,
   },
   {
-    title: 'AI Test',
-    href: '/ai-test',
+    title: 'AI Tools',
+    href: '/ai-tutor',
     icon: Bot,
   },
 ];
