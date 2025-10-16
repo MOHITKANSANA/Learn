@@ -6,7 +6,9 @@ import {
   Users,
   Ticket,
   PlusCircle,
-  Edit
+  Edit,
+  Video,
+  UserPlus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const adminNavItems = [
   { value: 'manage-content', icon: Book, label: 'Manage Content' },
@@ -45,6 +48,64 @@ function CreateCourseForm() {
     )
 }
 
+function AddEducatorForm() {
+  return (
+      <div className="space-y-4">
+          <div>
+              <Label htmlFor="educatorName">Educator Name</Label>
+              <Input id="educatorName" placeholder="e.g., Dr. Arun Sharma" />
+          </div>
+           <div>
+              <Label htmlFor="educatorImage">Educator Image</Label>
+              <Input id="educatorImage" type="file" accept="image/*" />
+          </div>
+          <Button>Add Educator</Button>
+      </div>
+  )
+}
+
+function AddLiveClassForm() {
+  return (
+      <div className="space-y-4">
+          <div>
+              <Label htmlFor="liveClassTitle">Live Class Title</Label>
+              <Input id="liveClassTitle" placeholder="e.g., Live Q&A Session" />
+          </div>
+          <div>
+              <Label htmlFor="liveClassDescription">Description</Label>
+              <Textarea id="liveClassDescription" placeholder="What will be covered in this class?" />
+          </div>
+          <div>
+              <Label htmlFor="educator">Educator</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an educator" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* This should be populated dynamically */}
+                  <SelectItem value="arun">Arun</SelectItem>
+                  <SelectItem value="mohit">Mohit</SelectItem>
+                </SelectContent>
+              </Select>
+          </div>
+           <div>
+              <Label htmlFor="liveClassDate">Date</Label>
+              <Input id="liveClassDate" type="date" />
+          </div>
+          <div>
+              <Label htmlFor="liveClassTime">Time</Label>
+              <Input id="liveClassTime" type="time" />
+          </div>
+           <div>
+              <Label htmlFor="youtubeUrl">YouTube Video URL</Label>
+              <Input id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
+          </div>
+          <Button>Schedule Live Class</Button>
+      </div>
+  )
+}
+
+
 export default function AdminDashboardPage() {
   return (
     <div className="bg-background text-foreground min-h-screen p-4 sm:p-6 lg:p-8">
@@ -71,9 +132,11 @@ export default function AdminDashboardPage() {
 
           <TabsContent value="manage-content">
              <Tabs defaultValue="add-course" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="add-course"><PlusCircle className="mr-2 h-4 w-4" /> Add New Course</TabsTrigger>
-                    <TabsTrigger value="edit-course"><Edit className="mr-2 h-4 w-4" /> Edit Existing Course</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="add-course"><PlusCircle className="mr-2 h-4 w-4" /> Add Course</TabsTrigger>
+                    <TabsTrigger value="edit-course"><Edit className="mr-2 h-4 w-4" /> Edit Course</TabsTrigger>
+                    <TabsTrigger value="add-educator"><UserPlus className="mr-2 h-4 w-4" /> Add Educator</TabsTrigger>
+                    <TabsTrigger value="add-live-class"><Video className="mr-2 h-4 w-4" /> Add Live Class</TabsTrigger>
                 </TabsList>
                 <TabsContent value="add-course">
                     <Card>
@@ -93,6 +156,26 @@ export default function AdminDashboardPage() {
                         <CardContent>
                            <p>Here you can add PDFs, live classes, notes, and test series to your existing courses.</p>
                            {/* TODO: Add functionality to list and edit existing courses */}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="add-educator">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Add a New Educator</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <AddEducatorForm />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                 <TabsContent value="add-live-class">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Schedule a New Live Class</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <AddLiveClassForm />
                         </CardContent>
                     </Card>
                 </TabsContent>

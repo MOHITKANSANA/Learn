@@ -61,15 +61,15 @@ export default function Home() {
       </section>
 
       <section>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           {dashboardItems.map((item, index) => {
             const Icon = item.icon;
             return (
               <Link href={item.href} key={item.title}>
                 <Card className={`${colors[index % colors.length]} text-white h-full hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 group`}>
-                  <CardContent className="flex flex-col items-center justify-center p-4 aspect-square">
-                    <Icon className="h-8 w-8 mb-2" />
-                    <p className="font-semibold text-center text-sm">{item.title}</p>
+                  <CardContent className="flex flex-col items-center justify-center p-2 sm:p-4 aspect-square">
+                    <Icon className="h-6 w-6 sm:h-8 sm:w-8 mb-2" />
+                    <p className="font-semibold text-center text-xs sm:text-sm">{item.title}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -83,7 +83,7 @@ export default function Home() {
         <Carousel opts={{ align: "start", loop: true }}>
           <CarouselContent>
             {educators.map((educator) => (
-              <CarouselItem key={educator.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
+              <CarouselItem key={educator.id} className="basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-1/6">
                 <div className="text-center">
                   <Image
                     src={educator.image.imageUrl}
@@ -93,7 +93,7 @@ export default function Home() {
                     className="rounded-full mx-auto mb-2 border-2 border-primary"
                     data-ai-hint={educator.image.imageHint}
                   />
-                  <p className="font-semibold">{educator.name}</p>
+                  <p className="font-semibold text-sm sm:text-base">{educator.name}</p>
                 </div>
               </CarouselItem>
             ))}
