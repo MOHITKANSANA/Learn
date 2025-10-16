@@ -16,15 +16,33 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export default function Home() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
 
   const colors = [
     "bg-blue-500", "bg-orange-500", "bg-green-500",
     "bg-purple-500", "bg-pink-500", "bg-red-500",
     "bg-rose-500", "bg-yellow-500", "bg-gray-500"
   ];
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex justify-center items-center h-full min-h-[60vh]">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
