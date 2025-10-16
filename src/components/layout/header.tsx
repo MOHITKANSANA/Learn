@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { GraduationCap, User } from 'lucide-react';
+import { GraduationCap, User, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -17,8 +17,8 @@ export function Header() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2 text-xl font-bold font-headline">
-              <GraduationCap className="h-7 w-7 text-primary" />
+            <Link href="/" className="flex items-center gap-2 text-xl font-bold font-headline text-primary">
+              <GraduationCap className="h-7 w-7" />
               <span>Learn with munedra</span>
             </Link>
           </div>
@@ -32,6 +32,12 @@ export function Header() {
               </Button>
               <Button variant="ghost" asChild>
                 <Link href="/book-shala">Book Shala</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                  <Link href="/admin" className="flex items-center gap-1">
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </Link>
               </Button>
             </nav>
             <DropdownMenu>
