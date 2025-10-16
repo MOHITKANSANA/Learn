@@ -29,7 +29,10 @@ import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/fires
 
 
 const adminNavItems = [
-  { value: 'manage-content', icon: Book, label: 'Manage Content' },
+  { value: 'add-course', icon: PlusCircle, label: 'Add Course' },
+  { value: 'edit-course', icon: Edit, label: 'Edit Course' },
+  { value: 'add-educator', icon: UserPlus, label: 'Add Educator' },
+  { value: 'add-live-class', icon: Video, label: 'Add Live Class' },
   { value: 'enrollments', icon: Users, label: 'Enrollments' },
   { value: 'promotions', icon: Megaphone, label: 'Promotions' },
 ];
@@ -447,7 +450,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <Tabs defaultValue={adminNavItems[0].value} className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
              {adminNavItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -458,59 +461,48 @@ export default function AdminDashboardPage() {
               )
             })}
           </TabsList>
-
-          <TabsContent value="manage-content">
-             <Tabs defaultValue="add-course" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2">
-                    <TabsTrigger value="add-course"><PlusCircle className="mr-2 h-4 w-4" /> Add Course</TabsTrigger>
-                    <TabsTrigger value="edit-course"><Edit className="mr-2 h-4 w-4" /> Edit Course</TabsTrigger>
-                    <TabsTrigger value="add-educator"><UserPlus className="mr-2 h-4 w-4" /> Add Educator</TabsTrigger>
-                    <TabsTrigger value="add-live-class"><Video className="mr-2 h-4 w-4" /> Add Live Class</TabsTrigger>
-                </TabsList>
-                <TabsContent value="add-course">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Create a New Course</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <CreateCourseForm />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="edit-course">
-                     <Card>
-                        <CardHeader>
-                            <CardTitle>Edit Existing Course Content</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                           <p>Here you can add PDFs, live classes, notes, and test series to your existing courses.</p>
-                           {/* TODO: Add functionality to list and edit existing courses */}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="add-educator">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Add a New Educator</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <AddEducatorForm />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                 <TabsContent value="add-live-class">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Schedule a New Live Class</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <AddLiveClassForm />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+            
+          <TabsContent value="add-course">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Create a New Course</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <CreateCourseForm />
+                  </CardContent>
+              </Card>
           </TabsContent>
-
+          <TabsContent value="edit-course">
+               <Card>
+                  <CardHeader>
+                      <CardTitle>Edit Existing Course Content</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                     <p>Here you can add PDFs, live classes, notes, and test series to your existing courses.</p>
+                     {/* TODO: Add functionality to list and edit existing courses */}
+                  </CardContent>
+              </Card>
+          </TabsContent>
+          <TabsContent value="add-educator">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Add a New Educator</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <AddEducatorForm />
+                  </CardContent>
+              </Card>
+          </TabsContent>
+           <TabsContent value="add-live-class">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Schedule a New Live Class</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <AddLiveClassForm />
+                  </CardContent>
+              </Card>
+          </TabsContent>
           <TabsContent value="enrollments">
             <Card>
               <CardHeader>
@@ -521,7 +513,6 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
           </TabsContent>
-
           <TabsContent value="promotions">
              <Card>
                 <CardHeader>
@@ -537,5 +528,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
