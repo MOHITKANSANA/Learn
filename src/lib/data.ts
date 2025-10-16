@@ -8,7 +8,16 @@ import {
   Heart,
   Trophy,
   User,
-  Ticket
+  Ticket,
+  Home,
+  Users,
+  FileText,
+  Newspaper,
+  Languages,
+  Rss,
+  Shield,
+  Bot,
+  Swords
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -16,7 +25,6 @@ type DashboardItem = {
   title: string;
   href: string;
   icon: LucideIcon;
-  description: string;
 };
 
 export const dashboardItems: DashboardItem[] = [
@@ -24,57 +32,133 @@ export const dashboardItems: DashboardItem[] = [
     title: 'Courses',
     href: '/courses',
     icon: BookOpenCheck,
-    description: 'Explore our wide range of expert-led courses.',
   },
   {
-    title: 'Book Shala',
-    href: '/book-shala',
+    title: 'E-books',
+    href: '/ebooks',
     icon: Book,
-    description: 'Your one-stop shop for educational books.',
   },
   {
-    title: 'Free Courses',
-    href: '/courses',
-    icon: Ticket,
-    description: 'Access free courses.',
-  },
-  {
-    title: 'Refer & Earn',
-    href: '#',
-    icon: Gift,
-    description: 'Refer friends and earn rewards.',
-  },
-  {
-    title: 'My Library',
-    href: '#',
-    icon: Library,
-    description: 'Your personal collection of content.',
+    title: 'Test Series',
+    href: '/test-series',
+    icon: FileText,
   },
   {
     title: 'Live Classes',
     href: '/live-classes',
     icon: PlaySquare,
-    description: 'Join live classes with top educators.',
+  },
+  {
+    title: 'Previous Papers',
+    href: '/previous-papers',
+    icon: Newspaper,
+  },
+  {
+    title: 'AI Tutor',
+    href: '/ai-tutor',
+    icon: Bot,
+  },
+  {
+    title: 'Book Shala',
+    href: '/book-shala',
+    icon: Library,
+  },
+  {
+    title: 'Battle Quiz',
+    href: '/battle-quiz',
+    icon: Swords,
+  },
+  {
+    title: 'AI Test',
+    href: '/ai-test',
+    icon: Bot,
+  },
+];
+
+
+export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[] = [
+  {
+    title: 'Home',
+    href: '/',
+    icon: Home,
+  },
+  {
+    title: 'My Library',
+    href: '#',
+    icon: Library,
+  },
+  {
+    title: 'Social Media',
+    href: '#',
+    icon: Users,
+  },
+  {
+    title: 'Book Shala',
+    href: '/book-shala',
+    icon: Book,
   },
   {
     title: 'Motivation',
     href: '/motivation',
     icon: Heart,
-    description: 'Get your daily dose of motivation.',
   },
   {
-    title: 'Scholarship',
-    href: '#',
-    icon: Trophy,
-    description: 'Apply for scholarships.',
+    title: 'E-Books',
+    href: '/ebooks',
+    icon: BookOpenCheck,
   },
   {
     title: 'Profile',
     href: '#',
     icon: User,
-    description: 'View and edit your profile.',
   },
+  {
+    title: 'Courses',
+    href: '/courses',
+    icon: BookOpenCheck,
+  },
+  {
+    title: 'Live Classes',
+    href: '/live-classes',
+    icon: PlaySquare,
+  },
+  {
+    title: 'Test Series',
+    href: '/test-series',
+    icon: FileText,
+  },
+  {
+    title: 'Scholarship',
+    href: '#',
+    icon: Trophy,
+  },
+  {
+    title: 'Previous Papers',
+    href: '/previous-papers',
+    icon: Newspaper,
+  },
+  {
+    title: 'News',
+    href: '#',
+    icon: Newspaper,
+  },
+  {
+    title: 'GoLingua',
+    href: '#',
+    icon: Languages,
+  },
+  {
+    title: 'Feed',
+    href: '#',
+    icon: Rss,
+  },
+  {
+      title: 'Admin',
+      href: '/admin',
+      icon: Shield,
+  }
 ];
+
 
 export const promotionItems = [
     {

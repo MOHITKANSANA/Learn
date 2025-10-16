@@ -4,6 +4,8 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { MobileSidebar } from '@/components/layout/mobile-sidebar';
 
 export const metadata: Metadata = {
   title: 'Learn with munedra',
@@ -24,14 +26,17 @@ export default function RootLayout({
       </head>
       <body className="font-body bg-background antialiased h-full">
         <FirebaseClientProvider>
-          <div className="flex flex-col min-h-screen">
-            <Header />
-            <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              {children}
-            </main>
-            <Footer />
-          </div>
-          <Toaster />
+          <SidebarProvider>
+            <div className="flex flex-col min-h-screen">
+              <Header />
+              <MobileSidebar />
+              <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
+                {children}
+              </main>
+              <Footer />
+            </div>
+            <Toaster />
+          </SidebarProvider>
         </FirebaseClientProvider>
       </body>
     </html>

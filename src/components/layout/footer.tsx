@@ -1,11 +1,9 @@
+import { MobileNav } from "./mobile-nav";
+
 export function Footer() {
   return (
-    <footer className="bg-muted/50 mt-auto">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <p className="text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} Learn with munedra. All rights reserved.
-        </p>
-      </div>
+    <footer className="bg-card md:hidden fixed bottom-0 left-0 right-0 border-t">
+        <MobileNav />
     </footer>
   );
 }
