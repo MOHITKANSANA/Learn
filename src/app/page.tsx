@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -5,8 +6,8 @@ import {
   Card,
   CardContent
 } from '@/components/ui/card';
-import { dashboardItems, educators } from '@/lib/data';
-import { useUser } from '@/firebase';
+import { dashboardItems } from '@/lib/data';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { CountdownTimer } from '@/components/countdown-timer';
 import {
@@ -19,10 +20,15 @@ import {
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { collection } from 'firebase/firestore';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const firestore = useFirestore();
+
+  const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
+  const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -80,27 +86,32 @@ export default function Home() {
 
        <section>
         <h2 className="text-xl font-bold mb-4">Our Educators</h2>
-        <Carousel opts={{ align: "start", loop: true }}>
-          <CarouselContent>
-            {educators.map((educator) => (
-              <CarouselItem key={educator.id} className="basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-1/6">
-                <div className="text-center">
-                  <Image
-                    src={educator.image.imageUrl}
-                    alt={educator.name}
-                    width={100}
-                    height={100}
-                    className="rounded-full mx-auto mb-2 border-2 border-primary"
-                    data-ai-hint={educator.image.imageHint}
-                  />
-                  <p className="font-semibold text-sm sm:text-base">{educator.name}</p>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="hidden sm:flex" />
-          <CarouselNext className="hidden sm:flex" />
-        </Carousel>
+        {isLoadingEducators ? (
+          <div className="flex justify-center items-center h-24">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <Carousel opts={{ align: "start", loop: true }}>
+            <CarouselContent>
+              {educators?.map((educator) => (
+                <CarouselItem key={educator.id} className="basis-1/3 sm:basis-1/4 md:basis-1/5 lg:basis-1/6">
+                  <div className="text-center">
+                    <Image
+                      src={educator.imageUrl}
+                      alt={educator.name}
+                      width={100}
+                      height={100}
+                      className="rounded-full mx-auto mb-2 border-2 border-primary"
+                    />
+                    <p className="font-semibold text-sm sm:text-base">{educator.name}</p>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="hidden sm:flex" />
+            <CarouselNext className="hidden sm:flex" />
+          </Carousel>
+        )}
       </section>
 
       <section>

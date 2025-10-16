@@ -210,35 +210,4 @@ export const books = [
   },
 ];
 
-export const educators = [
-  {
-    id: '1',
-    name: 'Arun',
-    image: PlaceHolderImages.find(img => img.id === 'educator-1'),
-  },
-  {
-    id: '2',
-    name: 'Mohit',
-    image: PlaceHolderImages.find(img => img.id === 'educator-2'),
-  },
-  {
-    id: '3',
-    name: 'Priya',
-    image: PlaceHolderImages.find(img => img.id === 'educator-3'),
-  },
-  {
-    id: '4',
-    name: 'Rahul',
-    image: PlaceHolderImages.find(img => img.id === 'educator-4'),
-  },
-    {
-    id: '5',
-    name: 'Aisha',
-    image: PlaceHolderImages.find(img => img.id === 'educator-5'),
-  },
-    {
-    id: '6',
-    name: 'Karan',
-    image: PlaceHolderImages.find(img => img.id === 'educator-6'),
-  },
-];
+    

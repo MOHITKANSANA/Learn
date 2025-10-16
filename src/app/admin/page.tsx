@@ -1,6 +1,10 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
   Book,
   Users,
@@ -8,7 +12,8 @@ import {
   PlusCircle,
   Edit,
   Video,
-  UserPlus
+  UserPlus,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +22,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useToast } from '@/hooks/use-toast';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const adminNavItems = [
   { value: 'manage-content', icon: Book, label: 'Manage Content' },
@@ -48,60 +58,236 @@ function CreateCourseForm() {
     )
 }
 
+const educatorSchema = z.object({
+  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  educatorImage: z.any().refine(files => files?.length == 1, "Image is required."),
+});
+
 function AddEducatorForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const storage = getStorage();
+
+  const form = useForm<z.infer<typeof educatorSchema>>({
+    resolver: zodResolver(educatorSchema),
+    defaultValues: {
+      name: '',
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof educatorSchema>) {
+    setIsSubmitting(true);
+    try {
+      const file = values.educatorImage[0];
+      const storageRef = ref(storage, `educators/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const imageUrl = await getDownloadURL(snapshot.ref);
+
+      const docRef = await addDoc(collection(firestore, 'educators'), {
+        name: values.name,
+        imageUrl: imageUrl,
+        createdAt: serverTimestamp(),
+      });
+
+      await setDoc(doc(firestore, 'educators', docRef.id), { id: docRef.id }, { merge: true });
+
+      toast({
+        title: 'Success!',
+        description: 'Educator added successfully.',
+      });
+      form.reset();
+    } catch (error: any) {
+      console.error("Error adding educator:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to add educator. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-      <div className="space-y-4">
-          <div>
-              <Label htmlFor="educatorName">Educator Name</Label>
-              <Input id="educatorName" placeholder="e.g., Dr. Arun Sharma" />
-          </div>
-           <div>
-              <Label htmlFor="educatorImage">Educator Image</Label>
-              <Input id="educatorImage" type="file" accept="image/*" />
-          </div>
-          <Button>Add Educator</Button>
-      </div>
-  )
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Educator Name</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Dr. Arun Sharma" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="educatorImage"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Educator Image</FormLabel>
+              <FormControl>
+                 <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Add Educator
+        </Button>
+      </form>
+    </Form>
+  );
 }
 
+
+const liveClassSchema = z.object({
+    title: z.string().min(5, { message: "Title must be at least 5 characters." }),
+    description: z.string().optional(),
+    educatorId: z.string().min(1, { message: "Please select an educator." }),
+    startTime: z.string().min(1, { message: "Please select a date and time." }),
+    youtubeUrl: z.string().url({ message: "Please enter a valid YouTube URL." }),
+});
+
+
 function AddLiveClassForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const educatorsQuery = useMemoFirebase(() => collection(firestore, 'educators'), [firestore]);
+  const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
+
+
+  const form = useForm<z.infer<typeof liveClassSchema>>({
+    resolver: zodResolver(liveClassSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      youtubeUrl: '',
+    },
+  });
+
+  async function onSubmit(values: z.infer<typeof liveClassSchema>) {
+    setIsSubmitting(true);
+    try {
+        const docRef = await addDoc(collection(firestore, 'live_classes'), {
+            ...values,
+            startTime: new Date(values.startTime),
+            createdAt: serverTimestamp(),
+        });
+
+        await setDoc(doc(firestore, 'live_classes', docRef.id), { id: docRef.id }, { merge: true });
+
+        toast({
+            title: "Success!",
+            description: "Live class scheduled successfully."
+        });
+        form.reset();
+
+    } catch (error: any) {
+        console.error("Error scheduling live class:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: error.message || "Failed to schedule live class. Please try again."
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
+
   return (
-      <div className="space-y-4">
-          <div>
-              <Label htmlFor="liveClassTitle">Live Class Title</Label>
-              <Input id="liveClassTitle" placeholder="e.g., Live Q&A Session" />
-          </div>
-          <div>
-              <Label htmlFor="liveClassDescription">Description</Label>
-              <Textarea id="liveClassDescription" placeholder="What will be covered in this class?" />
-          </div>
-          <div>
-              <Label htmlFor="educator">Educator</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an educator" />
-                </SelectTrigger>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Live Class Title</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Live Q&A Session" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="What will be covered in this class?" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="educatorId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Educator</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingEducators ? "Loading educators..." : "Select an educator"} />
+                  </SelectTrigger>
+                </FormControl>
                 <SelectContent>
-                  {/* This should be populated dynamically */}
-                  <SelectItem value="arun">Arun</SelectItem>
-                  <SelectItem value="mohit">Mohit</SelectItem>
+                  {!isLoadingEducators && educators?.map(educator => (
+                    <SelectItem key={educator.id} value={educator.id}>{educator.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-          </div>
-           <div>
-              <Label htmlFor="liveClassDate">Date</Label>
-              <Input id="liveClassDate" type="date" />
-          </div>
-          <div>
-              <Label htmlFor="liveClassTime">Time</Label>
-              <Input id="liveClassTime" type="time" />
-          </div>
-           <div>
-              <Label htmlFor="youtubeUrl">YouTube Video URL</Label>
-              <Input id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
-          </div>
-          <Button>Schedule Live Class</Button>
-      </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="startTime"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date & Time</FormLabel>
+              <FormControl>
+                <Input type="datetime-local" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="youtubeUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>YouTube Video URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://www.youtube.com/watch?v=..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Schedule Live Class
+        </Button>
+      </form>
+    </Form>
   )
 }
 
@@ -208,3 +394,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
