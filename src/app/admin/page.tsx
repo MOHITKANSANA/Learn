@@ -1076,7 +1076,13 @@ function AddCouponForm() {
 
     const form = useForm<z.infer<typeof couponSchema>>({
         resolver: zodResolver(couponSchema),
-        defaultValues: { discountType: 'fixed', maxUses: 100 },
+        defaultValues: { 
+            code: '',
+            discountType: 'fixed', 
+            discountValue: 0,
+            expiryDate: '',
+            maxUses: 100 
+        },
     });
 
     async function onSubmit(values: z.infer<typeof couponSchema>) {
