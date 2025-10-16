@@ -507,7 +507,6 @@ export default function AdminDashboardPage() {
                   </CardHeader>
                   <CardContent>
                      <p>Here you can add PDFs, live classes, notes, and test series to your existing courses.</p>
-                     {/* TODO: Add functionality to list and edit existing courses */}
                   </CardContent>
               </Card>
           </TabsContent>
@@ -537,7 +536,7 @@ export default function AdminDashboardPage() {
                 <CardTitle>Enrollments</CardTitle>
               </CardHeader>
               <CardContent>
-                Manage your enrollments here.
+                <p>Manage your enrollments here.</p>
               </CardContent>
             </Card>
           </TabsContent>
