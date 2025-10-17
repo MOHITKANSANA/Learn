@@ -142,9 +142,9 @@ export default function CourseContentPage() {
         
         <Tabs defaultValue="videos" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="videos"><Video className="mr-2"/>Videos ({videos.length})</TabsTrigger>
-                <TabsTrigger value="notes"><FileText className="mr-2"/>Notes ({notes.length})</TabsTrigger>
-                <TabsTrigger value="tests"><BookOpen className="mr-2"/>Test Series ({tests.length})</TabsTrigger>
+                <TabsTrigger value="videos"><Video className="mr-2"/>Videos</TabsTrigger>
+                <TabsTrigger value="notes"><FileText className="mr-2"/>Notes</TabsTrigger>
+                <TabsTrigger value="tests"><BookOpen className="mr-2"/>Test Series</TabsTrigger>
                 <TabsTrigger value="doubts"><MessageSquare className="mr-2"/>Doubts</TabsTrigger>
             </TabsList>
             
