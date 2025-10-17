@@ -336,6 +336,21 @@
         "mobileNumber": { "type": "string" },
         "upiId": { "type": "string" }
       }
+    },
+    "CartItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CartItem",
+      "type": "object",
+      "description": "Represents an item in the user's shopping cart.",
+      "properties": {
+        "id": { "type": "string", "description": "Same as the book ID." },
+        "title": { "type": "string" },
+        "price": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "quantity": { "type": "number" },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "price", "imageUrl", "quantity", "addedAt"]
     }
   },
   "auth": {
@@ -393,6 +408,13 @@
         "definition": {
           "entityName": "Student",
           "schema": { "$ref": "#/backend/entities/Student" }
+        }
+      },
+       {
+        "path": "/users/{studentId}/cart/{bookId}",
+        "definition": {
+          "entityName": "CartItem",
+          "schema": { "$ref": "#/backend/entities/CartItem" }
         }
       },
       {
@@ -468,5 +490,3 @@
     ]
   }
 }
-
-    

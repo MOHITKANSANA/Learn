@@ -1,17 +1,58 @@
+
 'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc, setDoc, getDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ShoppingCart } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BookShalaPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+
   const booksQuery = useMemoFirebase(() => firestore ? collection(firestore, 'books') : null, [firestore]);
   const { data: books, isLoading } = useCollection(booksQuery);
+
+  const handleAddToCart = async (book: any) => {
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Please log in', description: 'You must be logged in to add items to the cart.' });
+      return;
+    }
+
+    const cartItemRef = doc(firestore, `users/${user.uid}/cart`, book.id);
+    
+    try {
+      const docSnap = await getDoc(cartItemRef);
+      if (docSnap.exists()) {
+        // If item already in cart, increment quantity
+        await setDoc(cartItemRef, { quantity: increment(1) }, { merge: true });
+      } else {
+        // If not, add new item to cart
+        await setDoc(cartItemRef, {
+          ...book,
+          quantity: 1,
+          addedAt: serverTimestamp()
+        });
+      }
+      toast({
+        title: 'Added to Cart!',
+        description: `${book.title} has been added to your cart.`,
+      });
+    } catch (error) {
+      console.error("Error adding to cart: ", error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not add item to cart.',
+      });
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -51,7 +92,7 @@ export default function BookShalaPage() {
                  <Button asChild>
                     <Link href={`/book-shala/checkout/${book.id}`}>Buy Now</Link>
                 </Button>
-                <Button variant="secondary" disabled>
+                <Button variant="secondary" onClick={() => handleAddToCart(book)}>
                     <ShoppingCart className="mr-2 h-4 w-4" />
                     Add to Cart
                 </Button>

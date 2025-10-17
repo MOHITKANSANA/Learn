@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,11 +14,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, collection, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import Image from 'next/image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import Link from 'next/link';
 
 const shippingSchema = z.object({
   name: z.string().min(2, 'Full name is required.'),
@@ -30,16 +29,35 @@ const shippingSchema = z.object({
 });
 
 const verificationSchema = z.object({
-  paymentMethod: z.enum(['upi_intent', 'qr']),
-  paymentMobileNumber: z.string().optional(),
-  paymentScreenshot: z.any().optional(),
+    paymentMethod: z.enum(['upi_intent', 'qr']),
+    paymentMobileNumber: z.string().optional(),
+    paymentScreenshot: z.any().optional(),
+}).refine(data => {
+    if (data.paymentMethod === 'qr') {
+        return data.paymentScreenshot?.length > 0 || !!data.paymentMobileNumber;
+    }
+    if (data.paymentMethod === 'upi_intent') {
+        return !!data.paymentMobileNumber;
+    }
+    return true;
+}, {
+    message: 'Please provide either a screenshot or the mobile number for QR payment.',
+    path: ['paymentMethod'],
 });
 
+type CartItem = {
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    verificationCharge?: number;
+    imageUrl?: string;
+};
 
 export default function BookCheckoutPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [book, setBook] = useState<any>(null);
+  const [items, setItems] = useState<CartItem[]>([]);
   const [step, setStep] = useState(1);
   const [shippingData, setShippingData] = useState<z.infer<typeof shippingSchema> | null>(null);
   
@@ -47,24 +65,44 @@ export default function BookCheckoutPage() {
   const { user } = useUser();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const bookId = params.id as string;
 
-  const bookRef = useMemoFirebase(() => {
-    if (!firestore || !bookId) return null;
+  const { data: singleBookData, isLoading: isBookLoading } = useDoc(useMemoFirebase(() => {
+    if (!firestore || bookId === 'cart') return null;
     return doc(firestore, 'books', bookId);
-  }, [firestore, bookId]);
-
-  const { data: bookData, isLoading: isBookLoading } = useDoc(bookRef);
+  }, [firestore, bookId]));
   
   const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
   const { data: settings, isLoading: isLoadingSettings } = useDoc(settingsRef);
 
-
   useEffect(() => {
-    if (bookData) {
-      setBook(bookData);
+    if (bookId === 'cart') {
+      const itemsQuery = searchParams.get('items');
+      if (itemsQuery) {
+        try {
+          const parsedItems = JSON.parse(decodeURIComponent(itemsQuery));
+          setItems(parsedItems);
+        } catch (e) {
+          console.error("Failed to parse cart items from URL");
+          toast({ variant: "destructive", title: "Error", description: "Could not load cart items." });
+          router.push('/cart');
+        }
+      }
+    } else if (singleBookData) {
+      setItems([{ ...singleBookData, quantity: 1 }]);
     }
-  }, [bookData]);
+  }, [bookId, searchParams, singleBookData, router, toast]);
+
+  const { total, verificationCharge, codAmount } = useMemo(() => {
+    const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const totalVerification = items.reduce((acc, item) => acc + ((item.verificationCharge || 5) * item.quantity), 0);
+    return {
+        total: subtotal + totalVerification,
+        verificationCharge: totalVerification,
+        codAmount: subtotal,
+    };
+  }, [items]);
 
   const shippingForm = useForm<z.infer<typeof shippingSchema>>({
     resolver: zodResolver(shippingSchema),
@@ -91,52 +129,58 @@ export default function BookCheckoutPage() {
   };
   
   const upiDeepLink = useMemo(() => {
-    if (!settings?.upiId || !book) return '#';
-    const amount = (book.verificationCharge).toFixed(2);
+    if (!settings?.upiId || !verificationCharge) return '#';
+    const amount = (verificationCharge).toFixed(2);
     const payeeName = "Learn with Munedra";
-    const note = `Order for ${book.title}`;
+    const note = `Order verification for ${items.length} item(s)`;
     return `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
-  }, [settings, book]);
-
+  }, [settings, verificationCharge, items]);
 
   async function handleVerificationSubmit(values: z.infer<typeof verificationSchema>) {
-    if (!user || !firestore || !book || !shippingData) {
+    if (!user || !firestore || items.length === 0 || !shippingData) {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         return;
     }
     
-    if (values.paymentMethod === 'qr' && !values.paymentScreenshot?.[0] && !values.paymentMobileNumber) {
-        return verificationForm.setError('paymentMethod', { message: 'Please upload a screenshot or enter your mobile number.' });
-    }
-     if (values.paymentMethod === 'upi_intent' && !values.paymentMobileNumber) {
-        return verificationForm.setError('paymentMobileNumber', { message: 'Please enter the mobile number you will pay from.' });
-    }
-    
     setIsSubmitting(true);
-
+    
     let screenshotUrl: string | null = null;
     if (values.paymentMethod === 'qr' && values.paymentScreenshot?.[0]) {
         screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
     }
     
-    const orderRef = doc(collection(firestore, 'bookOrders'));
-    const orderData = {
-        id: orderRef.id,
-        bookId: book.id,
-        studentId: user.uid,
-        shippingAddress: shippingData,
-        status: 'pending',
-        paymentMethod: values.paymentMethod === 'qr' 
-            ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
-            : 'upi_intent',
-        paymentScreenshotUrl: screenshotUrl, 
-        paymentMobileNumber: values.paymentMobileNumber || null,
-        orderDate: serverTimestamp(),
-        price: book.price,
-        verificationCharge: book.verificationCharge,
-    };
+    const batch = writeBatch(firestore);
 
-    setDoc(orderRef, orderData)
+    items.forEach(item => {
+        const orderRef = doc(collection(firestore, 'bookOrders'));
+        const orderData = {
+            id: orderRef.id,
+            bookId: item.id,
+            bookTitle: item.title,
+            quantity: item.quantity,
+            studentId: user.uid,
+            shippingAddress: shippingData,
+            status: 'pending',
+            paymentMethod: values.paymentMethod === 'qr' 
+                ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
+                : 'upi_intent',
+            paymentScreenshotUrl: screenshotUrl, 
+            paymentMobileNumber: values.paymentMobileNumber || null,
+            orderDate: serverTimestamp(),
+            price: item.price,
+            verificationCharge: item.verificationCharge || 5,
+        };
+        batch.set(orderRef, orderData);
+    });
+
+    if (bookId === 'cart') {
+        items.forEach(item => {
+            const cartItemRef = doc(firestore, `users/${user.uid}/cart`, item.id);
+            batch.delete(cartItemRef);
+        });
+    }
+
+    batch.commit()
       .then(() => {
           toast({
             title: 'आदेश दिया गया!',
@@ -149,12 +193,7 @@ export default function BookCheckoutPage() {
           }
       })
       .catch(async (serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: orderRef.path,
-            operation: 'create',
-            requestResourceData: orderData,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          console.error("Order failed:", serverError);
           toast({ variant: 'destructive', title: 'त्रुटि', description: 'ऑर्डर देने में विफल।' });
       })
       .finally(() => {
@@ -162,7 +201,7 @@ export default function BookCheckoutPage() {
       });
   }
 
-  if (isBookLoading || !book || isLoadingSettings) {
+  if ((isBookLoading && bookId !== 'cart') || items.length === 0 || isLoadingSettings) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }
 
@@ -173,26 +212,29 @@ export default function BookCheckoutPage() {
           <CardHeader>
             <CardTitle className="font-headline">Order Summary</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <Image src={book.imageUrl} alt={book.title} width={100} height={120} className="rounded-md object-cover" />
-              <div>
-                <h3 className="font-semibold text-lg">{book.title}</h3>
-                <p className="text-muted-foreground">by {book.author}</p>
-              </div>
-            </div>
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between">
-                <span>किताब का मूल्य:</span>
-                <span>₹{book.price.toFixed(2)}</span>
-              </div>
+          <CardContent className="space-y-4">
+            {items.map(item => (
+                <div key={item.id} className="flex items-center gap-4">
+                    <Image src={item.imageUrl || 'https://picsum.photos/seed/book/100/120'} alt={item.title} width={60} height={75} className="rounded-md object-cover" />
+                    <div>
+                        <h3 className="font-semibold text-base">{item.title}</h3>
+                        <p className="text-muted-foreground text-sm">Qty: {item.quantity}</p>
+                    </div>
+                    <p className="ml-auto font-medium">₹{(item.price * item.quantity).toFixed(2)}</p>
+                </div>
+            ))}
+            <div className="mt-4 pt-4 border-t space-y-2">
                <div className="flex justify-between">
                 <span>सत्यापन शुल्क:</span>
-                <span>₹{book.verificationCharge.toFixed(2)}</span>
+                <span>₹{verificationCharge.toFixed(2)}</span>
+              </div>
+               <div className="flex justify-between">
+                <span>कैश ऑन डिलीवरी (COD):</span>
+                <span>₹{codAmount.toFixed(2)}</span>
               </div>
                <div className="flex justify-between font-bold text-lg border-t pt-2">
                 <span>कुल राशि:</span>
-                <span>₹{(book.price + book.verificationCharge).toFixed(2)}</span>
+                <span>₹{total.toFixed(2)}</span>
               </div>
             </div>
           </CardContent>
@@ -204,7 +246,7 @@ export default function BookCheckoutPage() {
           <Card>
             <CardHeader>
               <CardTitle className="font-headline">Shipping Address</CardTitle>
-              <CardDescription>Where should we send your book?</CardDescription>
+              <CardDescription>Where should we send your book(s)?</CardDescription>
             </CardHeader>
             <Form {...shippingForm}>
               <form onSubmit={shippingForm.handleSubmit(handleShippingSubmit)}>
@@ -252,8 +294,8 @@ export default function BookCheckoutPage() {
                     <form onSubmit={verificationForm.handleSubmit(handleVerificationSubmit)}>
                     <CardContent className="space-y-6">
                         <div className="text-sm font-semibold text-center bg-primary/20 p-3 rounded-md border border-primary/30">
-                            <p>आपको अभी केवल ₹{book.verificationCharge.toFixed(2)} का सत्यापन शुल्क देना होगा।</p>
-                            <p className="font-normal text-xs mt-1">बाकी राशि (₹{book.price.toFixed(2)}) कैश ऑन डिलीवरी (COD) है।</p>
+                            <p>आपको अभी केवल ₹{verificationCharge.toFixed(2)} का सत्यापन शुल्क देना होगा।</p>
+                            <p className="font-normal text-xs mt-1">बाकी राशि (₹{codAmount.toFixed(2)}) कैश ऑन डिलीवरी (COD) है।</p>
                         </div>
                         
                         <FormField
@@ -313,7 +355,7 @@ export default function BookCheckoutPage() {
                              {settings?.qrCodeImageUrl && (
                                 <div className='flex flex-col items-center gap-2'>
                                     <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
-                                    <p className="text-xs text-muted-foreground text-center">इस QR कोड को स्कैन करके ₹{book.verificationCharge.toFixed(2)} का भुगतान करें।</p>
+                                    <p className="text-xs text-muted-foreground text-center">इस QR कोड को स्कैन करके ₹{verificationCharge.toFixed(2)} का भुगतान करें।</p>
                                 </div>
                             )}
                              <FormField
@@ -353,8 +395,7 @@ export default function BookCheckoutPage() {
                                </Button>
                           </div>
                         )}
-                        {verificationForm.formState.errors.root && <p className="text-sm font-medium text-destructive">{verificationForm.formState.errors.root.message}</p>}
-                        {verificationForm.formState.errors.paymentMethod && <p className="text-sm font-medium text-destructive">{verificationForm.formState.errors.paymentMethod.message}</p>}
+                        <FormMessage>{verificationForm.formState.errors.paymentMethod?.message}</FormMessage>
 
                     </CardContent>
                     <CardFooter className="flex-col gap-4">

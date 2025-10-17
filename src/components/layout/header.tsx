@@ -13,17 +13,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/ui/sidebar';
+import { collection, query } from 'firebase/firestore';
 
 export function Header() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
 
+  const cartQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, `users/${user.uid}/cart`));
+  }, [firestore, user]);
+  const { data: cartItems } = useCollection(cartQuery);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -45,9 +52,16 @@ export function Header() {
             </Link>
           </div>
           <div className="flex items-center gap-4">
-             <Button variant="ghost" size="icon">
-                <ShoppingCart className="h-6 w-6" />
-                <span className="sr-only">Shopping Cart</span>
+             <Button asChild variant="ghost" size="icon" className="relative">
+                <Link href="/cart">
+                  <ShoppingCart className="h-6 w-6" />
+                   {cartItems && cartItems.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                      {cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0)}
+                    </span>
+                  )}
+                  <span className="sr-only">Shopping Cart</span>
+                </Link>
               </Button>
             {isUserLoading ? (
               <Avatar className="cursor-pointer h-9 w-9">

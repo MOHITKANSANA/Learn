@@ -1,15 +1,17 @@
-import { BookCheckoutForm } from '@/components/book-checkout-form';
 
-export default function CheckoutPage() {
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold font-headline">Checkout</h1>
-        <p className="text-muted-foreground mt-2">
-          Complete your purchase by filling out the details below.
-        </p>
-      </div>
-      <BookCheckoutForm />
-    </div>
-  );
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
+export default function CheckoutRedirectPage() {
+    const router = useRouter();
+    useEffect(() => {
+        // This page is a general fallback. In a real app, you might check for a cart
+        // in local storage and redirect to the cart page if it exists.
+        // For now, we'll just redirect to the main book-shala page.
+        router.replace('/book-shala');
+    }, [router]);
+
+    return null; // Render nothing while redirecting
 }
