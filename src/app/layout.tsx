@@ -52,7 +52,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="relative flex min-h-screen flex-col">
         <Header />
         <MobileSidebar />
-        <main className="flex-1">
+        <main>
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8 h-full">
             {children}
           </div>
