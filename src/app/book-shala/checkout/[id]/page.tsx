@@ -27,7 +27,7 @@ const shippingSchema = z.object({
 });
 
 const verificationSchema = z.object({
-    transactionId: z.string().min(12, 'Please enter a valid 12-digit UPI Transaction ID.').max(12, 'UPI Transaction ID must be 12 digits.'),
+    paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
 });
 
 type CartItem = {
@@ -96,7 +96,7 @@ export default function BookCheckoutPage() {
 
   const verificationForm = useForm<z.infer<typeof verificationSchema>>({
     resolver: zodResolver(verificationSchema),
-    defaultValues: { transactionId: '' }
+    defaultValues: { paymentMobileNumber: '' }
   });
   
   const handleShippingSubmit = (values: z.infer<typeof shippingSchema>) => {
@@ -124,8 +124,8 @@ export default function BookCheckoutPage() {
             studentId: user.uid,
             shippingAddress: shippingData,
             status: 'pending',
-            paymentMethod: 'qr_transaction_id',
-            transactionId: values.transactionId,
+            paymentMethod: 'qr_mobile_number',
+            paymentMobileNumber: values.paymentMobileNumber,
             orderDate: serverTimestamp(),
             price: item.price,
             verificationCharge: item.verificationCharge || 5,
@@ -261,12 +261,12 @@ export default function BookCheckoutPage() {
 
                         <FormField
                           control={verificationForm.control}
-                          name="transactionId"
+                          name="paymentMobileNumber"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>2. अपनी 12 अंकों की UPI ट्रांज़ैक्शन आईडी दर्ज करें</FormLabel>
+                              <FormLabel>2. अपना 10 अंकों का UPI मोबाइल नंबर दर्ज करें</FormLabel>
                               <FormControl>
-                                <Input placeholder="12-Digit Transaction ID" {...field} maxLength={12} />
+                                <Input type="tel" placeholder="10-Digit Mobile Number" {...field} maxLength={10} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -291,5 +291,3 @@ export default function BookCheckoutPage() {
     </div>
   );
 }
-
-    

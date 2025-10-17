@@ -76,7 +76,7 @@ export default function CreatePostPage() {
     }
 
     const postRef = doc(collection(firestore, 'feed_posts'));
-    const postData = {
+    const postData: any = {
       id: postRef.id,
       authorId: user.uid,
       authorName: user.displayName || 'Anonymous',
@@ -84,11 +84,16 @@ export default function CreatePostPage() {
       content: values.content,
       imageUrl: imageUrl,
       type: values.type,
-      pollOptions: values.type === 'poll' ? values.pollOptions?.map(opt => ({ ...opt, votes: 0 })) : [],
       likes: [],
       createdAt: serverTimestamp(),
     };
     
+    if (values.type === 'poll') {
+        postData.pollOptions = values.pollOptions?.map(opt => ({ ...opt, votes: 0 }));
+        postData.votes = {}; // To store user votes
+    }
+
+
     setDoc(postRef, postData)
         .then(() => {
             toast({ title: 'Success', description: 'Your post has been published.' });

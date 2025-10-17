@@ -753,9 +753,9 @@ function AddLiveClassForm() {
 function ManageEnrollments() {
   const firestore = useFirestore();
   const enrollmentsQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'enrollments'), where('isApproved', '==', false)) : null
+    firestore ? query(collection(firestore, 'enrollments'), where('isApproved', '==', false), orderBy('enrollmentDate', 'desc')) : null
   , [firestore]);
-  const { data: enrollments, isLoading } = useCollection(enrollmentsQuery);
+  const { data: enrollments, isLoading, forceRefresh } = useCollection(enrollmentsQuery);
   const { toast } = useToast();
 
   const handleApproval = async (enrollmentId: string, approve: boolean) => {
@@ -770,6 +770,7 @@ function ManageEnrollments() {
     updateDoc(enrollmentRef, updatedData)
       .then(() => {
         toast({ title: 'Success', description: `Enrollment ${approve ? 'approved' : 'rejected'}.` });
+        forceRefresh();
       })
       .catch(async (serverError) => {
           const permissionError = new FirestorePermissionError({
@@ -796,6 +797,7 @@ function ManageEnrollments() {
             <CardContent className="space-y-2">
               <p>Student ID: {enrollment.studentId}</p>
               <p>Item Type: {enrollment.itemType}</p>
+              <p>Payment Mobile: {enrollment.paymentMobileNumber || 'N/A'}</p>
               {enrollment.paymentScreenshotUrl && (
                 <Link href={enrollment.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                   View Screenshot
@@ -1007,7 +1009,7 @@ function AddBookForm() {
 
 function ManageBookOrders() {
     const firestore = useFirestore();
-    const ordersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bookOrders')) : null, [firestore]);
+    const ordersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bookOrders'), orderBy('orderDate', 'desc')) : null, [firestore]);
     const { data: orders, isLoading, forceRefresh } = useCollection(ordersQuery);
     const { toast } = useToast();
     const [editingOrder, setEditingOrder] = useState<any>(null);
@@ -1048,12 +1050,9 @@ function ManageBookOrders() {
 
     if (isLoading) return <div className="flex justify-center items-center"><Loader2 className="animate-spin" /></div>;
     
-    const sortedOrders = orders ? [...orders].sort((a, b) => b.orderDate.seconds - a.orderDate.seconds) : [];
-
-
     return (
         <div className="space-y-4">
-            {sortedOrders && sortedOrders.length > 0 ? sortedOrders.map(order => (
+            {orders && orders.length > 0 ? orders.map(order => (
                 <Card key={order.id}>
                     <CardHeader>
                         <CardTitle>Order #{order.id.substring(0, 6)}</CardTitle>
@@ -1064,6 +1063,7 @@ function ManageBookOrders() {
                         <p><strong>Book ID:</strong> {order.bookId}</p>
                          <p><strong>Shipping To:</strong> {order.shippingAddress.name}, {order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.zipCode}</p>
                         <p><strong>Mobile:</strong> {order.shippingAddress.mobile}</p>
+                        <p><strong>Payment Mobile:</strong> {order.paymentMobileNumber || 'N/A'}</p>
                         {order.paymentScreenshotUrl && (
                           <Link href={order.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Payment Screenshot</Link>
                         )}

@@ -155,8 +155,9 @@
         "itemId": { "type": "string" },
         "itemType": { "type": "string", "enum": ["course", "ebook", "testSeries", "previous-year-paper"] },
         "enrollmentDate": { "type": "string", "format": "date-time" },
-        "transactionId": { "type": "string" },
-        "paymentMethod": { "type": "string", "enum": ["qr_transaction_id"] },
+        "transactionId": { "type": "string", "description": "Optional: UPI transaction ID" },
+        "paymentMobileNumber": { "type": "string", "description": "Mobile number used for payment verification" },
+        "paymentMethod": { "type": "string", "enum": ["qr_mobile_number"] },
         "isApproved": { "type": "boolean" }
       },
       "required": ["id", "studentId", "itemId", "itemType", "enrollmentDate"]
@@ -226,8 +227,9 @@
           "required": ["name", "address", "city", "state", "zipCode", "mobile"]
         },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected", "shipped"] },
-        "transactionId": { "type": "string" },
-        "paymentMethod": { "type": "string", "enum": ["qr_transaction_id"] },
+        "transactionId": { "type": "string", "description": "Optional: UPI transaction ID" },
+        "paymentMobileNumber": { "type": "string", "description": "Mobile number used for payment verification" },
+        "paymentMethod": { "type": "string", "enum": ["qr_mobile_number"] },
         "orderDate": { "type": "string", "format": "date-time" },
         "tentativeDeliveryDate": { "type": "string", "format": "date" },
         "trackingLink": { "type": "string" }
@@ -287,6 +289,7 @@
             "required": ["text", "votes"]
           }
         },
+        "votes": { "type": "object", "description": "Stores which user voted for which option index." },
         "likes": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -464,6 +467,13 @@
           "schema": { "$ref": "#/backend/entities/FeedPost" }
         }
       },
+      {
+        "path": "/feed_posts/{postId}/comments/{commentId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": { "$ref": "#/backend/entities/ChatMessage" }
+        }
+      },
        {
         "path": "/video_notes/{noteId}",
         "definition": {
@@ -488,5 +498,3 @@
     ]
   }
 }
-
-    

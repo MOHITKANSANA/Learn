@@ -17,7 +17,7 @@ import Image from 'next/image';
 
 const checkoutSchema = z.object({
   couponCode: z.string().optional(),
-  transactionId: z.string().min(12, 'Please enter a valid 12-digit UPI Transaction ID.').max(12, 'UPI Transaction ID must be 12 digits.'),
+  paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
 });
 
 
@@ -69,7 +69,7 @@ export default function CheckoutPage() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
         couponCode: '',
-        transactionId: '',
+        paymentMobileNumber: '',
     }
   });
 
@@ -131,12 +131,15 @@ export default function CheckoutPage() {
     }
 
     const enrollmentsRef = collection(firestore, 'enrollments');
-    const q = query(enrollmentsRef, where('studentId', '==', user.uid), where('itemId', '==', item.id), where('isApproved', '==', false));
+    const q = query(enrollmentsRef, where('studentId', '==', user.uid), where('itemId', '==', item.id));
     const existingEnrollments = await getDocs(q);
 
     if (!existingEnrollments.empty) {
-        toast({ variant: 'destructive', title: 'Already Requested', description: 'You have already submitted a payment request for this item. Please wait for approval.' });
-        return;
+        const hasPendingOrApproved = existingEnrollments.docs.some(doc => doc.data().isApproved === false || doc.data().isApproved === true);
+        if (hasPendingOrApproved) {
+            toast({ variant: 'destructive', title: 'Already Requested', description: 'You have already submitted a payment request for this item. Please wait for approval.' });
+            return;
+        }
     }
     
     setIsSubmitting(true);
@@ -152,8 +155,8 @@ export default function CheckoutPage() {
         pricePaid: finalPrice,
         couponUsed: appliedCoupon ? appliedCoupon.code : null,
         enrollmentDate: serverTimestamp(),
-        paymentMethod: 'qr_transaction_id',
-        transactionId: values.transactionId,
+        paymentMethod: 'qr_mobile_number',
+        paymentMobileNumber: values.paymentMobileNumber,
         isApproved: false,
     };
 
@@ -171,7 +174,7 @@ export default function CheckoutPage() {
             title: 'Payment Request Sent!',
             description: 'Your enrollment is pending approval. We will notify you shortly.',
         });
-        router.push('/my-library');
+        router.push('/my-orders');
 
     } catch (error) {
         console.error("Error placing order: ", error);
@@ -259,12 +262,12 @@ export default function CheckoutPage() {
 
                 <FormField
                   control={form.control}
-                  name="transactionId"
+                  name="paymentMobileNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>2. Enter your 12-digit UPI Transaction ID</FormLabel>
+                      <FormLabel>2. Enter your 10-digit UPI Mobile Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="12-Digit Transaction ID" {...field} maxLength={12} />
+                        <Input type="tel" placeholder="10-Digit Mobile Number" {...field} maxLength={10} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -284,5 +287,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
-    
