@@ -21,7 +21,20 @@ import Link from 'next/link';
 
 const checkoutSchema = z.object({
   couponCode: z.string().optional(),
-  transactionId: z.string().min(10, 'Please enter a valid 12-digit Transaction ID.'),
+  paymentMethod: z.enum(['upi_intent', 'qr']),
+  paymentMobileNumber: z.string().optional(),
+  paymentScreenshot: z.any().optional(),
+}).refine(data => {
+    if (data.paymentMethod === 'qr' && !data.paymentScreenshot && !data.paymentMobileNumber) {
+        return false;
+    }
+    if (data.paymentMethod === 'upi_intent' && !data.paymentMobileNumber) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Please provide a verification method.",
+    path: ['paymentMethod']
 });
 
 
@@ -73,9 +86,11 @@ export default function CheckoutPage() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
         couponCode: '',
-        transactionId: '',
+        paymentMethod: 'upi_intent',
     }
   });
+  
+  const paymentMethod = form.watch('paymentMethod');
 
   const upiDeepLink = useMemo(() => {
     if (!settings?.upiId || finalPrice === null) return '#';
@@ -136,12 +151,24 @@ export default function CheckoutPage() {
     }
   };
   
+    const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+  
   async function onSubmit(values: z.infer<typeof checkoutSchema>) {
     if (!user || !firestore || !item) {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
         return;
     }
     setIsSubmitting(true);
+
+    let screenshotUrl: string | null = null;
+    if (values.paymentMethod === 'qr' && values.paymentScreenshot?.[0]) {
+        screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
+    }
 
     try {
         const enrollmentRef = doc(collection(firestore, 'enrollments'));
@@ -155,8 +182,9 @@ export default function CheckoutPage() {
             pricePaid: finalPrice,
             couponUsed: appliedCoupon ? appliedCoupon.code : null,
             enrollmentDate: serverTimestamp(),
-            paymentScreenshotUrl: null, // No longer used
-            transactionId: values.transactionId,
+            paymentMethod: values.paymentMethod,
+            paymentScreenshotUrl: screenshotUrl,
+            paymentMobileNumber: values.paymentMobileNumber || null,
             isApproved: false,
         };
 
@@ -255,31 +283,96 @@ export default function CheckoutPage() {
                     <p className="font-semibold"> कृपया ₹{(finalPrice ?? item.price).toFixed(2)} का भुगतान करें और सत्यापित करें।</p>
                 </div>
                 
-                 <div className="flex flex-col items-center gap-4">
-                    <Button asChild className='w-full'>
-                        <Link href={upiDeepLink}>Pay with UPI App</Link>
-                    </Button>
-                    {settings?.qrCodeImageUrl && (
+                <FormField
+                  control={form.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel className="font-bold">Select Verification Method:</FormLabel>
+                      <FormControl>
+                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="upi_intent" /></FormControl>
+                            <FormLabel className="font-normal">Pay with UPI App (Recommended)</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="qr" /></FormControl>
+                            <FormLabel className="font-normal">Pay with QR Code</FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {paymentMethod === 'upi_intent' && (
+                    <div className="space-y-4">
+                        <FormField
+                        control={form.control}
+                        name="paymentMobileNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Your UPI Mobile Number</FormLabel>
+                            <FormControl>
+                                <div className="flex items-center">
+                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
+                                <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                        <Button asChild className='w-full'>
+                            <Link href={upiDeepLink}>Proceed to Pay</Link>
+                        </Button>
+                    </div>
+                )}
+                
+                {paymentMethod === 'qr' && (
+                  <div className="space-y-4">
+                     {settings?.qrCodeImageUrl && (
                         <div className='flex flex-col items-center gap-2'>
                             <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
-                            <p className="text-xs text-muted-foreground">या QR कोड स्कैन करें</p>
+                            <p className="text-xs text-muted-foreground text-center">Scan this QR to pay ₹{(finalPrice ?? item.price).toFixed(2)}</p>
                         </div>
                     )}
-                 </div>
-                
-                <FormField
-                    control={form.control}
-                    name="transactionId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>UPI Transaction ID</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Enter 12-digit ID after payment" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                     <FormField
+                        control={form.control}
+                        name="paymentScreenshot"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>1. Upload Screenshot</FormLabel>
+                            <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
+                      </div>
+                       <FormField
+                        control={form.control}
+                        name="paymentMobileNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>2. Enter Mobile Number</FormLabel>
+                             <FormControl>
+                                <div className="flex items-center">
+                                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
+                                    <Input type="tel" placeholder="Number you paid from" {...field} className="rounded-l-none" />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                  </div>
+                )}
+                {form.formState.errors.paymentMethod && <p className="text-sm font-medium text-destructive">{form.formState.errors.paymentMethod.message}</p>}
+
               </CardContent>
               <CardFooter>
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -294,3 +387,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+    

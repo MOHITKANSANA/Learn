@@ -30,7 +30,10 @@ const shippingSchema = z.object({
 });
 
 const verificationSchema = z.object({
-  transactionId: z.string().min(10, 'Please enter a valid Transaction ID.'),
+  paymentMethod: z.enum(['upi_intent', 'qr']),
+  transactionId: z.string().optional(),
+  paymentMobileNumber: z.string().optional(),
+  paymentScreenshot: z.any().optional(),
 });
 
 
@@ -71,7 +74,16 @@ export default function BookCheckoutPage() {
 
   const verificationForm = useForm<z.infer<typeof verificationSchema>>({
     resolver: zodResolver(verificationSchema),
-    defaultValues: { transactionId: '' }
+    defaultValues: { paymentMethod: 'upi_intent' }
+  });
+  
+  const paymentMethod = verificationForm.watch('paymentMethod');
+
+  const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+    reader.readAsDataURL(file);
   });
 
   const handleShippingSubmit = (values: z.infer<typeof shippingSchema>) => {
@@ -93,8 +105,20 @@ export default function BookCheckoutPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred. Please try again.' });
         return;
     }
+    
+    if (values.paymentMethod === 'qr') {
+        if (!values.paymentScreenshot && !values.paymentMobileNumber) {
+            return verificationForm.setError('root', { message: 'Please upload a screenshot or enter your mobile number.' });
+        }
+    }
+    
     setIsSubmitting(true);
 
+    let screenshotUrl: string | null = null;
+    if (values.paymentMethod === 'qr' && values.paymentScreenshot?.[0]) {
+        screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
+    }
+    
     const orderRef = doc(collection(firestore, 'bookOrders'));
     const orderData = {
         id: orderRef.id,
@@ -102,8 +126,9 @@ export default function BookCheckoutPage() {
         studentId: user.uid,
         shippingAddress: shippingData,
         status: 'pending', // Initial status
-        paymentScreenshotUrl: null, // No longer using screenshot
-        transactionId: values.transactionId,
+        paymentMethod: values.paymentMethod,
+        paymentScreenshotUrl: screenshotUrl, 
+        paymentMobileNumber: values.paymentMobileNumber || null,
         orderDate: serverTimestamp(),
         price: book.price,
         verificationCharge: book.verificationCharge,
@@ -225,34 +250,99 @@ export default function BookCheckoutPage() {
                             <p className="font-normal text-xs mt-1">बाकी राशि (₹{book.price.toFixed(2)}) कैश ऑन डिलीवरी (COD) है।</p>
                         </div>
                         
-                        <div className="flex flex-col items-center gap-4">
+                        <FormField
+                          control={verificationForm.control}
+                          name="paymentMethod"
+                          render={({ field }) => (
+                            <FormItem className="space-y-3">
+                              <FormLabel className="font-bold">Select Verification Method:</FormLabel>
+                              <FormControl>
+                                <RadioGroup
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                  className="flex flex-col space-y-2"
+                                >
+                                  <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl><RadioGroupItem value="upi_intent" /></FormControl>
+                                    <FormLabel className="font-normal">Pay with UPI App</FormLabel>
+                                  </FormItem>
+                                  <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl><RadioGroupItem value="qr" /></FormControl>
+                                    <FormLabel className="font-normal">Pay with QR Code</FormLabel>
+                                  </FormItem>
+                                </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {paymentMethod === 'upi_intent' && (
+                          <div className="space-y-4">
+                             <FormField
+                              control={verificationForm.control}
+                              name="paymentMobileNumber"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Your UPI Mobile Number</FormLabel>
+                                  <FormControl>
+                                    <div className="flex items-center">
+                                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
+                                      <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" />
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                             <Button asChild className='w-full'>
-                                <Link href={upiDeepLink}>Pay with UPI App</Link>
+                                <Link href={upiDeepLink}>Proceed to Pay</Link>
                             </Button>
-                            {settings?.qrCodeImageUrl && (
+                          </div>
+                        )}
+
+                        {paymentMethod === 'qr' && (
+                          <div className="space-y-4">
+                             {settings?.qrCodeImageUrl && (
                                 <div className='flex flex-col items-center gap-2'>
                                     <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
-                                    <p className="text-xs text-muted-foreground">या QR कोड स्कैन करें</p>
+                                    <p className="text-xs text-muted-foreground text-center">इस QR कोड को स्कैन करके ₹{book.verificationCharge.toFixed(2)} का भुगतान करें।</p>
                                 </div>
                             )}
-                        </div>
-
-                        <FormField
-                            control={verificationForm.control}
-                            name="transactionId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>UPI Transaction ID</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="Enter 12-digit Transaction ID"
-                                            {...field}
-                                        />
+                             <FormField
+                                control={verificationForm.control}
+                                name="paymentScreenshot"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>1. Upload Screenshot</FormLabel>
+                                    <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <div className="relative">
+                                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
+                              </div>
+                               <FormField
+                                control={verificationForm.control}
+                                name="paymentMobileNumber"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>2. Enter Mobile Number</FormLabel>
+                                     <FormControl>
+                                        <div className="flex items-center">
+                                            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
+                                            <Input type="tel" placeholder="जिस नंबर से भुगतान किया है" {...field} className="rounded-l-none" />
+                                        </div>
                                     </FormControl>
                                     <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                  </FormItem>
+                                )}
+                              />
+                          </div>
+                        )}
+                        {verificationForm.formState.errors.root && <p className="text-sm font-medium text-destructive">{verificationForm.formState.errors.root.message}</p>}
                     </CardContent>
                     <CardFooter className="flex-col gap-4">
                         <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -270,3 +360,5 @@ export default function BookCheckoutPage() {
     </div>
   );
 }
+
+    
