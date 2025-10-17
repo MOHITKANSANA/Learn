@@ -37,7 +37,8 @@ import {
   Gift,
   PlaySquare,
   Library,
-  Bot
+  Bot,
+  Rss
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,6 +85,7 @@ const adminNavItems = [
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
   { value: 'manage-content', icon: List, label: 'Manage Content' },
   { value: 'app-settings', icon: Settings, label: 'App Settings' },
+  { value: 'vidya-search-admin', icon: Bot, label: 'Vidya Search Admin' },
 ];
 
 const courseSchema = z.object({
@@ -753,7 +755,7 @@ function AddLiveClassForm() {
 function ManageEnrollments() {
   const firestore = useFirestore();
   const enrollmentsQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'enrollments'), where('isApproved', '==', false), orderBy('enrollmentDate', 'desc')) : null
+    firestore ? query(collection(firestore, 'enrollments'), where('isApproved', '==', false)) : null
   , [firestore]);
   const { data: enrollments, isLoading, forceRefresh } = useCollection(enrollmentsQuery);
   const { toast } = useToast();
@@ -798,11 +800,7 @@ function ManageEnrollments() {
               <p>Student ID: {enrollment.studentId}</p>
               <p>Item Type: {enrollment.itemType}</p>
               <p>Payment Mobile: {enrollment.paymentMobileNumber || 'N/A'}</p>
-              {enrollment.paymentScreenshotUrl && (
-                <Link href={enrollment.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                  View Screenshot
-                </Link>
-              )}
+              {enrollment.transactionId && <p>Transaction ID: {enrollment.transactionId}</p>}
             </CardContent>
             <CardContent className="flex gap-4">
               <Button onClick={() => handleApproval(enrollment.id, true)}>Approve</Button>
@@ -1064,9 +1062,7 @@ function ManageBookOrders() {
                          <p><strong>Shipping To:</strong> {order.shippingAddress.name}, {order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.zipCode}</p>
                         <p><strong>Mobile:</strong> {order.shippingAddress.mobile}</p>
                         <p><strong>Payment Mobile:</strong> {order.paymentMobileNumber || 'N/A'}</p>
-                        {order.paymentScreenshotUrl && (
-                          <Link href={order.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Payment Screenshot</Link>
-                        )}
+                        {order.transactionId && <p>Transaction ID: {order.transactionId}</p>}
                     </CardContent>
                     <CardContent className="flex gap-2 flex-wrap">
                         {order.status === 'pending' && (
@@ -1727,6 +1723,23 @@ function AppSettingsForm() {
 }
 
 
+function VidyaSearchAdmin() {
+  const { toast } = useToast();
+  return (
+    <div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Vidya Search Admin</CardTitle>
+          <CardDescription>Manage custom links and data for Vidya Search.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>Feature under development. Here you will be able to add custom links and responses that Vidya Search will prioritize.</p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('add-course');
   
@@ -1760,6 +1773,8 @@ export default function AdminDashboardPage() {
         return <ManageContent />;
       case 'app-settings':
         return <Card><CardHeader><CardTitle>App Settings</CardTitle></CardHeader><CardContent className="pt-6"><AppSettingsForm /></CardContent></Card>;
+       case 'vidya-search-admin':
+        return <VidyaSearchAdmin />;
       default:
         return null;
     }
