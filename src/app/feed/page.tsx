@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Rss, ImagePlus, ThumbsUp, MessageSquare, PlusCircle, Send } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, query, orderBy, increment, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, query, orderBy, increment, writeBatch, getDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -91,11 +91,10 @@ function CommentSection({ post }: { post: any }) {
 }
 
 
-function PollSection({ post }: { post: any }) {
+function PollSection({ post, forceRefresh }: { post: any, forceRefresh: () => void }) {
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [isVoting, setIsVoting] = useState(false);
 
     const userVote = post.votes?.[user?.uid || ''];
@@ -106,23 +105,29 @@ function PollSection({ post }: { post: any }) {
         setIsVoting(true);
 
         const postRef = doc(firestore, 'feed_posts', post.id);
-        const batch = writeBatch(firestore);
-
-        // Atomically update the vote count and the user's vote record
-        const newPollOptions = [...post.pollOptions];
-        newPollOptions[optionIndex] = {
-            ...newPollOptions[optionIndex],
-            votes: increment(1)
-        };
-        
-        batch.update(postRef, {
-            pollOptions: newPollOptions,
-            [`votes.${user.uid}`]: optionIndex
-        });
 
         try {
-            await batch.commit();
+            const currentPostDoc = await getDoc(postRef);
+            if (!currentPostDoc.exists()) {
+                toast({ variant: "destructive", title: "Error", description: "Post not found." });
+                return;
+            }
+
+            const currentPostData = currentPostDoc.data();
+            const newPollOptions = [...currentPostData.pollOptions];
+            
+            // Ensure the vote count is a number before incrementing
+            newPollOptions[optionIndex].votes = (newPollOptions[optionIndex].votes || 0) + 1;
+
+            const newVotes = { ...currentPostData.votes, [user.uid]: optionIndex };
+            
+            await updateDoc(postRef, {
+                pollOptions: newPollOptions,
+                votes: newVotes,
+            });
+            
             toast({ title: "Vote Cast!", description: "Your vote has been recorded." });
+            forceRefresh(); // Force a refresh of the post data from the parent
         } catch (error) {
             console.error("Error casting vote: ", error);
             toast({ variant: 'destructive', title: "Error", description: "Could not cast your vote." });
@@ -166,7 +171,7 @@ function PollSection({ post }: { post: any }) {
     );
 }
 
-function PostCard({ post }: { post: any }) {
+function PostCard({ post, forceRefresh }: { post: any, forceRefresh: () => void }) {
     const { user } = useUser();
     const firestore = useFirestore();
     const [showComments, setShowComments] = useState(false);
@@ -177,6 +182,7 @@ function PostCard({ post }: { post: any }) {
         const postRef = doc(firestore, 'feed_posts', post.id);
         const newLikes = post.likes?.includes(user.uid) ? arrayRemove(user.uid) : arrayUnion(user.uid);
         await updateDoc(postRef, { likes: newLikes });
+        forceRefresh();
     };
 
     const isLiked = user && post.likes?.includes(user.uid);
@@ -210,7 +216,7 @@ function PostCard({ post }: { post: any }) {
                         />
                     </div>
                  )}
-                 {post.type === 'poll' && <PollSection post={post} />}
+                 {post.type === 'poll' && <PollSection post={post} forceRefresh={forceRefresh} />}
             </CardContent>
             <CardFooter className="flex justify-between items-center border-t pt-2 pb-2">
                 <Button variant="ghost" onClick={handleLike} className={`${isLiked ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -233,7 +239,7 @@ export default function FeedPage() {
         firestore ? query(collection(firestore, 'feed_posts'), orderBy('createdAt', 'desc')) : null,
         [firestore]
     );
-    const { data: posts, isLoading } = useCollection(postsQuery);
+    const { data: posts, isLoading, forceRefresh } = useCollection(postsQuery);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -257,7 +263,7 @@ export default function FeedPage() {
       ) : (
         <div className="space-y-6">
             {posts && posts.length > 0 ? (
-                posts.map(post => <PostCard key={post.id} post={post} />)
+                posts.map(post => <PostCard key={post.id} post={post} forceRefresh={forceRefresh} />)
             ) : (
                 <p className="text-center text-muted-foreground py-10">The feed is empty. Be the first to post!</p>
             )}
