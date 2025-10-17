@@ -1,6 +1,10 @@
+'use client';
+import { useActionState } from 'react';
 import { AITutorForm } from '@/components/ai-tutor-form';
+import { askTutor } from './actions';
 
 export default function AITutorPage() {
+  const [state, formAction] = useActionState(askTutor, {});
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -9,7 +13,7 @@ export default function AITutorPage() {
           Ask any question on any subject and get an instant answer from your personal AI tutor.
         </p>
       </div>
-      <AITutorForm />
+      <AITutorForm state={state} formAction={formAction} />
     </div>
   );
 }

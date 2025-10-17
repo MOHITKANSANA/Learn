@@ -1,7 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
-import { askTutor } from '@/app/ai-tutor/actions';
+import { useFormStatus } from 'react-dom';
+import type { State as AITutorState } from '@/app/ai-tutor/actions';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,8 +27,13 @@ function SubmitButton() {
   );
 }
 
-export function AITutorForm() {
-  const [state, formAction] = useFormState(askTutor, {});
+interface AITutorFormProps {
+    state: AITutorState;
+    formAction: (payload: FormData) => void;
+}
+
+
+export function AITutorForm({ state, formAction }: AITutorFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {

@@ -1,6 +1,12 @@
+'use client';
+
+import { useActionState } from 'react';
 import { AITestForm } from '@/components/ai-test-form';
+import { generateTest } from './actions';
 
 export default function AITestPage() {
+  const [state, formAction] = useActionState(generateTest, {});
+
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -9,7 +15,7 @@ export default function AITestPage() {
           Create a practice test on any subject to challenge your knowledge.
         </p>
       </div>
-      <AITestForm />
+      <AITestForm state={state} formAction={formAction} />
     </div>
   );
 }

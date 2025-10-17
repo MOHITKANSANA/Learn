@@ -1,7 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
-import { generateTest } from '@/app/ai-test/actions';
+import { useFormStatus } from 'react-dom';
+import type { State as AITestState } from '@/app/ai-test/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,9 +27,12 @@ function SubmitButton() {
   );
 }
 
-export function AITestForm() {
-  const [state, formAction] = useFormState(generateTest, {});
+interface AITestFormProps {
+    state: AITestState;
+    formAction: (payload: FormData) => void;
+}
 
+export function AITestForm({ state, formAction }: AITestFormProps) {
   return (
     <div className="space-y-6">
       <Card>
