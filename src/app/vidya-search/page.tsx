@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useActionState } from 'react';
@@ -7,8 +8,9 @@ import { performSearch, State } from '@/app/vidya-search/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, Youtube, Info, GraduationCap } from 'lucide-react';
+import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, Youtube, Info, GraduationCap, FileText } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -27,7 +29,8 @@ function SubmitButton() {
 function ResultIcon({ type }: { type: State['results'][0]['type'] }) {
     switch (type) {
         case 'ai': return <Bot className="h-6 w-6 text-purple-400" />;
-        case 'link': return <LinkIcon className="h-6 w-6 text-blue-500" />;
+        case 'vidya':
+        case 'link': return <FileText className="h-6 w-6 text-blue-500" />;
         case 'order': return <Package className="h-6 w-6 text-orange-500" />;
         case 'enrollment': return <CheckCircle className="h-6 w-6 text-green-500" />;
         default: return <Search className="h-6 w-6 text-muted-foreground" />;
@@ -67,13 +70,13 @@ export default function VidyaSearchPage() {
        
       <div className="flex justify-center flex-wrap gap-4 text-sm">
         <Link href="https://chat.openai.com" target="_blank" className="flex items-center gap-1.5 text-blue-400 hover:underline">
-            <Info className="h-4 w-4"/> ChatGPT
+            <Bot className="h-4 w-4"/> ChatGPT
         </Link>
         <Link href="https://youtube.com" target="_blank" className="flex items-center gap-1.5 text-red-500 hover:underline">
             <Youtube className="h-4 w-4" /> YouTube
         </Link>
         <Link href="https://gemini.google.com/" target="_blank" className="flex items-center gap-1.5 text-purple-400 hover:underline">
-            <Bot className="h-4 w-4" /> Gemini
+            <GraduationCap className="h-4 w-4" /> Gemini
         </Link>
          <Link href="https://google.com" target="_blank" className="flex items-center gap-1.5 text-green-500 hover:underline">
             <Search className="h-4 w-4" /> Google
@@ -85,23 +88,27 @@ export default function VidyaSearchPage() {
         <div className="space-y-4">
             <h2 className="text-xl font-semibold">Search Results for "{state.query}"</h2>
             {state.results.map((result, index) => (
-                <Card key={index} className="bg-card/70">
-                    <CardHeader className="flex flex-row items-center gap-4">
-                        <ResultIcon type={result.type}/>
-                        <div>
-                            <CardTitle>{result.title}</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground whitespace-pre-wrap">{result.description}</p>
-                        {result.link && (
-                             <Button asChild variant="link" className="px-0">
-                                <Link href={result.link} target="_blank" rel="noopener noreferrer">
-                                    Visit Link <LinkIcon className="ml-2 h-4 w-4"/>
-                                </Link>
-                            </Button>
+                <Card key={index} className="bg-card/70 hover:bg-card/90 transition-colors">
+                     <div className="p-4 flex gap-4">
+                        {result.imageUrl ? (
+                             <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
+                        ) : (
+                             <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
+                                <ResultIcon type={result.type}/>
+                            </div>
                         )}
-                    </CardContent>
+                        <div className="flex-grow">
+                            <CardTitle className="text-lg mb-1">{result.title}</CardTitle>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{result.description}</p>
+                            {result.link && (
+                                <Button asChild variant="link" className="px-0 h-auto pt-1">
+                                    <Link href={result.link} target="_blank" rel="noopener noreferrer">
+                                        Visit Link <LinkIcon className="ml-2 h-4 w-4"/>
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
                 </Card>
             ))}
         </div>
@@ -121,3 +128,4 @@ export default function VidyaSearchPage() {
     </div>
   );
 }
+

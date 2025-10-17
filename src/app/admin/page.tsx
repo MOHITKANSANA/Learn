@@ -1753,21 +1753,94 @@ function AppSettingsForm() {
 }
 
 
+const vidyaSearchAdminSchema = z.object({
+  title: z.string().min(3, "Title is required."),
+  description: z.string().min(10, "Description is required."),
+  link: z.string().url("Must be a valid URL."),
+  image: z.any().optional(),
+});
+
 function VidyaSearchAdmin() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const form = useForm<z.infer<typeof vidyaSearchAdminSchema>>({
+    resolver: zodResolver(vidyaSearchAdminSchema),
+    defaultValues: { title: "", description: "", link: "" },
+  });
+
+  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(new Error('Failed to read file.'));
+    reader.readAsDataURL(file);
+  });
+
+  async function onSubmit(values: z.infer<typeof vidyaSearchAdminSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+      setIsSubmitting(false);
+      return;
+    }
+    
+    let imageUrl: string | null = null;
+    if (values.image && values.image.length > 0) {
+      imageUrl = await fileToDataUrl(values.image[0]);
+    }
+
+    const docRef = doc(collection(firestore, 'vidya_search_data'));
+    const data = {
+      id: docRef.id,
+      title: values.title,
+      description: values.description,
+      link: values.link,
+      imageUrl: imageUrl,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await setDoc(docRef, data);
+      toast({ title: "Success", description: "Custom search data added." });
+      form.reset();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add custom data.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-    <div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Vidya Search Admin</CardTitle>
-          <CardDescription>Manage custom links and data for Vidya Search.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>Feature under development. Here you will be able to add custom links and responses that Vidya Search will prioritize.</p>
-        </CardContent>
-      </Card>
-    </div>
-  )
+    <Card>
+      <CardHeader>
+        <CardTitle>Vidya Search Admin</CardTitle>
+        <CardDescription>Add custom links and data that will appear first in Vidya Search results.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="title" render={({ field }) => (
+              <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Title of the search result" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description for the search result" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="link" render={({ field }) => (
+              <FormItem><FormLabel>Link URL</FormLabel><FormControl><Input type="url" placeholder="https://example.com" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="image" render={({ field }) => (
+              <FormItem><FormLabel>Image (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Search Data
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ScholarshipManagement() {
@@ -1953,3 +2026,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

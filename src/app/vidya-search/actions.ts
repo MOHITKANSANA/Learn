@@ -39,10 +39,11 @@ const SearchSchema = z.object({
 });
 
 type SearchResultItem = {
-    type: 'enrollment' | 'order' | 'link' | 'ai';
+    type: 'enrollment' | 'order' | 'link' | 'ai' | 'vidya';
     title: string;
     description: string;
     link?: string;
+    imageUrl?: string | null;
     data?: any;
 }
 
@@ -82,35 +83,65 @@ export async function performSearch(prevState: State, formData: FormData): Promi
   const app = getAdminApp();
   const db = app ? getFirestore(app) : null;
   const query = validatedFields.data.query.trim();
-  const results: SearchResultItem[] = [];
+  let results: SearchResultItem[] = [];
+
+  // Demo data for testing
+  if (query === 'demo-order-123') {
+    return {
+      results: [{
+        type: 'order',
+        title: 'डेमो बुक ऑर्डर विवरण: The Future of AI',
+        description: 'आईडी: demo-order-123\nस्थिति: pending\nऑर्डर तिथि: ' + new Date().toLocaleDateString(),
+        data: { id: 'demo-order-123', status: 'pending', bookTitle: 'The Future of AI', orderDate: new Date() }
+      }],
+      query: query
+    };
+  }
+
 
   try {
     if (db) {
-        // 1. Search for Enrollment ID
+        // 1. Search custom Vidya Search Data
+        const vidyaSearchSnapshot = await db.collection('vidya_search_data').get();
+        vidyaSearchSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.title.toLowerCase().includes(query.toLowerCase()) || data.description.toLowerCase().includes(query.toLowerCase())) {
+                results.push({
+                    type: 'vidya',
+                    title: data.title,
+                    description: data.description,
+                    link: data.link,
+                    imageUrl: data.imageUrl
+                });
+            }
+        });
+
+
+        // 2. Search for Enrollment ID
         const enrollment = await searchInCollection(db, 'enrollments', query);
         if (enrollment) {
             results.push({
                 type: 'enrollment',
                 title: `एनरोलमेंट विवरण: ${enrollment.itemName}`,
-                description: `आईडी: ${enrollment.id}\nस्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+                description: `आईडी: ${enrollment.id.substring(0,10)}...\nस्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
                 data: enrollment,
             });
         }
 
-        // 2. Search for Book Order ID
+        // 3. Search for Book Order ID
         const bookOrder = await searchInCollection(db, 'bookOrders', query);
         if (bookOrder) {
             results.push({
                 type: 'order',
                 title: `पुस्तक ऑर्डर विवरण: ${bookOrder.bookTitle}`,
-                description: `आईडी: ${bookOrder.id}\nस्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+                description: `आईडी: ${bookOrder.id.substring(0,10)}...\nस्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
                 data: bookOrder,
             });
         }
     }
 
 
-    // 4. If no results from DB, use Genkit AI
+    // 4. If no specific results from DB, use Genkit AI
     if (results.length === 0) {
         try {
             const aiResult = await vidyaSearch({ query });
@@ -123,12 +154,10 @@ export async function performSearch(prevState: State, formData: FormData): Promi
             }
         } catch (aiError) {
              console.error("AI search failed:", aiError);
-             // If DB also failed, show a combined error.
              if (!db) {
                  return { error: 'डेटाबेस से कनेक्ट नहीं हो सका, और AI खोज भी विफल रही।', query};
              }
-             // If only AI failed.
-             return { error: 'डेटाबेस या AI से कोई परिणाम नहीं मिला।', query };
+             return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला। कृपया अपना प्रश्न दोबारा जाँचें।', query };
         }
     }
 
@@ -136,6 +165,13 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     if (results.length === 0) {
       return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला।', query };
     }
+
+    // Sort results to show 'vidya' type first
+    results.sort((a, b) => {
+        if (a.type === 'vidya' && b.type !== 'vidya') return -1;
+        if (a.type !== 'vidya' && b.type === 'vidya') return 1;
+        return 0;
+    });
 
     return { results, query };
 

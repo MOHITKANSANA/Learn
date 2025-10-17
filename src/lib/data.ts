@@ -1,4 +1,5 @@
 
+
 import type { LucideIcon } from 'lucide-react';
 import { 
   BookOpenCheck,
@@ -20,7 +21,8 @@ import {
   Bot,
   Swords,
   ShoppingBag,
-  BadgePercent
+  BadgePercent,
+  MessageSquareHeart
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -66,10 +68,10 @@ export const dashboardItems: DashboardItem[] = [
     href: '/book-shala',
     icon: Library,
   },
-  {
-    title: 'Battle Quiz',
-    href: '/battle-quiz',
-    icon: Swords,
+   {
+    title: 'Live Doubts',
+    href: '/doubts',
+    icon: MessageSquareHeart,
   },
   {
     title: 'Vidya Search',
@@ -99,6 +101,11 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'Feed',
     href: '/feed',
     icon: Rss,
+  },
+   {
+    title: 'Live Doubts',
+    href: '/doubts',
+    icon: MessageSquareHeart,
   },
   {
     title: 'Book Shala',
