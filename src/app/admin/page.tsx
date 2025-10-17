@@ -1698,7 +1698,7 @@ function AppSettingsForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Payment Mobile Number</FormLabel>
-              <FormControl><Input placeholder="Enter mobile number for payments" {...field} /></FormControl>
+              <FormControl><Input placeholder="Enter mobile number for payments" {...field} value={field.value ?? ''} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -1709,7 +1709,7 @@ function AppSettingsForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>UPI ID</FormLabel>
-              <FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} /></FormControl>
+              <FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} value={field.value ?? ''} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -1774,8 +1774,103 @@ function ScholarshipManagement() {
     return <Card><CardHeader><CardTitle>Scholarship Management</CardTitle></CardHeader><CardContent><p>Feature under development.</p></CardContent></Card>
 }
 
+const centerSchema = z.object({
+  name: z.string().min(3, "Center name is required."),
+  address: z.string().min(10, "Address is required."),
+  city: z.string().min(3, "City is required."),
+  state: z.string().min(2, "State is required."),
+  pincode: z.string().min(6, "Pincode is required.").max(6),
+  examDate: z.string().min(1, "Exam date is required."),
+  examTime: z.string().min(1, "Exam time is required."),
+  admitCardDate: z.string().min(1, "Admit card download date is required."),
+  resultDate: z.string().min(1, "Result date is required."),
+});
+
 function CenterManagement() {
-    return <Card><CardHeader><CardTitle>Center Management</CardTitle></CardHeader><CardContent><p>Feature under development.</p></CardContent></Card>
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const form = useForm<z.infer<typeof centerSchema>>({
+    resolver: zodResolver(centerSchema),
+    defaultValues: { name: "", address: "", city: "", state: "", pincode: "" },
+  });
+
+  async function onSubmit(values: z.infer<typeof centerSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+      setIsSubmitting(false);
+      return;
+    }
+    const centerRef = doc(collection(firestore, 'scholarship_centers'));
+    const centerData = {
+      id: centerRef.id,
+      ...values,
+      createdAt: serverTimestamp(),
+    };
+    try {
+      await setDoc(centerRef, centerData);
+      toast({ title: 'Success', description: 'New examination center added.' });
+      form.reset();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add center.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Center Management</CardTitle>
+        <CardDescription>Add and manage scholarship examination centers.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem><FormLabel>Center Name</FormLabel><FormControl><Input placeholder="e.g., Vidya Public School" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="address" render={({ field }) => (
+              <FormItem><FormLabel>Address</FormLabel><FormControl><Textarea placeholder="Full address of the center" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField control={form.control} name="city" render={({ field }) => (
+                <FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="state" render={({ field }) => (
+                <FormItem><FormLabel>State</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="pincode" render={({ field }) => (
+                <FormItem><FormLabel>Pincode</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <FormField control={form.control} name="examDate" render={({ field }) => (
+                <FormItem><FormLabel>Exam Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="examTime" render={({ field }) => (
+                <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <FormField control={form.control} name="admitCardDate" render={({ field }) => (
+                <FormItem><FormLabel>Admit Card Download Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="resultDate" render={({ field }) => (
+                <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Center
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AdminDashboardPage() {

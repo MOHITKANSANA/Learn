@@ -4,11 +4,10 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, FileText, Download, BarChart, Bell, UserCheck, Book, TestTube2, BadgeCheck, FileCheck } from 'lucide-react';
+import { Trophy, FileText, Download, BarChart, Bell, UserCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-
 
 const featureCards = [
   {
@@ -29,7 +28,7 @@ const featureCards = [
     icon: Bell,
     title: 'City Intimation',
     description: 'Check your allocated exam city and center details here.',
-    href: '#',
+    href: '/scholarship/my-applications', // Redirect to my-applications to see status/center
     color: 'bg-orange-500/10 border-orange-500/30 text-orange-300',
   },
   {
@@ -39,8 +38,8 @@ const featureCards = [
     href: '/scholarship/admit-card',
     color: 'bg-green-500/10 border-green-500/30 text-green-300',
   },
-   {
-    icon: TestTube2,
+  {
+    icon: Trophy, // Changed from TestTube2
     title: 'Start Test',
     description: 'Begin your online scholarship examination from here.',
     href: '/scholarship/test',
@@ -50,7 +49,7 @@ const featureCards = [
     icon: BarChart,
     title: 'Check Result',
     description: 'View your test scores and scholarship results after the exam.',
-    href: '#',
+    href: '/scholarship/my-applications', // Results can be shown here
     color: 'bg-purple-500/10 border-purple-500/30 text-purple-300',
   },
 ];
@@ -90,19 +89,18 @@ export default function ScholarshipPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {featureCards.map((card) => {
-                const isDisabled = (card.title !== 'Apply Now' && !hasApplied);
                 return (
                     <Card 
                         key={card.title} 
-                        className={`overflow-hidden transition-all duration-300  ${card.color} ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl hover:-translate-y-2'}`}
+                        className={`overflow-hidden transition-all duration-300  ${card.color} hover:shadow-xl hover:-translate-y-1`}
                     >
-                        <Link href={isDisabled ? '#' : card.href} className="flex flex-col items-center justify-start h-full p-6" aria-disabled={isDisabled}>
-                            <CardHeader className="items-center p-0 mb-4">
-                                <card.icon className="h-10 w-10 mb-2" />
-                                <CardTitle className="text-lg font-bold text-foreground">{card.title}</CardTitle>
+                        <Link href={card.href} className="flex flex-col items-center justify-start h-full p-4">
+                            <CardHeader className="items-center p-0 mb-3">
+                                <card.icon className="h-8 w-8 mb-2" />
+                                <CardTitle className="text-md font-bold text-foreground">{card.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
-                                <p className="text-sm text-muted-foreground">{card.description}</p>
+                                <p className="text-xs text-muted-foreground">{card.description}</p>
                             </CardContent>
                         </Link>
                     </Card>
