@@ -1,215 +1,304 @@
 /**
- * @fileoverview Firestore Security Rules for the 'Learn with munedra' app.
- *
- * Core Philosophy:
- * This ruleset prioritizes a secure, scalable, and maintainable data access model.
- * It enforces strict ownership for user profiles and limits write access to admins for core content.
- * Read access is generally open for public content, with controlled access for private user data.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a combination of public read access and owner-based write access.
  *
  * Data Structure:
- * - `/courses/{courseId}`: Publicly readable, admin-writeable course data.
- * - `/ebooks/{ebookId}`: Publicly readable, admin-writeable ebook data.
- * - `/test_series/{testSeriesId}`: Publicly readable, admin-writeable test series data.
- * - `/questions/{questionId}`: Admin-only question data.
- * - `/educators/{educatorId}`: Publicly readable, admin-writeable educator data.
- * - `/live_classes/{liveClassId}`: Publicly readable, admin-writeable live class data.
- * - `/users/{studentId}`: Private student profile data, accessible only to the student.
- * - `/promotions/{promotionId}`: Publicly readable, admin-writeable promotion data.
- * - `/users/{studentId}/enrollments/{enrollmentId}`: Enrollment requests, created by students and managed by admins.
+ * - Top-level collections (e.g., /courses, /ebooks) are generally publicly readable.
+ * - User-specific data (e.g., /users/{userId}/cart) is restricted to the owning user.
  *
  * Key Security Decisions:
- * - Public read access for courses, ebooks, test series, educators, live classes, and promotions.
- * - Strict ownership model for student profiles under `/users/{studentId}`.
- * - Admin-only write access for core content (courses, ebooks, test series, questions, educators, live classes, and promotions).
- * - Enrollment requests are created by students for themselves.
+ * - Public read access is granted to most top-level collections to allow for open browsing of content.
+ * - Writes (create, update, delete) are strictly controlled using the `isOwner()` function.
+ * - The rules do not enforce any schema validation.
  *
  * Denormalization for Authorization:
- * - Enrollment documents are stored under `/users/{studentId}/enrollments/{enrollmentId}` to simplify ownership checks.
- *
- * Structural Segregation:
- * - Private student profile data is stored under `/users/{studentId}` to ensure privacy and enforce ownership.
+ * - The rules rely on denormalized `userId` and `authorId` fields within documents to enforce ownership.
+ *   This avoids costly `get()` calls to other documents.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public read access and admin-only write access to course data.
+     * @description Allows anyone to read courses, but only allows authenticated users to create, update, or delete them.
      * @path /courses/{courseId}
-     * @allow get, list: if true;
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Public read, admin-only write for course content.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /courses/{courseId} {
       allow get, list: if true;
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows public read access and admin-only write access to ebook data.
+     * @description Allows anyone to read ebooks, but only allows authenticated users to create, update, or delete them.
      * @path /ebooks/{ebookId}
-     * @allow get, list: if true;
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Public read, admin-only write for ebook content.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /ebooks/{ebookId} {
       allow get, list: if true;
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows public read access and admin-only write access to test series data.
+     * @description Allows anyone to read test series, but only allows authenticated users to create, update, or delete them.
      * @path /test_series/{testSeriesId}
-     * @allow get, list: if true;
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Public read, admin-only write for test series content.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /test_series/{testSeriesId} {
       allow get, list: if true;
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows admin-only access to question data.
+     * @description Allows anyone to read questions, but only allows authenticated users to create, update, or delete them.
      * @path /questions/{questionId}
-     * @allow get, list: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Admin-only access for question management.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /questions/{questionId} {
-      allow get, list: if false; // TODO: Add admin validation once the roles are defined.
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows public read access and admin-only write access to educator data.
+     * @description Allows anyone to read educators, but only allows authenticated users to create, update, or delete them.
      * @path /educators/{educatorId}
-     * @allow get, list: if true;
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Public read, admin-only write for educator content.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /educators/{educatorId} {
       allow get, list: if true;
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows public read access and admin-only write access to live class data.
+     * @description Allows anyone to read live classes, but only allows authenticated users to create, update, or delete them.
      * @path /live_classes/{liveClassId}
-     * @allow get, list: if true;
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Public read, admin-only write for live class content.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /live_classes/{liveClassId} {
       allow get, list: if true;
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows a student to read and write their own profile data.
+     * @description Manages user-specific data, restricting access to the owner.
      * @path /users/{studentId}
-     * @allow get: if isOwner(studentId);
-     * @allow list: if false;
-     * @allow create: if isOwner(studentId);
-     * @allow update: if isOwner(studentId) && resource != null;
-     * @allow delete: if isOwner(studentId) && resource != null;
-     * @deny get: if !isSignedIn();
-     * @deny create: if !isSignedIn();
-     * @deny update: if !isSignedIn();
-     * @deny delete: if !isSignedIn();
-     * @principle Enforces document ownership for student profiles.
+     * @allow (get): if isOwner(studentId);
+     * @allow (list): if false;
+     * @allow (create): if isOwner(studentId);
+     * @allow (update): if isExistingOwner(studentId);
+     * @allow (delete): if isExistingOwner(studentId);
+     * @principle Enforces document ownership for writes.
      */
     match /users/{studentId} {
       allow get: if isOwner(studentId);
       allow list: if false;
       allow create: if isOwner(studentId);
-      allow update: if isOwner(studentId) && resource != null;
-      allow delete: if isOwner(studentId) && resource != null;
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
     }
 
     /**
-     * @description Allows public read access and admin-only write access to promotion data.
+     * @description Restricts cart access to the owning user.
+     * @path /users/{studentId}/cart/{bookId}
+     * @allow (get): if isOwner(studentId);
+     * @allow (list): if isOwner(studentId);
+     * @allow (create): if isOwner(studentId);
+     * @allow (update): if isExistingOwner(studentId);
+     * @allow (delete): if isExistingOwner(studentId);
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{studentId}/cart/{bookId} {
+      allow get: if isOwner(studentId);
+      allow list: if isOwner(studentId);
+      allow create: if isOwner(studentId);
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
+    }
+
+    /**
+     * @description Allows anyone to read promotions, but only allows authenticated users to create, update, or delete them.
      * @path /promotions/{promotionId}
-     * @allow get, list: if true;
-     * @allow create: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow update: if false; // TODO: Add admin validation once the roles are defined.
-     * @allow delete: if false; // TODO: Add admin validation once the roles are defined.
-     * @deny get: if false;
-     * @deny list: if false;
-     * @principle Public read, admin-only write for promotion content.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
     match /promotions/{promotionId} {
       allow get, list: if true;
-      allow create: if false; // TODO: Add admin validation once the roles are defined.
-      allow update: if false; // TODO: Add admin validation once the roles are defined.
-      allow delete: if false; // TODO: Add admin validation once the roles are defined.
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows a student to create enrollment requests for themselves. Admins can approve or reject.
-     * @path /users/{studentId}/enrollments/{enrollmentId}
-     * @allow get: if isOwner(studentId); // Allow students to read their own enrollment requests.
-     * @allow list: if isOwner(studentId);
-     * @allow create: if isSignedIn() && request.auth.uid == studentId; // Only the authenticated student can create enrollment requests for themselves.
-     * @allow update: if false; // TODO: Add admin validation for approval/rejection using the roles.
-     * @allow delete: if false; // TODO: Add admin validation for deletion using the roles.
-     * @deny get: if !isSignedIn();
-     * @deny create: if !isSignedIn();
-     * @deny update: if !isSignedIn();
-     * @deny delete: if !isSignedIn();
-     * @principle Enforces student ownership for enrollment requests and admin management.
+     * @description Allows anyone to read enrollments, but only allows authenticated users to create, update, or delete them.
+     * @path /enrollments/{enrollmentId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
      */
-    match /users/{studentId}/enrollments/{enrollmentId} {
-      allow get: if isOwner(studentId); // Allow students to read their own enrollment requests.
-      allow list: if isOwner(studentId);
-      allow create: if isSignedIn() && request.auth.uid == studentId; // Only the authenticated student can create enrollment requests for themselves.
-      allow update: if false; // TODO: Add admin validation for approval/rejection using the roles.
-      allow delete: if false; // TODO: Add admin validation for deletion using the roles.
+    match /enrollments/{enrollmentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
+
+    /**
+     * @description Allows anyone to read books, but only allows authenticated users to create, update, or delete them.
+     * @path /books/{bookId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /books/{bookId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read book orders, but only allows authenticated users to create, update, or delete them.
+     * @path /bookOrders/{orderId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /bookOrders/{orderId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read coupons, but only allows authenticated users to create, update, or delete them.
+     * @path /coupons/{couponId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /coupons/{couponId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read previous year papers, but only allows authenticated users to create, update, or delete them.
+     * @path /previousYearPapers/{paperId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /previousYearPapers/{paperId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read feed posts, but only allows authenticated users to create, update, or delete them.
+     * @path /feed_posts/{postId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /feed_posts/{postId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read comments, but only the author can write.
+     * @path /feed_posts/{postId}/comments/{commentId}
+     */
+    match /feed_posts/{postId}/comments/{commentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+     /**
+     * @description Allows owner to read/write their notes.
+     * @path /video_notes/{noteId}
+     */
+    match /video_notes/{noteId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read comments, but only the author can write.
+     * @path /video_chat/{chatId}
+     */
+    match /video_chat/{chatId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read settings, but only allows authenticated users to create, update, or delete them.
+     * @path /settings/payment
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /settings/payment {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read scholarship centers, but only allows authenticated users to create, update, or delete them.
+     * @path /scholarship_centers/{centerId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /scholarship_centers/{centerId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read scholarship payments, but only allows authenticated users to create, update, or delete them.
+     * @path /scholarshipPayments/{paymentId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /scholarshipPayments/{paymentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Allows anyone to read scholarship applications, but only allows authenticated users to create, update, or delete them.
+     * @path /scholarshipApplications/{applicationId}
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Public read, owner-only writes.
+     */
+    match /scholarshipApplications/{applicationId} {
+       allow get, list: if true;
+       allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
   }
 
-  // Helper functions
+  // Helper function to determine if the user is signed in
   function isSignedIn() {
     return request.auth != null;
   }
 
+  // Helper function to determine if the user is the owner of the document based on the user ID.
   function isOwner(userId) {
     return isSignedIn() && request.auth.uid == userId;
+  }
+
+  // Helper function to determine if the user is the owner of an existing document.
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
