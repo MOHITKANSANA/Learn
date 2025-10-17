@@ -73,6 +73,11 @@ export const dashboardItems: DashboardItem[] = [
     href: '/doubts',
     icon: MessageSquareHeart,
   },
+   {
+    title: 'Battle Quiz',
+    href: '/battle-quiz',
+    icon: Swords,
+  },
   {
     title: 'Vidya Search',
     href: '/vidya-search',
@@ -111,6 +116,11 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'Book Shala',
     href: '/book-shala',
     icon: Book,
+  },
+  {
+    title: 'Battle Quiz',
+    href: '/battle-quiz',
+    icon: Swords,
   },
   {
     title: 'Motivation',
