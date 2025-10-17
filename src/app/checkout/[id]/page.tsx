@@ -24,6 +24,17 @@ const checkoutSchema = z.object({
   paymentMethod: z.enum(['upi_intent', 'qr']),
   paymentMobileNumber: z.string().optional(),
   paymentScreenshot: z.any().optional(),
+}).refine(data => {
+    if (data.paymentMethod === 'qr') {
+        return data.paymentScreenshot?.length > 0 || !!data.paymentMobileNumber;
+    }
+    if (data.paymentMethod === 'upi_intent') {
+        return !!data.paymentMobileNumber;
+    }
+    return true;
+}, {
+    message: 'For QR, please upload screenshot or enter mobile number. For UPI, mobile number is required.',
+    path: ['paymentMethod'],
 });
 
 
@@ -76,6 +87,7 @@ export default function CheckoutPage() {
     defaultValues: {
         couponCode: '',
         paymentMethod: 'upi_intent',
+        paymentMobileNumber: '',
     }
   });
   
@@ -152,16 +164,16 @@ export default function CheckoutPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
         return;
     }
-     if (values.paymentMethod === 'qr' && !values.paymentScreenshot?.[0] && !values.paymentMobileNumber) {
-        form.setError('paymentMethod', { message: 'Please upload screenshot or enter mobile number.'});
-        return;
-    }
-
+    
     setIsSubmitting(true);
 
     let screenshotUrl: string | null = null;
     if (values.paymentMethod === 'qr' && values.paymentScreenshot?.[0]) {
         screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
+    }
+
+    if (values.paymentMethod === 'upi_intent') {
+        window.location.href = upiDeepLink;
     }
 
     try {
@@ -192,12 +204,16 @@ export default function CheckoutPage() {
                 usedCount: appliedCoupon.usedCount + 1,
             });
         }
+        
+        if (values.paymentMethod === 'qr') {
+          toast({
+            title: 'Order Placed!',
+            description: 'Your enrollment is pending approval. We will notify you shortly.',
+          });
+          router.push('/my-library');
+        }
+        // For UPI intent, the user is redirected, so no toast/navigation here.
 
-        toast({
-          title: 'Order Placed!',
-          description: 'Your enrollment is pending approval. We will notify you shortly.',
-        });
-        router.push('/my-library');
     } catch (error) {
         console.error("Error placing order: ", error);
         const permissionError = new FirestorePermissionError({
@@ -328,7 +344,7 @@ export default function CheckoutPage() {
                         />
                          <Button type="submit" className="w-full" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Submit for Verification
+                            Proceed to Pay
                         </Button>
                     </div>
                 )}

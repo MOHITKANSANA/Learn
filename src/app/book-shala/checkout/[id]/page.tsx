@@ -36,9 +36,6 @@ const verificationSchema = z.object({
     if (data.paymentMethod === 'qr') {
         return data.paymentScreenshot?.length > 0 || !!data.paymentMobileNumber;
     }
-    if (data.paymentMethod === 'upi_intent') {
-        return !!data.paymentMobileNumber;
-    }
     return true;
 }, {
     message: 'Please provide either a screenshot or the mobile number for QR payment.',
@@ -111,7 +108,7 @@ export default function BookCheckoutPage() {
 
   const verificationForm = useForm<z.infer<typeof verificationSchema>>({
     resolver: zodResolver(verificationSchema),
-    defaultValues: { paymentMethod: 'upi_intent' }
+    defaultValues: { paymentMethod: 'upi_intent', paymentMobileNumber: '' }
   });
   
   const paymentMethod = verificationForm.watch('paymentMethod');
@@ -345,7 +342,7 @@ export default function BookCheckoutPage() {
                             />
                             <Button type="submit" className="w-full" disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Proceed to Pay &amp; Confirm
+                                Proceed to Pay
                             </Button>
                           </div>
                         )}
