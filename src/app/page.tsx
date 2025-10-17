@@ -180,7 +180,7 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : freeCourses && freeCourses.length > 0 ? (
-          <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]} className="w-full group">
+          <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
             <CarouselContent>
                 {freeCourses.map(course => {
                     const isEnrolled = enrolledCourseIds.has(course.id);
@@ -216,7 +216,7 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : paidCourses && paidCourses.length > 0 ? (
-           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: true })]} className="w-full group">
+           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
             <CarouselContent>
                 {paidCourses.map(course => {
                      const isEnrolled = enrolledCourseIds.has(course.id);
