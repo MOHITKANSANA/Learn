@@ -59,11 +59,6 @@ export const dashboardItems: DashboardItem[] = [
     icon: PlaySquare,
   },
   {
-    title: 'Scholarship',
-    href: '/scholarship',
-    icon: Trophy,
-  },
-  {
     title: 'Book Shala',
     href: '/book-shala',
     icon: Library,
@@ -151,11 +146,6 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'Test Series',
     href: '/test-series',
     icon: FileText,
-  },
-  {
-    title: 'Scholarship',
-    href: '/scholarship',
-    icon: Trophy,
   },
   {
     title: 'Previous Papers',

@@ -98,8 +98,6 @@ const adminNavItems = [
   { value: 'add-book', icon: BookCopy, label: 'Add Book' },
   { value: 'book-orders', icon: ShoppingBag, label: 'Book Orders' },
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
-  { value: 'scholarship-management', icon: Trophy, label: 'Scholarship' },
-  { value: 'center-management', icon: MapPin, label: 'Center Management' },
   { value: 'manage-content', icon: List, label: 'Manage Content' },
   { value: 'app-settings', icon: Settings, label: 'App Settings' },
   { value: 'vidya-search-admin', icon: Bot, label: 'Vidya Search Admin' },
@@ -743,7 +741,7 @@ function AddLiveClassForm() {
             <FormItem>
               <FormLabel>Date & Time</FormLabel>
               <FormControl>
-                <Input type="datetime-local" {...field} />
+                <Input type="datetime-local" {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1879,251 +1877,6 @@ function VidyaSearchAdmin() {
   );
 }
 
-function ScholarshipManagement() {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const [activeTab, setActiveTab] = useState('offline');
-
-    const offlineAppsQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'scholarshipApplications'), where('examMode', '==', 'offline'), orderBy('createdAt', 'desc')) : null,
-        [firestore]
-    );
-    const { data: offlineApps, isLoading: loadingOffline, forceRefresh: refreshOffline } = useCollection(offlineAppsQuery);
-    
-    const onlineAppsQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'scholarshipApplications'), where('examMode', '==', 'online'), orderBy('createdAt', 'desc')) : null,
-        [firestore]
-    );
-    const { data: onlineApps, isLoading: loadingOnline, forceRefresh: refreshOnline } = useCollection(onlineAppsQuery);
-    
-    const {data: centers} = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
-
-    const handleCenterAllocation = async (appId: string, centerId: string) => {
-        if (!firestore || !centerId) return;
-        const appRef = doc(firestore, 'scholarshipApplications', appId);
-        try {
-            await updateDoc(appRef, { allottedCenterId: centerId, status: 'approved' });
-            toast({ title: 'Success', description: `Center allotted and application approved.` });
-            refreshOffline();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to allot center.' });
-        }
-    };
-    
-    const handleOnlinePaymentApproval = async (appId: string, newStatus: 'approved' | 'rejected') => {
-         if (!firestore) return;
-        const appRef = doc(firestore, 'scholarshipApplications', appId);
-         try {
-            await updateDoc(appRef, { status: newStatus });
-            toast({ title: 'Success', description: `Application status updated to ${newStatus}.` });
-            refreshOnline();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
-        }
-    }
-
-    if (loadingOffline || loadingOnline) return <Loader2 className="animate-spin" />;
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Scholarship Management</CardTitle>
-                <CardDescription>Review and manage all scholarship applications.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="offline">Offline Applicants</TabsTrigger>
-                        <TabsTrigger value="online">Online Applicants</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="offline" className="space-y-4 pt-4">
-                        {offlineApps && offlineApps.length > 0 ? offlineApps.map((app: any) => (
-                            <Card key={app.id}>
-                                <CardHeader>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <CardTitle className="text-lg">{app.fullName} ({app.id})</CardTitle>
-                                            <CardDescription>Center Choices: {app.center1}, {app.center2}, {app.center3}</CardDescription>
-                                        </div>
-                                        <Badge variant={app.status === 'rejected' ? 'destructive' : 'default'} className="capitalize">{app.status}</Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="text-sm space-y-2">
-                                     <p><strong>Father's Name:</strong> {app.fatherName}</p>
-                                     <p><strong>Allotted Center:</strong> {centers?.find(c => c.id === app.allottedCenterId)?.name || 'None'}</p>
-                                </CardContent>
-                                <CardFooter>
-                                    <div className="flex items-center gap-2">
-                                        <Label>Allot Center:</Label>
-                                         <Select onValueChange={(centerId) => handleCenterAllocation(app.id, centerId)} disabled={!centers}>
-                                            <SelectTrigger className="w-[280px]">
-                                                <SelectValue placeholder="Select a center to approve" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </CardFooter>
-                            </Card>
-                        )) : <p className="text-muted-foreground text-center py-4">No offline applications found.</p>}
-                    </TabsContent>
-                    <TabsContent value="online" className="space-y-4 pt-4">
-                        {onlineApps && onlineApps.length > 0 ? onlineApps.map((app: any) => (
-                           <Card key={app.id}>
-                                <CardHeader>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <CardTitle className="text-lg">{app.fullName} ({app.id})</CardTitle>
-                                            <CardDescription>Payment Mobile: {app.paymentMobileNumber || 'N/A'}</CardDescription>
-                                        </div>
-                                        <Badge variant={app.status === 'rejected' ? 'destructive' : 'default'} className="capitalize">{app.status}</Badge>
-                                    </div>
-                                </CardHeader>
-                                 <CardContent className="text-sm space-y-2">
-                                    <p><strong>Test Score:</strong> {app.testScore !== undefined ? `${app.testScore} / ${app.totalQuestions} (${app.percentage}%)` : 'Not Taken'}</p>
-                                     <p><strong>Status:</strong> {app.testScore !== undefined ? (app.testScore / app.totalQuestions > 0.4 ? "Pass" : "Fail") : 'N/A'}</p>
-                                </CardContent>
-                                <CardFooter className="flex gap-2">
-                                    <Button size="sm" onClick={() => handleOnlinePaymentApproval(app.id, 'approved')} disabled={app.status === 'approved' || app.testScore === undefined}>
-                                        <Check className="mr-2 h-4 w-4" /> Pass
-                                    </Button>
-                                    <Button size="sm" variant="destructive" onClick={() => handleOnlinePaymentApproval(app.id, 'rejected')} disabled={app.status === 'rejected' || app.testScore === undefined}>
-                                        <X className="mr-2 h-4 w-4" /> Fail
-                                    </Button>
-                                </CardFooter>
-                           </Card>
-                        )) : <p className="text-muted-foreground text-center py-4">No online applications found.</p>}
-                    </TabsContent>
-                </Tabs>
-            </CardContent>
-        </Card>
-    );
-}
-
-const centerSchema = z.object({
-  name: z.string().min(3, "Center name is required."),
-  address: z.string().min(10, "Address is required."),
-  city: z.string().min(3, "City is required."),
-  state: z.string().min(2, "State is required."),
-  pincode: z.string().min(6, "Pincode is required.").max(6),
-  examDate: z.string().min(1, "Exam date is required."),
-  examTime: z.string().min(1, "Exam time is required."),
-  admitCardDate: z.string().min(1, "Admit card download date is required."),
-  resultDate: z.string().min(1, "Result date is required."),
-  onlineExamStartDate: z.string().optional(),
-  onlineExamEndDate: z.string().optional(),
-  onlineExamStartTime: z.string().optional(),
-  onlineExamEndTime: z.string().optional(),
-});
-
-function CenterManagement() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-  const firestore = useFirestore();
-
-  const form = useForm<z.infer<typeof centerSchema>>({
-    resolver: zodResolver(centerSchema),
-    defaultValues: { name: "", address: "", city: "", state: "", pincode: "" },
-  });
-
-  async function onSubmit(values: z.infer<typeof centerSchema>) {
-    setIsSubmitting(true);
-    if (!firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
-      setIsSubmitting(false);
-      return;
-    }
-    const centerRef = doc(collection(firestore, 'scholarship_centers'));
-    const centerData = {
-      id: centerRef.id,
-      ...values,
-      createdAt: serverTimestamp(),
-    };
-    try {
-      await setDoc(centerRef, centerData);
-      toast({ title: 'Success', description: 'New examination center/schedule added.' });
-      form.reset();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add center.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Center & Schedule Management</CardTitle>
-        <CardDescription>Add/manage scholarship examination centers and online schedules.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <h3 className="font-semibold text-lg border-b pb-2">Offline Center Details</h3>
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem><FormLabel>Center Name</FormLabel><FormControl><Input placeholder="e.g., Vidya Public School" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="address" render={({ field }) => (
-              <FormItem><FormLabel>Address</FormLabel><FormControl><Textarea placeholder="Full address of the center" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField control={form.control} name="city" render={({ field }) => (
-                <FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="state" render={({ field }) => (
-                <FormItem><FormLabel>State</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="pincode" render={({ field }) => (
-                <FormItem><FormLabel>Pincode</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <FormField control={form.control} name="examDate" render={({ field }) => (
-                <FormItem><FormLabel>Exam Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="examTime" render={({ field }) => (
-                <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <FormField control={form.control} name="admitCardDate" render={({ field }) => (
-                <FormItem><FormLabel>Admit Card Download Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="resultDate" render={({ field }) => (
-                <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
-
-            <h3 className="font-semibold text-lg border-b pb-2 pt-4">Online Exam Schedule</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <FormField control={form.control} name="onlineExamStartDate" render={({ field }) => (
-                <FormItem><FormLabel>Online Exam Start Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="onlineExamEndDate" render={({ field }) => (
-                <FormItem><FormLabel>Online Exam End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <FormField control={form.control} name="onlineExamStartTime" render={({ field }) => (
-                <FormItem><FormLabel>Online Exam Start Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="onlineExamEndTime" render={({ field }) => (
-                <FormItem><FormLabel>Online Exam End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </div>
-
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add/Update Center & Schedule
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
-  );
-}
-
 const componentMap: { [key: string]: React.FC } = {
   'add-course': CreateCourseForm,
   'add-content': AddContentForm,
@@ -2137,8 +1890,6 @@ const componentMap: { [key: string]: React.FC } = {
   'add-book': AddBookForm,
   'book-orders': ManageBookOrders,
   'add-coupon': AddCouponForm,
-  'scholarship-management': ScholarshipManagement,
-  'center-management': CenterManagement,
   'manage-content': ManageContent,
   'app-settings': AppSettingsForm,
   'vidya-search-admin': VidyaSearchAdmin,
