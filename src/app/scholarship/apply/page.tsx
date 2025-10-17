@@ -53,6 +53,8 @@ const uploadSchema = z.object({
   signature: z.any().optional(),
 });
 
+const reviewSchema = z.object({});
+
 const combinedSchema = personalInfoSchema.merge(academicInfoSchema).merge(centerChoiceSchema).merge(uploadSchema);
 
 const steps = [
@@ -60,7 +62,7 @@ const steps = [
   { id: 2, title: 'Academic Information', schema: academicInfoSchema },
   { id: 3, title: 'Exam Center Choice', schema: centerChoiceSchema },
   { id: 4, title: 'Upload Documents', schema: uploadSchema },
-  { id: 5, title: 'Review & Submit' },
+  { id: 5, title: 'Review & Submit', schema: reviewSchema },
 ];
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -84,7 +86,7 @@ export default function ScholarshipApplyPage() {
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
   const methods = useForm<z.infer<typeof combinedSchema>>({
-    resolver: zodResolver(steps[currentStep - 1]?.schema || combinedSchema),
+    resolver: zodResolver(currentStep === 5 ? combinedSchema : steps[currentStep - 1]?.schema),
     mode: 'onChange',
     defaultValues: {
       fullName: '',
@@ -247,11 +249,11 @@ export default function ScholarshipApplyPage() {
 
                {currentStep === 4 && (
                  <>
-                    <FormField name="photo" control={methods.control} render={({ field }) => (
-                        <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+                    <FormField name="photo" control={methods.control} render={({ field: { onChange, ...rest } }) => (
+                        <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
-                     <FormField name="signature" control={methods.control} render={({ field }) => (
-                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+                     <FormField name="signature" control={methods.control} render={({ field: { onChange, ...rest } }) => (
+                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                  </>
                )}
