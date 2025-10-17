@@ -41,7 +41,7 @@ const centerChoiceObject = z.object({
 
 const centerChoiceSchema = centerChoiceObject.refine(data => {
   if (data.examMode === 'offline') {
-    return data.center1 && data.center2 && data.center3;
+    return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
   }
   return true;
 }, {
@@ -55,14 +55,17 @@ const uploadSchema = z.object({
   signature: z.any().optional(),
 });
 
-const combinedSchema = personalInfoSchema.extend(academicInfoSchema.shape).extend(centerChoiceSchema.shape).extend(uploadSchema.shape);
+const combinedSchema = personalInfoSchema
+  .extend(academicInfoSchema.shape)
+  .extend(centerChoiceSchema.shape)
+  .extend(uploadSchema.shape);
 
 
 const steps = [
-  { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
-  { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
-  { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) },
-  { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) },
+  { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
+  { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
+  { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) as (keyof z.infer<typeof combinedSchema>)[] },
+  { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
   { id: 5, title: 'Review & Submit', fields: [] },
 ];
 
@@ -111,7 +114,7 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
 
   const nextStep = async () => {
-    const fieldsToValidate = steps[currentStep - 1].fields as (keyof z.infer<typeof combinedSchema>)[];
+    const fieldsToValidate = steps[currentStep - 1].fields;
     const isValid = await methods.trigger(fieldsToValidate);
     
     if (isValid) {
@@ -135,34 +138,34 @@ export default function ScholarshipApplyPage() {
 
     setIsSubmitting(true);
     try {
-        const applicationRef = doc(collection(firestore, 'scholarshipApplications'));
+      const applicationRef = doc(collection(firestore, 'scholarshipApplications'));
 
-        const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
-        const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
+      const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
+      const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
 
-        const applicationData = {
-            id: applicationRef.id,
-            userId: user.uid,
-            ...data,
-            photoUrl,
-            signatureUrl,
-            status: 'submitted',
-            createdAt: serverTimestamp(),
-        };
-        
-        delete (applicationData as any).photo;
-        delete (applicationData as any).signature;
+      const applicationData = {
+        id: applicationRef.id,
+        userId: user.uid,
+        ...data,
+        photoUrl,
+        signatureUrl,
+        status: 'submitted',
+        createdAt: serverTimestamp(),
+      };
+      
+      delete (applicationData as any).photo;
+      delete (applicationData as any).signature;
 
-        await setDoc(applicationRef, applicationData);
-        
-        toast({
-            title: 'Application Submitted!',
-            description: `Your application number is ${applicationRef.id}. You will be redirected shortly.`,
-        });
-        router.push('/scholarship/my-applications');
+      await setDoc(applicationRef, applicationData);
+      
+      toast({
+        title: 'Application Submitted!',
+        description: `Your application number is ${applicationRef.id}. You will be redirected shortly.`,
+      });
+      router.push('/scholarship/my-applications');
     } catch (error) {
-        console.error(error);
-        toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
     } finally {
         setIsSubmitting(false);
     }
@@ -255,7 +258,7 @@ export default function ScholarshipApplyPage() {
                         <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField name="signature" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormMessage>
+                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                  </>
                )}
