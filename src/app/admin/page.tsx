@@ -1007,7 +1007,7 @@ function AddBookForm() {
 
 function ManageBookOrders() {
     const firestore = useFirestore();
-    const ordersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'bookOrders') : null, [firestore]);
+    const ordersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bookOrders')) : null, [firestore]);
     const { data: orders, isLoading, forceRefresh } = useCollection(ordersQuery);
     const { toast } = useToast();
     const [editingOrder, setEditingOrder] = useState<any>(null);
@@ -1064,7 +1064,9 @@ function ManageBookOrders() {
                         <p><strong>Book ID:</strong> {order.bookId}</p>
                          <p><strong>Shipping To:</strong> {order.shippingAddress.name}, {order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.zipCode}</p>
                         <p><strong>Mobile:</strong> {order.shippingAddress.mobile}</p>
-                        <Link href={order.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Payment Screenshot</Link>
+                        {order.paymentScreenshotUrl && (
+                          <Link href={order.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">View Payment Screenshot</Link>
+                        )}
                     </CardContent>
                     <CardContent className="flex gap-2 flex-wrap">
                         {order.status === 'pending' && (
@@ -1799,5 +1801,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
