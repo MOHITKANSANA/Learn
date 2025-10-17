@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 export default function CoursesPage() {
   const firestore = useFirestore();
@@ -27,48 +27,19 @@ export default function CoursesPage() {
   }, [firestore, user]);
   const { data: enrollments, isLoading: areEnrollmentsLoading } = useCollection(enrollmentsQuery);
 
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
+  const enrollmentStatus = useMemo(() => {
+    const statusMap = new Map<string, 'approved' | 'pending'>();
     if (enrollments) {
-      setEnrolledCourseIds(new Set(enrollments.map(e => e.itemId)));
+      for (const e of enrollments) {
+        if (e.isApproved) {
+          statusMap.set(e.itemId, 'approved');
+        } else if (!statusMap.has(e.itemId)) {
+          statusMap.set(e.itemId, 'pending');
+        }
+      }
     }
+    return statusMap;
   }, [enrollments]);
-
-  const handleFreeEnrollment = async (course: any) => {
-    if (!user || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
-      return;
-    }
-    // Prevent re-enrollment
-    const q = query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemId', '==', course.id));
-    const existingEnrollment = await getDocs(q);
-    if (!existingEnrollment.empty) {
-      toast({ title: 'Already Enrolled', description: 'You are already enrolled in this course.' });
-      return;
-    }
-
-    const enrollmentRef = doc(collection(firestore, 'enrollments'));
-    const enrollmentData = {
-      id: enrollmentRef.id,
-      studentId: user.uid,
-      itemId: course.id,
-      itemType: 'course',
-      enrollmentDate: serverTimestamp(),
-      isApproved: true, // Auto-approve free items
-      itemName: course.title,
-      itemImage: course.imageUrl,
-    };
-
-    try {
-      await setDoc(enrollmentRef, enrollmentData);
-      toast({ title: 'Success!', description: `You have enrolled in ${course.title}.` });
-      router.push('/my-library');
-    } catch (error) {
-      console.error("Free enrollment error: ", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not enroll in the course.' });
-    }
-  };
 
   if (areCoursesLoading || areEnrollmentsLoading) {
     return (
@@ -77,6 +48,25 @@ export default function CoursesPage() {
       </div>
     );
   }
+  
+  const renderButton = (course: any) => {
+    const status = enrollmentStatus.get(course.id);
+    if (status === 'approved') {
+        return (
+            <Button variant="secondary" asChild>
+                <Link href={`/courses/content/${course.id}`}>Start Learning</Link>
+            </Button>
+        );
+    }
+    if (status === 'pending') {
+        return <Button disabled>Pending Approval</Button>;
+    }
+    return (
+        <Button asChild>
+            <Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link>
+        </Button>
+    );
+  };
 
   return (
     <div>
@@ -87,10 +77,12 @@ export default function CoursesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {courses && courses.length > 0 ? (
           courses.map((course) => {
-            const isEnrolled = enrolledCourseIds.has(course.id);
+            const status = enrollmentStatus.get(course.id);
+            const isClickable = status === 'approved';
+
             return (
               <Card key={course.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                <Link href={isEnrolled ? `/courses/content/${course.id}` : `/checkout/${course.id}?type=course`} className="flex flex-col flex-grow">
+                <Link href={isClickable ? `/courses/content/${course.id}` : '#'} className={`flex flex-col flex-grow ${!isClickable ? 'cursor-default' : ''}`}>
                   <CardHeader className="p-0">
                     <Image
                       src={course.imageUrl}
@@ -107,16 +99,8 @@ export default function CoursesPage() {
                 </Link>
                 <CardFooter className="p-4 mt-auto">
                   <div className="flex justify-between items-center w-full">
-                    <p className="text-lg font-bold text-primary">{course.isFree ? 'Free' : `₹${course.price}`}</p>
-                    {isEnrolled ? (
-                      <Button variant="secondary" asChild>
-                        <Link href={`/courses/content/${course.id}`}>Start Learning</Link>
-                      </Button>
-                    ) : (
-                      <Button asChild>
-                        <Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link>
-                      </Button>
-                    )}
+                    <p className="text-lg font-bold text-primary">₹{course.price}</p>
+                    {renderButton(course)}
                   </div>
                 </CardFooter>
               </Card>

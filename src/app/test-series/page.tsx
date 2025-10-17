@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 
 export default function TestSeriesPage() {
   const firestore = useFirestore();
@@ -21,7 +22,27 @@ export default function TestSeriesPage() {
     firestore ? query(collection(firestore, 'test_series'), where('isStandalone', '==', true)) : null, 
     [firestore]
   );
-  const { data: testSeries, isLoading } = useCollection(testSeriesQuery);
+  const { data: testSeries, isLoading: areTestSeriesLoading } = useCollection(testSeriesQuery);
+  
+  const enrollmentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemType', '==', 'testSeries'));
+  }, [firestore, user]);
+  const { data: enrollments, isLoading: areEnrollmentsLoading } = useCollection(enrollmentsQuery);
+
+  const enrollmentStatus = useMemo(() => {
+    const statusMap = new Map<string, 'approved' | 'pending'>();
+    if (enrollments) {
+      for (const e of enrollments) {
+        if (e.isApproved) {
+          statusMap.set(e.itemId, 'approved');
+        } else if (!statusMap.has(e.itemId)) {
+          statusMap.set(e.itemId, 'pending');
+        }
+      }
+    }
+    return statusMap;
+  }, [enrollments]);
 
   const handleFreeEnrollment = async (item: any) => {
     if (!user || !firestore) {
@@ -51,7 +72,26 @@ export default function TestSeriesPage() {
     }
   };
 
-  if (isLoading) {
+  const renderButton = (item: any) => {
+    const status = enrollmentStatus.get(item.id);
+    if (status === 'approved') {
+        // TODO: Redirect to the actual test page
+        return <Button disabled>Start Test</Button>;
+    }
+    if (status === 'pending') {
+        return <Button disabled>Pending Approval</Button>;
+    }
+    if (item.isFree) {
+        return <Button onClick={() => handleFreeEnrollment(item)}>Start Now</Button>;
+    }
+    return (
+        <Button asChild>
+            <Link href={`/checkout/${item.id}?type=testSeries`}>Buy Now</Link>
+        </Button>
+    );
+  };
+
+  if (areTestSeriesLoading || areEnrollmentsLoading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -84,13 +124,7 @@ export default function TestSeriesPage() {
               </CardContent>
               <CardFooter className="p-4 flex justify-between items-center">
                 <p className="text-lg font-bold text-primary">{item.isFree ? 'Free' : `₹${item.price}`}</p>
-                {item.isFree ? (
-                  <Button onClick={() => handleFreeEnrollment(item)}>Start Now</Button>
-                ) : (
-                  <Button asChild>
-                    <Link href={`/checkout/${item.id}?type=testSeries`}>Buy Now</Link>
-                  </Button>
-                )}
+                {renderButton(item)}
               </CardFooter>
             </Card>
           ))
@@ -101,5 +135,3 @@ export default function TestSeriesPage() {
     </div>
   );
 }
-
-    

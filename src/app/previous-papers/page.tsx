@@ -1,14 +1,16 @@
+
 'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 
 export default function PreviousPapersPage() {
   const firestore = useFirestore();
@@ -17,7 +19,27 @@ export default function PreviousPapersPage() {
   const router = useRouter();
 
   const papersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'previousYearPapers') : null, [firestore]);
-  const { data: papers, isLoading } = useCollection(papersQuery);
+  const { data: papers, isLoading: arePapersLoading } = useCollection(papersQuery);
+
+  const enrollmentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemType', '==', 'previous-year-paper'));
+  }, [firestore, user]);
+  const { data: enrollments, isLoading: areEnrollmentsLoading } = useCollection(enrollmentsQuery);
+
+  const enrollmentStatus = useMemo(() => {
+    const statusMap = new Map<string, 'approved' | 'pending'>();
+    if (enrollments) {
+      for (const e of enrollments) {
+        if (e.isApproved) {
+          statusMap.set(e.itemId, 'approved');
+        } else if (!statusMap.has(e.itemId)) {
+          statusMap.set(e.itemId, 'pending');
+        }
+      }
+    }
+    return statusMap;
+  }, [enrollments]);
 
   const handleFreeEnrollment = async (paper: any) => {
     if (!user || !firestore) {
@@ -48,7 +70,37 @@ export default function PreviousPapersPage() {
     }
   };
 
-  if (isLoading) {
+  const renderButton = (paper: any) => {
+    const status = enrollmentStatus.get(paper.id);
+    if (status === 'approved') {
+        return (
+            <Button asChild>
+              <Link href={paper.fileUrl} target="_blank" rel="noopener noreferrer">
+                <Download className="mr-2 h-4 w-4" /> Download
+              </Link>
+            </Button>
+        );
+    }
+    if (status === 'pending') {
+        return <Button disabled>Pending Approval</Button>;
+    }
+    if (paper.isFree) {
+        return (
+            <Button onClick={() => handleFreeEnrollment(paper)}>
+                <Download className="mr-2 h-4 w-4" />
+                Get Now
+            </Button>
+        );
+    }
+    return (
+        <Button asChild>
+            <Link href={`/checkout/${paper.id}?type=previous-year-paper`}>Buy Now</Link>
+        </Button>
+    );
+  };
+
+
+  if (arePapersLoading || areEnrollmentsLoading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -81,16 +133,7 @@ export default function PreviousPapersPage() {
               </CardContent>
               <CardFooter className="p-4 flex justify-between items-center">
                 <p className="text-lg font-bold text-primary">{paper.isFree ? 'Free' : `₹${paper.price}`}</p>
-                {paper.isFree ? (
-                   <Button onClick={() => handleFreeEnrollment(paper)}>
-                     <Download className="mr-2 h-4 w-4" />
-                     Get Now
-                   </Button>
-                ) : (
-                  <Button asChild>
-                    <Link href={`/checkout/${paper.id}?type=previous-year-paper`}>Buy Now</Link>
-                  </Button>
-                )}
+                {renderButton(paper)}
               </CardFooter>
             </Card>
           ))

@@ -7,22 +7,37 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { vidyaSearch } from '@/ai/flows/vidya-search';
 
-// Singleton pattern to ensure Firebase Admin is initialized only once.
-function initializeAdminApp(): App {
-  if (getApps().length > 0) {
-    return getApps()[0];
+// --- Firebase Admin SDK Singleton ---
+// This ensures that the Firebase Admin SDK is initialized only once,
+// preventing the "The default Firebase app already exists" error in serverless environments.
+let adminApp: App | null = null;
+let db: firestore.Firestore | null = null;
+
+function initializeAdmin() {
+  if (!adminApp) {
+    if (getApps().length > 0) {
+      adminApp = getApps()[0];
+      db = getFirestore(adminApp);
+    } else {
+      try {
+        // IMPORTANT: Your service account key must be set as an environment variable
+        // named FIREBASE_SERVICE_ACCOUNT_KEY in your deployment environment.
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
+        adminApp = initializeApp({
+          credential: cert(serviceAccount),
+        });
+        db = getFirestore(adminApp);
+      } catch (e) {
+        console.error('Firebase Admin initialization failed:', e);
+        // We do not throw an error here, so the AI part can still be tried.
+        // The DB calls will fail gracefully later.
+      }
+    }
   }
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-    return initializeApp({
-      credential: cert(serviceAccount),
-    });
-  } catch (e) {
-    console.error('Failed to initialize Firebase Admin SDK:', e);
-    // This will cause subsequent getFirestore() calls to fail, which is intended.
-    throw new Error('Could not initialize Firebase Admin SDK. Service account key might be missing or invalid.');
-  }
+  return { adminApp, db };
 }
+// --- End of Singleton ---
+
 
 const SearchSchema = z.object({
   query: z.string().min(1, 'Search query cannot be empty.'),
@@ -42,7 +57,8 @@ export type State = {
   query?: string;
 };
 
-async function searchInCollection(db: firestore.Firestore, collectionName: string, id: string): Promise<firestore.DocumentData | null> {
+async function searchInCollection(db: firestore.Firestore | null, collectionName: string, id: string): Promise<firestore.DocumentData | null> {
+    if (!db) return null; // Guard against uninitialized DB
     try {
         const docRef = db.collection(collectionName).doc(id);
         const docSnap = await docRef.get();
@@ -68,53 +84,48 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     };
   }
   
-  let db: firestore.Firestore;
-  try {
-    initializeAdminApp();
-    db = getFirestore();
-  } catch (e: any) {
-    console.error('Firestore initialization failed in performSearch:', e);
-    return { error: e.message || 'Failed to connect to the database.' };
-  }
-
+  const { db } = initializeAdmin();
   const query = validatedFields.data.query;
   const results: SearchResultItem[] = [];
 
   try {
-    // 1. Search for Enrollment ID
-    const enrollment = await searchInCollection(db, 'enrollments', query);
-    if (enrollment) {
-      results.push({
-        type: 'enrollment',
-        title: `Enrollment Details: ${enrollment.itemName}`,
-        description: `Status: ${enrollment.isApproved ? 'Approved' : 'Pending'}. Enrolled on: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
-        data: enrollment,
-      });
-    }
-
-    // 2. Search for Book Order ID
-    const bookOrder = await searchInCollection(db, 'bookOrders', query);
-    if (bookOrder) {
-      results.push({
-        type: 'order',
-        title: `Book Order Details`,
-        description: `Status: ${bookOrder.status}. Ordered on: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
-        data: bookOrder,
-      });
-    }
-    
-    // 3. Search for Searchable Link
-    const searchableLink = await searchInCollection(db, 'searchable_links', query);
-    if (searchableLink) {
-         results.push({
-            type: 'link',
-            title: searchableLink.title,
-            description: searchableLink.description,
-            link: searchableLink.url,
+    if (db) {
+        // 1. Search for Enrollment ID
+        const enrollment = await searchInCollection(db, 'enrollments', query);
+        if (enrollment) {
+        results.push({
+            type: 'enrollment',
+            title: `Enrollment Details: ${enrollment.itemName}`,
+            description: `Status: ${enrollment.isApproved ? 'Approved' : 'Pending'}. Enrolled on: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+            data: enrollment,
         });
+        }
+
+        // 2. Search for Book Order ID
+        const bookOrder = await searchInCollection(db, 'bookOrders', query);
+        if (bookOrder) {
+        results.push({
+            type: 'order',
+            title: `Book Order Details`,
+            description: `Status: ${bookOrder.status}. Ordered on: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+            data: bookOrder,
+        });
+        }
+        
+        // 3. Search for Searchable Link
+        const searchableLink = await searchInCollection(db, 'searchable_links', query);
+        if (searchableLink) {
+            results.push({
+                type: 'link',
+                title: searchableLink.title,
+                description: searchableLink.description,
+                link: searchableLink.url,
+            });
+        }
     }
 
-    // 4. If no results, use Genkit AI
+
+    // 4. If no results from DB, use Genkit AI
     if (results.length === 0) {
         try {
             const aiResult = await vidyaSearch({ query });
@@ -127,6 +138,11 @@ export async function performSearch(prevState: State, formData: FormData): Promi
             }
         } catch (aiError) {
              console.error("AI search failed:", aiError);
+             // If DB also failed, show a combined error.
+             if (!db) {
+                 return { error: 'Could not connect to the database, and the AI search also failed.', query};
+             }
+             // If only AI failed.
              return { error: 'Could not find any results in the database or from AI.', query };
         }
     }

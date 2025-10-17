@@ -94,7 +94,7 @@ export default function CheckoutPage() {
   const paymentMethod = form.watch('paymentMethod');
 
   const upiDeepLink = useMemo(() => {
-    if (!settings?.upiId || finalPrice === null) return '#';
+    if (!settings?.upiId || finalPrice === null || finalPrice <= 0) return '#';
     const amount = finalPrice.toFixed(2);
     const payeeName = "Learn with Munedra";
     const note = `Payment for ${item?.title}`;
@@ -164,6 +164,15 @@ export default function CheckoutPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
         return;
     }
+
+    const enrollmentsRef = collection(firestore, 'enrollments');
+    const q = query(enrollmentsRef, where('studentId', '==', user.uid), where('itemId', '==', item.id));
+    const existingEnrollments = await getDocs(q);
+
+    if (!existingEnrollments.empty) {
+        toast({ variant: 'destructive', title: 'Already Requested', description: 'You have already submitted a payment request for this item.' });
+        return;
+    }
     
     setIsSubmitting(true);
 
@@ -172,32 +181,27 @@ export default function CheckoutPage() {
         screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
     }
 
-    if (values.paymentMethod === 'upi_intent') {
-        window.location.href = upiDeepLink;
-    }
+    const enrollmentRef = doc(collection(firestore, 'enrollments'));
+    const enrollmentData = {
+        id: enrollmentRef.id,
+        studentId: user.uid,
+        itemId: item.id,
+        itemType: itemType,
+        itemName: item.title,
+        itemImage: item.imageUrl,
+        pricePaid: finalPrice,
+        couponUsed: appliedCoupon ? appliedCoupon.code : null,
+        enrollmentDate: serverTimestamp(),
+        paymentMethod: values.paymentMethod === 'qr' 
+            ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
+            : 'upi_intent',
+        paymentScreenshotUrl: screenshotUrl,
+        paymentMobileNumber: values.paymentMobileNumber || null,
+        isApproved: false,
+    };
 
-    try {
-        const enrollmentRef = doc(collection(firestore, 'enrollments'));
-        const enrollmentData = {
-            id: enrollmentRef.id,
-            studentId: user.uid,
-            itemId: item.id,
-            itemType: itemType,
-            itemName: item.title,
-            itemImage: item.imageUrl,
-            pricePaid: finalPrice,
-            couponUsed: appliedCoupon ? appliedCoupon.code : null,
-            enrollmentDate: serverTimestamp(),
-            paymentMethod: values.paymentMethod === 'qr' 
-                ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
-                : 'upi_intent',
-            paymentScreenshotUrl: screenshotUrl,
-            paymentMobileNumber: values.paymentMobileNumber || null,
-            isApproved: false,
-        };
-
-        await setDoc(enrollmentRef, enrollmentData);
-
+    setDoc(enrollmentRef, enrollmentData)
+      .then(async () => {
         if (appliedCoupon) {
             const couponRef = doc(firestore, 'coupons', appliedCoupon.id);
             await updateDoc(couponRef, {
@@ -205,27 +209,31 @@ export default function CheckoutPage() {
             });
         }
         
-        if (values.paymentMethod === 'qr') {
-          toast({
+        toast({
             title: 'Order Placed!',
             description: 'Your enrollment is pending approval. We will notify you shortly.',
-          });
-          router.push('/my-library');
-        }
-        // For UPI intent, the user is redirected, so no toast/navigation here.
+        });
 
-    } catch (error) {
+        if (values.paymentMethod === 'upi_intent' && upiDeepLink !== '#') {
+            window.location.href = upiDeepLink;
+        } else {
+            router.push('/my-library');
+        }
+
+      })
+      .catch((error) => {
         console.error("Error placing order: ", error);
         const permissionError = new FirestorePermissionError({
             path: (error as any).path || 'enrollments',
             operation: 'create',
-            requestResourceData: (error as any).requestResourceData,
+            requestResourceData: enrollmentData,
         });
         errorEmitter.emit('permission-error', permissionError);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to place order.' });
-    } finally {
-        setIsSubmitting(false);
-    }
+      })
+      .finally(() => {
+          setIsSubmitting(false);
+      });
   }
 
   if (isItemLoading || !item || isLoadingSettings) {
