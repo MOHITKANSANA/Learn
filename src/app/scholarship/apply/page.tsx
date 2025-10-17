@@ -5,7 +5,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter } from '@/firebase';
 import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction } from 'firebase/firestore';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -51,26 +51,6 @@ const uploadSchema = z.object({
   signature: z.any().optional(),
 });
 
-const combinedSchema = personalInfoSchema
-    .merge(academicInfoSchema)
-    .merge(centerChoiceSchema)
-    .merge(uploadSchema);
-
-const stepsOffline = [
-  { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
-  { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
-  { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) as (keyof z.infer<typeof combinedSchema>)[] },
-  { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
-  { id: 5, title: 'Review & Submit', fields: [] },
-];
-
-const stepsOnline = [
-  { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
-  { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
-  { id: 3, title: 'Review & Submit', fields: [] },
-];
-
-
 const fileToDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -83,6 +63,7 @@ const fileToDataUrl = (file: File): Promise<string> => {
 export default function ScholarshipApplyPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedAppId, setSubmittedAppId] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -92,7 +73,21 @@ export default function ScholarshipApplyPage() {
   const paymentId = searchParams.get('pid');
   const examMode = searchParams.get('mode');
   
-  const steps = examMode === 'offline' ? stepsOffline : stepsOnline;
+  const offlineSchema = personalInfoSchema.merge(academicInfoSchema).merge(centerChoiceSchema).merge(uploadSchema);
+  const onlineSchema = personalInfoSchema.merge(academicInfoSchema);
+  const validationSchema = examMode === 'offline' ? offlineSchema : onlineSchema;
+
+  const steps = examMode === 'offline' ? [
+    { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
+    { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
+    { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) },
+    { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) },
+    { id: 5, title: 'Review & Submit', fields: [] },
+  ] : [
+    { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
+    { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
+    { id: 3, title: 'Review & Submit', fields: [] },
+  ];
 
   const { data: paymentData, isLoading: isLoadingPayment } = useDoc(useMemoFirebase(
     () => (firestore && paymentId ? doc(firestore, 'scholarshipPayments', paymentId) : null),
@@ -106,12 +101,11 @@ export default function ScholarshipApplyPage() {
     }
   }, [paymentData, isLoadingPayment, user, router, toast]);
 
-
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
-  const methods = useForm<z.infer<typeof combinedSchema>>({
-    resolver: zodResolver(combinedSchema),
+  const methods = useForm<z.infer<typeof validationSchema>>({
+    resolver: zodResolver(validationSchema),
     mode: 'onChange',
     defaultValues: {
       fullName: '',
@@ -123,17 +117,12 @@ export default function ScholarshipApplyPage() {
       currentClass: '',
       school: '',
       previousMarks: 0,
-      center1: '',
-      center2: '',
-      center3: '',
-      photo: undefined,
-      signature: undefined,
     }
   });
-
+  
   const nextStep = async () => {
     const fieldsToValidate = steps[currentStep - 1].fields;
-    const isValid = await methods.trigger(fieldsToValidate);
+    const isValid = await methods.trigger(fieldsToValidate as any);
     
     if (isValid) {
       if (currentStep < steps.length) {
@@ -165,12 +154,12 @@ export default function ScholarshipApplyPage() {
         return newId;
     }
 
-  const onSubmit = async (data: z.infer<typeof combinedSchema>) => {
+  const onSubmit = async (data: z.infer<typeof validationSchema>) => {
     if (!user || !firestore || !paymentId) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
     }
-
+    
     setIsSubmitting(true);
     try {
       const newAppId = await generateUniqueAppId();
@@ -186,8 +175,9 @@ export default function ScholarshipApplyPage() {
       };
       
       if(examMode === 'offline') {
-        const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
-        const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
+        const offlineData = data as z.infer<typeof offlineSchema>;
+        const photoUrl = offlineData.photo?.[0] ? await fileToDataUrl(offlineData.photo[0]) : null;
+        const signatureUrl = offlineData.signature?.[0] ? await fileToDataUrl(offlineData.signature[0]) : null;
         applicationData.photoUrl = photoUrl;
         applicationData.signatureUrl = signatureUrl;
         delete applicationData.photo;
@@ -195,12 +185,7 @@ export default function ScholarshipApplyPage() {
       }
 
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
-      
-      toast({
-        title: 'Application Submitted!',
-        description: `Your application number is ${newAppId}. You will be redirected shortly.`,
-      });
-      router.push('/scholarship/my-applications');
+      setSubmittedAppId(String(newAppId));
     } catch (error) {
         console.error(error);
         toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
@@ -212,12 +197,39 @@ export default function ScholarshipApplyPage() {
   if(isLoadingPayment || !paymentData) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
   }
+  
+  if (submittedAppId) {
+    return (
+        <div className="max-w-md mx-auto text-center">
+            <Card>
+                <CardHeader>
+                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                    <CardTitle className="text-2xl">Application Submitted!</CardTitle>
+                    <CardDescription>Your application has been received successfully.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="mb-2">Your 5-digit Application ID is:</p>
+                    <div className="bg-muted p-3 rounded-lg">
+                        <p className="text-3xl font-bold tracking-widest text-primary">{submittedAppId}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Please save this number for future reference.</p>
+                </CardContent>
+                <CardFooter>
+                     <Button asChild className="w-full">
+                        <Link href="/scholarship/my-applications">Go to My Applications</Link>
+                    </Button>
+                </CardFooter>
+            </Card>
+        </div>
+    );
+  }
+
 
   return (
     <div className="max-w-3xl mx-auto">
         <div className='flex items-center gap-4 mb-6'>
             <Button asChild variant="ghost" size="icon">
-                <Link href="/scholarship">
+                <Link href="/scholarship/payment">
                     <ArrowLeft />
                 </Link>
             </Button>

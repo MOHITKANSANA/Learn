@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,33 +43,6 @@ export default function ScholarshipPaymentPage() {
     const watchExamMode = form.watch('examMode');
     const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
 
-    const applicationQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(collection(firestore, 'scholarshipApplications'), where('userId', '==', user.uid));
-    }, [user, firestore]);
-    
-    const {data: applications, isLoading: isLoadingApps} = useCollection(applicationQuery);
-
-    if(isLoadingApps) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
-
-    if (applications && applications.length > 0) {
-        return (
-             <div className="max-w-md mx-auto text-center">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Application Already Submitted</CardTitle>
-                        <CardDescription>You have already applied for the scholarship.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p>Your Application ID is: <span className="font-bold">{applications[0].id}</span></p>
-                         <Button asChild className="mt-4">
-                            <Link href="/scholarship/my-applications">Check Status</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
 
     async function onSubmit(values: z.infer<typeof paymentSchema>) {
         if (!user || !firestore) {

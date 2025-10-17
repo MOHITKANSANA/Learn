@@ -2,7 +2,7 @@
 'use client';
 
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs } from 'firebase/firestore';
 import { Loader2, Download, User, Calendar, Clock, MapPin, School, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,16 +46,23 @@ export default function AdmitCardPage() {
              setIsLoading(false);
              return;
         }
+
+        if (!appData.allottedCenterId && appData.examMode === 'offline') {
+            toast({variant: 'destructive', title: 'Center Not Allotted', description: 'Your admit card is ready, but a center has not been assigned yet. Please contact us.', action: <Button onClick={() => window.open('tel:+918949814095')}>Call +91 8949814095</Button>});
+            setIsLoading(false);
+            return;
+        }
         
-        if (appData.examMode === 'offline') {
-            const admitCardDate = centers?.find(c => c.id === appData.allottedCenterId)?.admitCardDate;
-            if (admitCardDate && new Date() < new Date(admitCardDate)) {
-                 toast({variant: 'destructive', title: 'Not Available Yet', description: `Admit card will be available from ${new Date(admitCardDate).toLocaleDateString()}.`});
-                 setIsLoading(false);
-                 return;
-            }
-            if (appData.allottedCenterId && centers) {
-                setAllottedCenter(centers.find(c => c.id === appData.allottedCenterId));
+        if (appData.examMode === 'offline' && appData.allottedCenterId) {
+            const center = centers?.find(c => c.id === appData.allottedCenterId);
+            if (center) {
+                const admitCardDate = new Date(center.admitCardDate);
+                 if (new Date() < admitCardDate) {
+                    toast({variant: 'destructive', title: 'Not Available Yet', description: `Admit card will be available from ${admitCardDate.toLocaleDateString()}.`});
+                    setIsLoading(false);
+                    return;
+                }
+                setAllottedCenter(center);
             }
         }
         
@@ -125,12 +132,14 @@ export default function AdmitCardPage() {
                         ) : application.examMode === 'online' ? (
                              <div className="pt-4 border-t">
                                 <h3 className="font-bold mb-2 text-primary">Online Examination Details</h3>
-                                 <p className="text-sm text-muted-foreground">Your test will be conducted online. You can start the test from the scholarship page on the scheduled date and time.</p>
-                                 {/* You can add date/time here if available */}
+                                 <div className="space-y-2">
+                                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>Date:</strong> {allottedCenter.onlineExamStartDate} to {allottedCenter.onlineExamEndDate}</p></div>
+                                     <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><p><strong>Time:</strong> {allottedCenter.onlineExamStartTime} to {allottedCenter.onlineExamEndTime}</p></div>
+                                 </div>
+                                 <p className="text-sm text-muted-foreground mt-2">You can start the test from the scholarship page on the scheduled date and time.</p>
                             </div>
-                        ) : (
-                             <div className="pt-4 border-t text-center text-muted-foreground">Center not allotted yet.</div>
-                        )}
+                        ) : null
+                        }
                         
                     </div>
                     <div className="space-y-4 flex flex-col items-center">
@@ -149,8 +158,8 @@ export default function AdmitCardPage() {
                         <ul className="list-decimal list-inside text-xs space-y-1">
                            {application.examMode === 'offline' && <li>कृपया परीक्षा केंद्र पर प्रवेश पत्र के साथ एक वैध फोटो पहचान पत्र (जैसे आधार कार्ड) अवश्य लाएं।</li>}
                            {application.examMode === 'offline' && <li>परीक्षा शुरू होने से कम से कम 30 मिनट पहले परीक्षा केंद्र पर पहुंचें।</li>}
-                            <li>परीक्षा हॉल में किसी भी प्रकार के इलेक्ट्रॉनिक उपकरण (मोबाइल फोन, स्मार्ट वॉच आदि) ले जाना सख्त वर्जित है।</li>
                            {application.examMode === 'offline' && settings?.offlineScholarshipFee > 0 && <li>आपको परीक्षा केंद्र पर ₹{settings.offlineScholarshipFee} का शुल्क नकद जमा करना होगा।</li>}
+                            <li>परीक्षा हॉल में किसी भी प्रकार के इलेक्ट्रॉनिक उपकरण (मोबाइल फोन, स्मार्ट वॉच आदि) ले जाना सख्त वर्जित है।</li>
                            {application.examMode === 'online' && <li>सुनिश्चित करें कि आपके पास एक स्थिर इंटरनेट कनेक्शन है।</li>}
                         </ul>
                      </div>

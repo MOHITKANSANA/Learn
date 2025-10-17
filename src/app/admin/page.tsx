@@ -1871,25 +1871,47 @@ function VidyaSearchAdmin() {
 function ScholarshipManagement() {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const applicationsQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'scholarshipApplications'), orderBy('createdAt', 'desc')) : null,
+    const [activeTab, setActiveTab] = useState('offline');
+
+    const offlineAppsQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'scholarshipApplications'), where('examMode', '==', 'offline'), orderBy('createdAt', 'desc')) : null,
         [firestore]
     );
-    const { data: applications, isLoading, forceRefresh } = useCollection(applicationsQuery);
+    const { data: offlineApps, isLoading: loadingOffline, forceRefresh: refreshOffline } = useCollection(offlineAppsQuery);
+    
+    const onlineAppsQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'scholarshipApplications'), where('examMode', '==', 'online'), orderBy('createdAt', 'desc')) : null,
+        [firestore]
+    );
+    const { data: onlineApps, isLoading: loadingOnline, forceRefresh: refreshOnline } = useCollection(onlineAppsQuery);
+    
+    const {data: centers} = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
 
-    const handleStatusChange = async (appId: string, status: 'approved' | 'rejected') => {
-        if (!firestore) return;
+    const handleCenterAllocation = async (appId: string, centerId: string) => {
+        if (!firestore || !centerId) return;
         const appRef = doc(firestore, 'scholarshipApplications', appId);
         try {
-            await updateDoc(appRef, { status });
-            toast({ title: 'Success', description: `Application status updated to ${status}.` });
-            forceRefresh();
+            await updateDoc(appRef, { allottedCenterId: centerId, status: 'approved' });
+            toast({ title: 'Success', description: `Center allotted and application approved.` });
+            refreshOffline();
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to allot center.' });
         }
     };
     
-    if (isLoading) return <Loader2 className="animate-spin" />;
+    const handleOnlinePaymentApproval = async (appId: string, newStatus: 'approved' | 'rejected') => {
+         if (!firestore) return;
+        const appRef = doc(firestore, 'scholarshipApplications', appId);
+         try {
+            await updateDoc(appRef, { status: newStatus });
+            toast({ title: 'Success', description: `Application status updated to ${newStatus}.` });
+            refreshOnline();
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
+        }
+    }
+
+    if (loadingOffline || loadingOnline) return <Loader2 className="animate-spin" />;
 
     return (
         <Card>
@@ -1897,37 +1919,72 @@ function ScholarshipManagement() {
                 <CardTitle>Scholarship Management</CardTitle>
                 <CardDescription>Review and manage all scholarship applications.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                 {applications && applications.length > 0 ? applications.map((app: any) => (
-                    <Card key={app.id}>
-                         <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle className="text-lg">{app.fullName}</CardTitle>
-                                    <CardDescription>ID: {app.id}</CardDescription>
-                                </div>
-                                 <Badge variant={app.status === 'rejected' ? 'destructive' : 'default'} className="capitalize">{app.status}</Badge>
-                            </div>
-                         </CardHeader>
-                         <CardContent className="text-sm space-y-2">
-                             <p><strong>Father's Name:</strong> {app.fatherName}</p>
-                             <p><strong>Exam Mode:</strong> {app.examMode}</p>
-                             <p><strong>Score:</strong> {app.testScore !== undefined ? `${app.testScore} / ${app.totalQuestions} (${app.percentage}%)` : 'Not Taken'}</p>
-                         </CardContent>
-                         <CardFooter className="flex gap-2">
-                            {app.status === 'submitted' || app.status === 'rejected' ? (
-                                 <Button size="sm" onClick={() => handleStatusChange(app.id, 'approved')}>
-                                    <Check className="mr-2 h-4 w-4" /> Approve
-                                </Button>
-                            ) : null}
-                            {app.status === 'submitted' || app.status === 'approved' ? (
-                                <Button size="sm" variant="destructive" onClick={() => handleStatusChange(app.id, 'rejected')}>
-                                    <X className="mr-2 h-4 w-4" /> Reject
-                                </Button>
-                            ) : null}
-                         </CardFooter>
-                    </Card>
-                 )) : <p className="text-muted-foreground text-center">No applications found.</p>}
+            <CardContent>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="offline">Offline Applicants</TabsTrigger>
+                        <TabsTrigger value="online">Online Applicants</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="offline" className="space-y-4 pt-4">
+                        {offlineApps && offlineApps.length > 0 ? offlineApps.map((app: any) => (
+                            <Card key={app.id}>
+                                <CardHeader>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-lg">{app.fullName} ({app.id})</CardTitle>
+                                            <CardDescription>Center Choices: {app.center1}, {app.center2}, {app.center3}</CardDescription>
+                                        </div>
+                                        <Badge variant={app.status === 'rejected' ? 'destructive' : 'default'} className="capitalize">{app.status}</Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="text-sm space-y-2">
+                                     <p><strong>Father's Name:</strong> {app.fatherName}</p>
+                                     <p><strong>Allotted Center:</strong> {centers?.find(c => c.id === app.allottedCenterId)?.name || 'None'}</p>
+                                </CardContent>
+                                <CardFooter>
+                                    <div className="flex items-center gap-2">
+                                        <Label>Allot Center:</Label>
+                                         <Select onValueChange={(centerId) => handleCenterAllocation(app.id, centerId)} disabled={!centers}>
+                                            <SelectTrigger className="w-[280px]">
+                                                <SelectValue placeholder="Select a center to approve" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </CardFooter>
+                            </Card>
+                        )) : <p className="text-muted-foreground text-center py-4">No offline applications found.</p>}
+                    </TabsContent>
+                    <TabsContent value="online" className="space-y-4 pt-4">
+                        {onlineApps && onlineApps.length > 0 ? onlineApps.map((app: any) => (
+                           <Card key={app.id}>
+                                <CardHeader>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-lg">{app.fullName} ({app.id})</CardTitle>
+                                            <CardDescription>Payment Mobile: {app.paymentMobileNumber || 'N/A'}</CardDescription>
+                                        </div>
+                                        <Badge variant={app.status === 'rejected' ? 'destructive' : 'default'} className="capitalize">{app.status}</Badge>
+                                    </div>
+                                </CardHeader>
+                                 <CardContent className="text-sm space-y-2">
+                                    <p><strong>Test Score:</strong> {app.testScore !== undefined ? `${app.testScore} / ${app.totalQuestions} (${app.percentage}%)` : 'Not Taken'}</p>
+                                     <p><strong>Status:</strong> {app.testScore !== undefined ? (app.testScore / app.totalQuestions > 0.4 ? "Pass" : "Fail") : 'N/A'}</p>
+                                </CardContent>
+                                <CardFooter className="flex gap-2">
+                                    <Button size="sm" onClick={() => handleOnlinePaymentApproval(app.id, 'approved')} disabled={app.status === 'approved' || app.testScore === undefined}>
+                                        <Check className="mr-2 h-4 w-4" /> Pass
+                                    </Button>
+                                    <Button size="sm" variant="destructive" onClick={() => handleOnlinePaymentApproval(app.id, 'rejected')} disabled={app.status === 'rejected' || app.testScore === undefined}>
+                                        <X className="mr-2 h-4 w-4" /> Fail
+                                    </Button>
+                                </CardFooter>
+                           </Card>
+                        )) : <p className="text-muted-foreground text-center py-4">No online applications found.</p>}
+                    </TabsContent>
+                </Tabs>
             </CardContent>
         </Card>
     );

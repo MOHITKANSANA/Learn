@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -71,13 +70,14 @@ export default function ScholarshipPage() {
 
     const applicationQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
+        // Note: This only fetches the first application for the UI logic.
+        // A user can have multiple applications, which are all visible on the 'my-applications' page.
         return query(collection(firestore, 'scholarshipApplications'), where('userId', '==', user.uid));
     }, [user, firestore]);
     
     const {data: applications, isLoading} = useCollection(applicationQuery);
 
-    const userApplication = applications?.[0];
-    const isOnlineApplicant = userApplication?.examMode === 'online';
+    const isOnlineApplicant = applications?.some(app => app.examMode === 'online');
 
   return (
     <div className="max-w-4xl mx-auto text-center">
