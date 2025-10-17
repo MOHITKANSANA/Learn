@@ -53,8 +53,6 @@ const uploadSchema = z.object({
   signature: z.any().optional(),
 });
 
-const reviewSchema = z.object({});
-
 const combinedSchema = personalInfoSchema.merge(academicInfoSchema).merge(centerChoiceSchema).merge(uploadSchema);
 
 const steps = [
@@ -62,7 +60,7 @@ const steps = [
   { id: 2, title: 'Academic Information', schema: academicInfoSchema },
   { id: 3, title: 'Exam Center Choice', schema: centerChoiceSchema },
   { id: 4, title: 'Upload Documents', schema: uploadSchema },
-  { id: 5, title: 'Review & Submit', schema: reviewSchema },
+  { id: 5, title: 'Review & Submit', schema: z.object({}) }, // Empty schema for review step, full validation on submit
 ];
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -86,7 +84,7 @@ export default function ScholarshipApplyPage() {
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
   const methods = useForm<z.infer<typeof combinedSchema>>({
-    resolver: zodResolver(currentStep === 5 ? combinedSchema : steps[currentStep - 1]?.schema),
+    resolver: zodResolver(combinedSchema),
     mode: 'onChange',
     defaultValues: {
       fullName: '',
@@ -110,7 +108,11 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
 
   const nextStep = async () => {
-    const isValid = await methods.trigger();
+    const currentSchema = steps[currentStep - 1].schema;
+    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof z.infer<typeof combinedSchema>)[];
+
+    const isValid = await methods.trigger(fieldsToValidate);
+    
     if (isValid) {
       if (currentStep < 5) {
         setCurrentStep(currentStep + 1);
@@ -263,7 +265,7 @@ export default function ScholarshipApplyPage() {
                     <Card>
                         <CardContent className="p-4 space-y-2 text-sm">
                             {Object.entries(methods.getValues()).map(([key, value]) => {
-                                if (typeof value === 'object' && value !== null) return null;
+                                if (typeof value === 'object' && value !== null || value instanceof FileList) return null;
                                 if (value === '' || value === undefined) return null;
                                 return (
                                     <div key={key} className="flex justify-between">
@@ -297,5 +299,3 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
-
-    
