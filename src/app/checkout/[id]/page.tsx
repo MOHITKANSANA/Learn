@@ -14,25 +14,10 @@ import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { doc, collection, setDoc, serverTimestamp, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import Image from 'next/image';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 
 const checkoutSchema = z.object({
   couponCode: z.string().optional(),
-  paymentMethod: z.enum(['upi_intent', 'qr']),
-  paymentMobileNumber: z.string().optional(),
-  paymentScreenshot: z.any().optional(),
-}).refine(data => {
-    if (data.paymentMethod === 'upi_intent') {
-        return !!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10;
-    }
-    if (data.paymentMethod === 'qr') {
-        return (data.paymentScreenshot && data.paymentScreenshot.length > 0) || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
-    }
-    return false;
-}, {
-    message: 'Please provide the required information for your selected payment method.',
-    path: ['paymentMethod'],
+  transactionId: z.string().min(12, 'Please enter a valid 12-digit UPI Transaction ID.').max(12, 'UPI Transaction ID must be 12 digits.'),
 });
 
 
@@ -84,20 +69,9 @@ export default function CheckoutPage() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
         couponCode: '',
-        paymentMethod: 'upi_intent',
-        paymentMobileNumber: '',
+        transactionId: '',
     }
   });
-  
-  const paymentMethod = form.watch('paymentMethod');
-
-  const upiDeepLink = useMemo(() => {
-    if (!settings?.upiId || finalPrice === null || finalPrice <= 0) return '#';
-    const amount = finalPrice.toFixed(2);
-    const payeeName = "Learn with Munedra";
-    const note = `Payment for ${item?.title}`;
-    return `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
-  }, [settings, finalPrice, item]);
 
   const handleApplyCoupon = async () => {
     const code = form.getValues('couponCode');
@@ -150,13 +124,6 @@ export default function CheckoutPage() {
     }
   };
   
-    const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-    });
-  
   async function onSubmit(values: z.infer<typeof checkoutSchema>) {
     if (!user || !firestore || !item) {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
@@ -174,11 +141,6 @@ export default function CheckoutPage() {
     
     setIsSubmitting(true);
 
-    let screenshotUrl: string | null = null;
-    if (values.paymentMethod === 'qr' && values.paymentScreenshot?.[0]) {
-        screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
-    }
-
     const enrollmentRef = doc(collection(firestore, 'enrollments'));
     const enrollmentData = {
         id: enrollmentRef.id,
@@ -190,11 +152,8 @@ export default function CheckoutPage() {
         pricePaid: finalPrice,
         couponUsed: appliedCoupon ? appliedCoupon.code : null,
         enrollmentDate: serverTimestamp(),
-        paymentMethod: values.paymentMethod === 'qr' 
-            ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
-            : 'upi_intent',
-        paymentScreenshotUrl: screenshotUrl,
-        paymentMobileNumber: values.paymentMobileNumber || null,
+        paymentMethod: 'qr_transaction_id',
+        transactionId: values.transactionId,
         isApproved: false,
     };
 
@@ -208,19 +167,11 @@ export default function CheckoutPage() {
             });
         }
         
-        if (values.paymentMethod === 'upi_intent' && upiDeepLink !== '#') {
-            toast({
-                title: 'Attempting to open UPI app...',
-                description: 'Once payment is complete, your request will be submitted.',
-            });
-            window.location.href = upiDeepLink;
-        } else {
-             toast({
-                title: 'Payment Request Sent!',
-                description: 'Your enrollment is pending approval. We will notify you shortly.',
-            });
-            router.push('/my-library');
-        }
+        toast({
+            title: 'Payment Request Sent!',
+            description: 'Your enrollment is pending approval. We will notify you shortly.',
+        });
+        router.push('/my-library');
 
     } catch (error) {
         console.error("Error placing order: ", error);
@@ -299,106 +250,33 @@ export default function CheckoutPage() {
                  </div>
                  {couponError && <p className="text-sm text-destructive">{couponError}</p>}
                 
-                <div className="text-center p-3 bg-primary/20 rounded-md border border-primary/30">
-                    <p className="font-semibold"> कृपया ₹{(finalPrice ?? item.price).toFixed(2)} का भुगतान करें और सत्यापित करें।</p>
-                </div>
-                
+                {settings?.qrCodeImageUrl && (
+                    <div className='flex flex-col items-center gap-2'>
+                        <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
+                        <p className="text-xs text-muted-foreground text-center">1. Scan this QR to pay ₹{(finalPrice ?? item.price).toFixed(2)}</p>
+                    </div>
+                )}
+
                 <FormField
                   control={form.control}
-                  name="paymentMethod"
+                  name="transactionId"
                   render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel className="font-bold">Select Verification Method:</FormLabel>
+                    <FormItem>
+                      <FormLabel>2. Enter your 12-digit UPI Transaction ID</FormLabel>
                       <FormControl>
-                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl><RadioGroupItem value="upi_intent" /></FormControl>
-                            <FormLabel className="font-normal">Pay with UPI App (Recommended)</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl><RadioGroupItem value="qr" /></FormControl>
-                            <FormLabel className="font-normal">Pay with QR Code</FormLabel>
-                          </FormItem>
-                        </RadioGroup>
+                        <Input placeholder="12-Digit Transaction ID" {...field} maxLength={12} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                {paymentMethod === 'upi_intent' && (
-                    <div className="space-y-4">
-                        <FormField
-                        control={form.control}
-                        name="paymentMobileNumber"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Your UPI Mobile Number</FormLabel>
-                            <FormControl>
-                                <div className="flex items-center">
-                                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
-                                <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" value={field.value ?? ''} />
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                         <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Proceed to Pay
-                        </Button>
-                    </div>
-                )}
-                
-                {paymentMethod === 'qr' && (
-                  <div className="space-y-4">
-                     {settings?.qrCodeImageUrl && (
-                        <div className='flex flex-col items-center gap-2'>
-                            <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
-                            <p className="text-xs text-muted-foreground text-center">Scan this QR to pay ₹{(finalPrice ?? item.price).toFixed(2)}</p>
-                        </div>
-                    )}
-                     <FormField
-                        control={form.control}
-                        name="paymentScreenshot"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>1. Upload Screenshot</FormLabel>
-                            <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or</span></div>
-                      </div>
-                       <FormField
-                        control={form.control}
-                        name="paymentMobileNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>2. Enter Mobile Number</FormLabel>
-                             <FormControl>
-                                <div className="flex items-center">
-                                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
-                                    <Input type="tel" placeholder="Number you paid from" {...field} className="rounded-l-none" value={field.value ?? ''} />
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="submit" className="w-full" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Submit for Verification
-                     </Button>
-                  </div>
-                )}
-                {form.formState.errors.paymentMethod && <p className="text-sm font-medium text-destructive">{form.formState.errors.paymentMethod.message}</p>}
-
               </CardContent>
+              <CardFooter>
+                 <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Submit for Verification
+                 </Button>
+              </CardFooter>
             </form>
           </Form>
         </Card>

@@ -155,9 +155,8 @@
         "itemId": { "type": "string" },
         "itemType": { "type": "string", "enum": ["course", "ebook", "testSeries", "previous-year-paper"] },
         "enrollmentDate": { "type": "string", "format": "date-time" },
-        "paymentScreenshotUrl": { "type": "string" },
-        "paymentMobileNumber": { "type": "string" },
-        "paymentMethod": { "type": "string", "enum": ["upi_intent", "qr_screenshot", "qr_mobile"] },
+        "transactionId": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["qr_transaction_id"] },
         "isApproved": { "type": "boolean" }
       },
       "required": ["id", "studentId", "itemId", "itemType", "enrollmentDate"]
@@ -227,9 +226,8 @@
           "required": ["name", "address", "city", "state", "zipCode", "mobile"]
         },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected", "shipped"] },
-        "paymentScreenshotUrl": { "type": "string" },
-        "paymentMobileNumber": { "type": "string" },
-        "paymentMethod": { "type": "string", "enum": ["upi_intent", "qr_screenshot", "qr_mobile"] },
+        "transactionId": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["qr_transaction_id"] },
         "orderDate": { "type": "string", "format": "date-time" },
         "tentativeDeliveryDate": { "type": "string", "format": "date" },
         "trackingLink": { "type": "string" }
@@ -490,3 +488,5 @@
     ]
   }
 }
+
+    

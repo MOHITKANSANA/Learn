@@ -61,8 +61,8 @@ function CancelOrderButton({ order }: { order: any }) {
         if (!firestore) return;
         const orderRef = doc(firestore, 'bookOrders', order.id);
         try {
-            await updateDoc(orderRef, { status: 'cancelled' });
-            toast({ title: 'Order Cancelled', description: 'Your order has been successfully cancelled.' });
+            await deleteDoc(orderRef);
+            toast({ title: 'Order Cancelled', description: 'Your order has been successfully removed.' });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to cancel the order.' });
         }
@@ -83,7 +83,7 @@ function CancelOrderButton({ order }: { order: any }) {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure you want to cancel?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. You will need to place a new order.
+                        This action is permanent and cannot be undone. You will need to place a new order.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

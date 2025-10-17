@@ -60,7 +60,9 @@ export default function CartPage() {
   const { subtotal, discount, total } = useMemo(() => {
     if (!cartItems) return { subtotal: 0, discount: 0, total: 0 };
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const discount = Math.floor(subtotal / 500) * 40;
+    // Discount logic: 15 for books (assuming all items in cart are books for now), 40 for others.
+    // This example assumes all items are books. A real implementation might need item type info.
+    const discount = Math.floor(subtotal / 500) * 15; 
     const total = subtotal - discount;
     return { subtotal, discount, total };
   }, [cartItems]);
@@ -143,3 +145,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+    
