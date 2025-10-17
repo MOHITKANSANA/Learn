@@ -24,9 +24,11 @@ import {
   ShoppingBag,
   ClipboardList,
   Newspaper,
-  FilePlus
+  FilePlus,
+  Trash2,
+  List,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,10 +38,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, errorEmitter, useUser } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 const adminNavItems = [
   { value: 'add-course', icon: PlusCircle, label: 'Add Course' },
@@ -54,6 +69,7 @@ const adminNavItems = [
   { value: 'add-book', icon: BookCopy, label: 'Add Book' },
   { value: 'book-orders', icon: ShoppingBag, label: 'Book Orders' },
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
+  { value: 'manage-content', icon: List, label: 'Manage Content' },
 ];
 
 const courseSchema = z.object({
@@ -98,6 +114,9 @@ function CreateCourseForm() {
       price: values.isFree ? 0 : values.price,
       imageUrl,
       isFree: values.isFree,
+      videos: [],
+      notes: [],
+      tests: [],
       createdAt: serverTimestamp(),
     };
 
@@ -1047,11 +1066,11 @@ function ManageBookOrders() {
                         }} className="space-y-4">
                             <div>
                                 <Label htmlFor="deliveryDate">Tentative Delivery Date</Label>
-                                <Input id="deliveryDate" name="deliveryDate" type="date" defaultValue={editingOrder.tentativeDeliveryDate} />
+                                <Input id="deliveryDate" name="deliveryDate" type="date" defaultValue={editingOrder.tentativeDeliveryDate || ''} />
                             </div>
                             <div>
                                 <Label htmlFor="trackingLink">Tracking Link</Label>
-                                <Input id="trackingLink" name="trackingLink" type="url" placeholder="https://tracking.example.com/..." defaultValue={editingOrder.trackingLink} />
+                                <Input id="trackingLink" name="trackingLink" type="url" placeholder="https://tracking.example.com/..." defaultValue={editingOrder.trackingLink || ''} />
                             </div>
                             <div className="flex gap-2">
                                 <Button type="submit">Mark as Shipped</Button>
@@ -1145,7 +1164,7 @@ function AddCouponForm() {
                     <FormItem><FormLabel>Discount Value</FormLabel><FormControl><Input type="number" placeholder={form.watch('discountType') === 'percentage' ? 'e.g., 10 for 10%' : 'e.g., 100 for ₹100'} {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                  <FormField control={form.control} name="expiryDate" render={({ field }) => (
-                    <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                 )} />
                  <FormField control={form.control} name="maxUses" render={({ field }) => (
                     <FormItem><FormLabel>Max Uses</FormLabel><FormControl><Input type="number" placeholder="e.g., 100" {...field} /></FormControl><FormMessage /></FormItem>
@@ -1163,7 +1182,7 @@ const contentSchema = z.object({
   courseId: z.string().min(1, 'Please select a course.'),
   contentType: z.enum(['video', 'note', 'test']),
   title: z.string().min(3, 'Title is required.'),
-  url: z.string().url('A valid URL is required.'),
+  url: z.string().min(1, 'URL or ID is required.'),
 });
 
 function AddContentForm() {
@@ -1188,22 +1207,24 @@ function AddContentForm() {
     }
 
     const courseRef = doc(firestore, 'courses', values.courseId);
-    const content = {
-      id: doc(collection(firestore, 'sub')).id, // Generate a random ID
-      title: values.title,
-      url: values.url,
-    };
-
+    const contentId = doc(collection(firestore, 'sub')).id; // Generate a random ID for the content
+    
+    let content;
     let updateData = {};
-    if (values.contentType === 'video') {
-      updateData = { videos: arrayUnion(content) };
-    } else if (values.contentType === 'note') {
-      updateData = { notes: arrayUnion(content) };
-    } else { // 'test'
-        const testContent = {id: content.id, title: content.title}; // For tests in course, we only store id and title
-        updateData = { tests: arrayUnion(testContent) };
-    }
 
+    if (values.contentType === 'test') {
+        // For tests, the 'url' field is actually the test series ID. We link it.
+        content = { id: values.url, title: values.title };
+        updateData = { tests: arrayUnion(content) };
+    } else {
+        // For videos and notes, it's a URL.
+        content = { id: contentId, title: values.title, url: values.url };
+        if (values.contentType === 'video') {
+            updateData = { videos: arrayUnion(content) };
+        } else if (values.contentType === 'note') {
+            updateData = { notes: arrayUnion(content) };
+        }
+    }
 
     updateDoc(courseRef, updateData)
       .then(() => {
@@ -1251,7 +1272,7 @@ function AddContentForm() {
                 <SelectContent>
                   <SelectItem value="video">Video</SelectItem>
                   <SelectItem value="note">Note (PDF)</SelectItem>
-                  <SelectItem value="test">Test Series (ID)</SelectItem>
+                  <SelectItem value="test">Test Series</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -1286,6 +1307,7 @@ const testSeriesSchema = z.object({
   isStandalone: z.boolean().default(true),
   courseId: z.string().optional(),
   imageUrl: z.any().refine(files => files?.length == 1, 'Image is required.'),
+  questions: z.string().optional(),
 }).refine(data => data.isStandalone || (!data.isStandalone && data.courseId), {
   message: "A course must be selected for non-standalone test series.",
   path: ["courseId"],
@@ -1308,7 +1330,8 @@ function AddTestSeriesForm() {
       price: 0,
       isFree: false,
       isStandalone: true,
-      courseId: ''
+      courseId: '',
+      questions: '',
     },
   });
 
@@ -1329,6 +1352,18 @@ function AddTestSeriesForm() {
       return;
     }
     
+    let questionsArray = [];
+    if (values.questions) {
+      try {
+        questionsArray = JSON.parse(values.questions);
+        if (!Array.isArray(questionsArray)) throw new Error("JSON must be an array.");
+      } catch (e) {
+        toast({ variant: 'destructive', title: 'Invalid JSON', description: 'The questions field contains invalid JSON.' });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const imageUrl = await fileToDataUrl(values.imageUrl[0]);
     const testSeriesRef = doc(collection(firestore, 'test_series'));
 
@@ -1342,7 +1377,7 @@ function AddTestSeriesForm() {
       isStandalone: values.isStandalone,
       courseId: values.isStandalone ? null : values.courseId,
       createdAt: serverTimestamp(),
-      questions: []
+      questions: questionsArray
     };
 
     setDoc(testSeriesRef, testSeriesData).then(async () => {
@@ -1416,6 +1451,16 @@ function AddTestSeriesForm() {
         <FormField control={form.control} name="imageUrl" render={({ field }) => (
           <FormItem><FormLabel>Image</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
         )} />
+        <FormField control={form.control} name="questions" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Questions (JSON format)</FormLabel>
+            <FormControl>
+                <Textarea placeholder='[{"text": "Question 1?", "options": [{"text": "A", "isCorrect": true}, {"text": "B", "isCorrect": false}]}]' {...field} rows={10} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Add Test Series
@@ -1425,7 +1470,96 @@ function AddTestSeriesForm() {
   );
 }
 
+function ManageContent() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
 
+    const collections = [
+        { name: 'Courses', path: 'courses' },
+        { name: 'E-books', path: 'ebooks' },
+        { name: 'Test Series', path: 'test_series' },
+        { name: 'Previous Papers', path: 'previousYearPapers' },
+        { name: 'Live Classes', path: 'live_classes' },
+    ];
+
+    const { data: coursesData, isLoading: coursesLoading, forceRefresh: refreshCourses } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]));
+    const { data: ebooksData, isLoading: ebooksLoading, forceRefresh: refreshEbooks } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'ebooks') : null, [firestore]));
+    const { data: testSeriesData, isLoading: testSeriesLoading, forceRefresh: refreshTestSeries } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'test_series') : null, [firestore]));
+    const { data: papersData, isLoading: papersLoading, forceRefresh: refreshPapers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'previousYearPapers') : null, [firestore]));
+    const { data: liveClassesData, isLoading: liveClassesLoading, forceRefresh: refreshLiveClasses } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'live_classes') : null, [firestore]));
+
+    const dataMap = {
+        courses: { data: coursesData, loading: coursesLoading, refresh: refreshCourses },
+        ebooks: { data: ebooksData, loading: ebooksLoading, refresh: refreshEbooks },
+        test_series: { data: testSeriesData, loading: testSeriesLoading, refresh: refreshTestSeries },
+        previousYearPapers: { data: papersData, loading: papersLoading, refresh: refreshPapers },
+        live_classes: { data: liveClassesData, loading: liveClassesLoading, refresh: refreshLiveClasses },
+    };
+
+    const handleDelete = async (collectionPath: string, docId: string, refreshFunc: () => void) => {
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+            return;
+        }
+        try {
+            await deleteDoc(doc(firestore, collectionPath, docId));
+            toast({ title: 'Success', description: 'Item deleted successfully.' });
+            refreshFunc();
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete item.' });
+            console.error("Delete error: ", error);
+        }
+    };
+
+    return (
+        <Tabs defaultValue="courses" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+                {collections.map(c => <TabsTrigger key={c.path} value={c.path}>{c.name}</TabsTrigger>)}
+            </TabsList>
+            {collections.map(c => {
+                const { data, loading, refresh } = dataMap[c.path as keyof typeof dataMap];
+                return (
+                    <TabsContent key={c.path} value={c.path}>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Manage {c.name}</CardTitle>
+                                <CardDescription>View and delete items from the '{c.path}' collection.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {loading ? <Loader2 className="mx-auto animate-spin" /> :
+                                    data && data.length > 0 ? (
+                                        data.map(item => (
+                                            <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                                <span className="font-medium">{item.title}</span>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>This action cannot be undone. This will permanently delete the item.</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDelete(c.path, item.id, refresh)}>Delete</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-4">No items found in this collection.</p>
+                                    )
+                                }
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                );
+            })}
+        </Tabs>
+    );
+}
 
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('add-course');
@@ -1456,6 +1590,8 @@ export default function AdminDashboardPage() {
         return <Card><CardHeader><CardTitle>Manage Book Orders</CardTitle></CardHeader><CardContent className="pt-6"><ManageBookOrders /></CardContent></Card>;
       case 'add-coupon':
         return <Card><CardHeader><CardTitle>Create a New Coupon</CardTitle></CardHeader><CardContent className="pt-6"><AddCouponForm /></CardContent></Card>;
+      case 'manage-content':
+        return <ManageContent />;
       default:
         return null;
     }
@@ -1497,3 +1633,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

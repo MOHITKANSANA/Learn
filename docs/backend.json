@@ -84,7 +84,12 @@
         "imageUrl": { "type": "string" },
         "isStandalone": { "type": "boolean" },
         "courseId": { "type": "string" },
-        "questions": { "type": "array", "items": { "type": "string" } }
+        "questions": { 
+          "type": "array", 
+          "items": {
+            "$ref": "#/entities/Question"
+          } 
+        }
       },
       "required": ["id", "title", "description", "price", "isFree", "imageUrl", "isStandalone"]
     },
@@ -96,10 +101,19 @@
       "properties": {
         "id": { "type": "string" },
         "text": { "type": "string" },
-        "options": { "type": "array", "items": { "type": "string" } },
-        "correctAnswer": { "type": "string" }
+        "options": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "text": { "type": "string" },
+              "isCorrect": { "type": "boolean" }
+            },
+            "required": ["text", "isCorrect"]
+          } 
+        }
       },
-      "required": ["id", "text", "options", "correctAnswer"]
+      "required": ["id", "text", "options"]
     },
     "Educator": {
       "$schema": "http://json-schema.org/draft-07/schema#",
