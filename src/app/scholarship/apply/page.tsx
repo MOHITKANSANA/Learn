@@ -33,12 +33,14 @@ const academicInfoSchema = z.object({
   previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
 });
 
-const centerChoiceSchema = z.object({
+const centerChoiceObject = z.object({
   examMode: z.enum(['online', 'offline'], { required_error: "Please select an exam mode." }),
   center1: z.string().optional(),
   center2: z.string().optional(),
   center3: z.string().optional(),
-}).refine(data => {
+});
+
+const centerChoiceSchema = centerChoiceObject.refine(data => {
   if (data.examMode === 'offline') {
     return data.center1 && data.center2 && data.center3;
   }
@@ -47,6 +49,7 @@ const centerChoiceSchema = z.object({
   message: "Please select three different centers for offline mode.",
   path: ["center1"],
 });
+
 
 const uploadSchema = z.object({
   photo: z.any().optional(),
@@ -59,7 +62,7 @@ const combinedSchema = personalInfoSchema.merge(academicInfoSchema).merge(center
 const steps = [
   { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
   { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
-  { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceSchema.shape) },
+  { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) },
   { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) },
   { id: 5, title: 'Review & Submit', fields: [] },
 ];
