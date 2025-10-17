@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 import { 
   BookOpenCheck,
@@ -71,7 +72,7 @@ export const dashboardItems: DashboardItem[] = [
     icon: Swords,
   },
   {
-    title: 'AI Tools',
+    title: 'Vidya Search',
     href: '/vidya-search',
     icon: Bot,
   },

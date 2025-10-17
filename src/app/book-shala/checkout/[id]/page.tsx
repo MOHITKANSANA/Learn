@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,11 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { doc, collection, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
 import Image from 'next/image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
 
 const shippingSchema = z.object({
   name: z.string().min(2, 'Full name is required.'),
@@ -29,20 +30,7 @@ const shippingSchema = z.object({
 });
 
 const verificationSchema = z.object({
-  verificationMethod: z.enum(['screenshot', 'transactionId']),
-  paymentScreenshot: z.any().optional(),
-  transactionId: z.string().optional(),
-}).refine(data => {
-    if (data.verificationMethod === 'screenshot') {
-        return data.paymentScreenshot?.length === 1;
-    }
-    if (data.verificationMethod === 'transactionId') {
-        return data.transactionId && data.transactionId.length > 5;
-    }
-    return false;
-}, {
-    message: "Please provide valid verification information.",
-    path: ["verificationMethod"],
+  transactionId: z.string().min(10, 'Please enter a valid Transaction ID.'),
 });
 
 
@@ -83,7 +71,7 @@ export default function BookCheckoutPage() {
 
   const verificationForm = useForm<z.infer<typeof verificationSchema>>({
     resolver: zodResolver(verificationSchema),
-    defaultValues: { verificationMethod: 'transactionId' }
+    defaultValues: { transactionId: '' }
   });
 
   const handleShippingSubmit = (values: z.infer<typeof shippingSchema>) => {
@@ -91,16 +79,9 @@ export default function BookCheckoutPage() {
     setStep(2);
   };
   
-  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read file.'));
-    reader.readAsDataURL(file);
-  });
-
   const upiDeepLink = useMemoFirebase(() => {
     if (!settings?.upiId || !book) return '#';
-    const amount = (book.price + book.verificationCharge).toFixed(2);
+    const amount = (book.verificationCharge).toFixed(2);
     const payeeName = "Learn with Munedra";
     const note = `Order for ${book.title}`;
     return `upi://pay?pa=${settings.upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
@@ -114,11 +95,6 @@ export default function BookCheckoutPage() {
     }
     setIsSubmitting(true);
 
-    let screenshotUrl: string | null = null;
-    if (values.verificationMethod === 'screenshot' && values.paymentScreenshot?.[0]) {
-      screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
-    }
-
     const orderRef = doc(collection(firestore, 'bookOrders'));
     const orderData = {
         id: orderRef.id,
@@ -126,7 +102,7 @@ export default function BookCheckoutPage() {
         studentId: user.uid,
         shippingAddress: shippingData,
         status: 'pending', // Initial status
-        paymentScreenshotUrl: screenshotUrl,
+        paymentScreenshotUrl: null, // No longer using screenshot
         transactionId: values.transactionId,
         orderDate: serverTimestamp(),
         price: book.price,

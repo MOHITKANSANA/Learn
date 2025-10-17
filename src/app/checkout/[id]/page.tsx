@@ -21,12 +21,12 @@ import Link from 'next/link';
 
 const checkoutSchema = z.object({
   couponCode: z.string().optional(),
-  verificationMethod: z.enum(['screenshot', 'transactionId']),
+  verificationMethod: z.enum(['screenshot', 'transactionId']).default('transactionId'),
   paymentScreenshot: z.any().optional(),
   transactionId: z.string().optional(),
 }).refine(data => {
     if (data.verificationMethod === 'screenshot') {
-        return data.paymentScreenshot?.length === 1;
+        return data.paymentScreenshot?.[0];
     }
     if (data.verificationMethod === 'transactionId') {
         return data.transactionId && data.transactionId.length > 5;
