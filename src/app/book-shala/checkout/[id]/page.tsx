@@ -79,7 +79,7 @@ export default function BookCheckoutPage() {
     setStep(2);
   };
   
-  const upiDeepLink = useMemoFirebase(() => {
+  const upiDeepLink = useMemo(() => {
     if (!settings?.upiId || !book) return '#';
     const amount = (book.verificationCharge).toFixed(2);
     const payeeName = "Learn with Munedra";

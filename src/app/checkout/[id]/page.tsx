@@ -21,20 +21,7 @@ import Link from 'next/link';
 
 const checkoutSchema = z.object({
   couponCode: z.string().optional(),
-  verificationMethod: z.enum(['screenshot', 'transactionId']).default('transactionId'),
-  paymentScreenshot: z.any().optional(),
-  transactionId: z.string().optional(),
-}).refine(data => {
-    if (data.verificationMethod === 'screenshot') {
-        return data.paymentScreenshot?.[0];
-    }
-    if (data.verificationMethod === 'transactionId') {
-        return data.transactionId && data.transactionId.length > 5;
-    }
-    return false;
-}, {
-    message: "Please provide valid verification information.",
-    path: ["verificationMethod"],
+  transactionId: z.string().min(10, 'Please enter a valid 12-digit Transaction ID.'),
 });
 
 
@@ -86,11 +73,11 @@ export default function CheckoutPage() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
         couponCode: '',
-        verificationMethod: 'transactionId',
+        transactionId: '',
     }
   });
 
-  const upiDeepLink = useMemoFirebase(() => {
+  const upiDeepLink = useMemo(() => {
     if (!settings?.upiId || finalPrice === null) return '#';
     const amount = finalPrice.toFixed(2);
     const payeeName = "Learn with Munedra";
@@ -149,13 +136,6 @@ export default function CheckoutPage() {
     }
   };
   
-  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(new Error('Failed to read file: ' + (error.target?.error?.message || 'Unknown error')));
-    reader.readAsDataURL(file);
-  });
-
   async function onSubmit(values: z.infer<typeof checkoutSchema>) {
     if (!user || !firestore || !item) {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
@@ -164,11 +144,6 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     try {
-        let screenshotUrl: string | null = null;
-        if (values.verificationMethod === 'screenshot' && values.paymentScreenshot?.[0]) {
-          screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
-        }
-
         const enrollmentRef = doc(collection(firestore, 'enrollments'));
         const enrollmentData = {
             id: enrollmentRef.id,
@@ -180,7 +155,7 @@ export default function CheckoutPage() {
             pricePaid: finalPrice,
             couponUsed: appliedCoupon ? appliedCoupon.code : null,
             enrollmentDate: serverTimestamp(),
-            paymentScreenshotUrl: screenshotUrl,
+            paymentScreenshotUrl: null, // No longer used
             transactionId: values.transactionId,
             isApproved: false,
         };
@@ -210,8 +185,6 @@ export default function CheckoutPage() {
   if (isItemLoading || !item || isLoadingSettings) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }
-
-  const verificationMethod = form.watch('verificationMethod');
 
   return (
     <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -293,78 +266,20 @@ export default function CheckoutPage() {
                         </div>
                     )}
                  </div>
-
-                 <FormField
-                    control={form.control}
-                    name="verificationMethod"
-                    render={({ field }) => (
-                    <FormItem className="space-y-3">
-                        <FormLabel>Verification Method</FormLabel>
-                        <FormControl>
-                        <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex flex-col space-y-1"
-                        >
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                    <RadioGroupItem value="transactionId" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                    Enter UPI Transaction ID
-                                </FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                    <RadioGroupItem value="screenshot" />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                    Upload Screenshot
-                                </FormLabel>
-                            </FormItem>
-                        </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-
-                {verificationMethod === 'transactionId' && (
-                     <FormField
-                        control={form.control}
-                        name="transactionId"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>UPI Transaction ID</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Enter 12-digit ID" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
                 
-                {verificationMethod === 'screenshot' && (
-                    <FormField
+                <FormField
                     control={form.control}
-                    name="paymentScreenshot"
-                    render={({ field: { onChange, value, ...rest } }) => (
+                    name="transactionId"
+                    render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Payment Screenshot</FormLabel>
+                        <FormLabel>UPI Transaction ID</FormLabel>
                         <FormControl>
-                            <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => onChange(e.target.files)}
-                            {...rest}
-                            />
+                            <Input placeholder="Enter 12-digit ID after payment" {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
-                    />
-                )}
+                />
               </CardContent>
               <CardFooter>
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
