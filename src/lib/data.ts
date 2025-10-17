@@ -72,7 +72,7 @@ export const dashboardItems: DashboardItem[] = [
   },
   {
     title: 'AI Tools',
-    href: '/ai-tutor',
+    href: '/vidya-search',
     icon: Bot,
   },
 ];
@@ -211,5 +211,3 @@ export const books = [
     image: PlaceHolderImages.find(img => img.id === 'book-4'),
   },
 ];
-
-    

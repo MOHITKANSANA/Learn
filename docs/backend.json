@@ -156,6 +156,7 @@
         "itemType": { "type": "string", "enum": ["course", "ebook", "testSeries", "previous-year-paper"] },
         "enrollmentDate": { "type": "string", "format": "date-time" },
         "paymentScreenshotUrl": { "type": "string" },
+        "transactionId": { "type": "string" },
         "isApproved": { "type": "boolean" }
       },
       "required": ["id", "studentId", "itemId", "itemType", "enrollmentDate"]
@@ -226,11 +227,12 @@
         },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected", "shipped"] },
         "paymentScreenshotUrl": { "type": "string" },
+        "transactionId": { "type": "string" },
         "orderDate": { "type": "string", "format": "date-time" },
         "tentativeDeliveryDate": { "type": "string", "format": "date" },
         "trackingLink": { "type": "string" }
       },
-      "required": ["id", "bookId", "studentId", "shippingAddress", "status", "paymentScreenshotUrl", "orderDate"]
+      "required": ["id", "bookId", "studentId", "shippingAddress", "status", "orderDate"]
     },
     "Coupon": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -276,6 +278,7 @@
         "authorImage": { "type": "string" },
         "content": { "type": "string" },
         "imageUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["post", "poll", "qa"], "default": "post" },
         "pollOptions": {
           "type": "array",
           "items": {
@@ -328,7 +331,8 @@
       "description": "Represents application-wide settings.",
       "properties": {
         "qrCodeImageUrl": { "type": "string" },
-        "mobileNumber": { "type": "string" }
+        "mobileNumber": { "type": "string" },
+        "upiId": { "type": "string" }
       }
     }
   },

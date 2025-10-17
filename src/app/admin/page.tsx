@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -29,6 +30,14 @@ import {
   List,
   MessageSquare,
   HelpCircle,
+  BrainCircuit,
+  Swords,
+  Heart,
+  Home,
+  Gift,
+  PlaySquare,
+  Library,
+  Bot
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,7 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, errorEmitter, useUser, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion, deleteDoc, orderBy } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -57,6 +66,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Progress } from '@/components/ui/progress';
 
 
 const adminNavItems = [
@@ -1568,6 +1578,7 @@ function ManageContent() {
 const settingsSchema = z.object({
   qrCodeImage: z.any().optional(),
   mobileNumber: z.string().optional(),
+  upiId: z.string().optional(),
 });
 
 function AppSettingsForm() {
@@ -1581,6 +1592,7 @@ function AppSettingsForm() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       mobileNumber: '',
+      upiId: '',
     }
   });
   
@@ -1588,6 +1600,7 @@ function AppSettingsForm() {
     if (settings) {
       form.reset({
         mobileNumber: settings.mobileNumber || '',
+        upiId: settings.upiId || '',
       });
     }
   }, [settings, form]);
@@ -1608,8 +1621,9 @@ function AppSettingsForm() {
     }
 
     try {
-      const settingsData: { mobileNumber?: string, qrCodeImageUrl?: string } = {
+      const settingsData: { mobileNumber?: string, qrCodeImageUrl?: string, upiId?: string } = {
         mobileNumber: values.mobileNumber,
+        upiId: values.upiId,
       };
 
       if (values.qrCodeImage && values.qrCodeImage.length > 0) {
@@ -1637,6 +1651,17 @@ function AppSettingsForm() {
             <FormItem>
               <FormLabel>Payment Mobile Number</FormLabel>
               <FormControl><Input placeholder="Enter mobile number for payments" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="upiId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>UPI ID</FormLabel>
+              <FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
