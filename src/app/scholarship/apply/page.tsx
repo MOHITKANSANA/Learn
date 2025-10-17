@@ -30,7 +30,7 @@ const personalInfoSchema = z.object({
 const academicInfoSchema = z.object({
   currentClass: z.string().min(1, "Please select your current class."),
   school: z.string().min(2, "School name is required."),
-  previousMarks: z.coerce.number().min(0).max(100, "Marks must be between 0 and 100."),
+  previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
 });
 
 const centerChoiceSchema = z.object({
@@ -55,12 +55,13 @@ const uploadSchema = z.object({
 
 const combinedSchema = personalInfoSchema.merge(academicInfoSchema).merge(centerChoiceSchema).merge(uploadSchema);
 
+
 const steps = [
-  { id: 1, title: 'Personal Information', schema: personalInfoSchema },
-  { id: 2, title: 'Academic Information', schema: academicInfoSchema },
-  { id: 3, title: 'Exam Center Choice', schema: centerChoiceSchema },
-  { id: 4, title: 'Upload Documents', schema: uploadSchema },
-  { id: 5, title: 'Review & Submit', schema: z.object({}) }, // Empty schema for review step, full validation on submit
+  { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
+  { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
+  { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceSchema.shape) },
+  { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) },
+  { id: 5, title: 'Review & Submit', fields: [] },
 ];
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -108,9 +109,7 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
 
   const nextStep = async () => {
-    const currentSchema = steps[currentStep - 1].schema;
-    const fieldsToValidate = Object.keys(currentSchema.shape) as (keyof z.infer<typeof combinedSchema>)[];
-
+    const fieldsToValidate = steps[currentStep - 1].fields as (keyof z.infer<typeof combinedSchema>)[];
     const isValid = await methods.trigger(fieldsToValidate);
     
     if (isValid) {
@@ -265,8 +264,8 @@ export default function ScholarshipApplyPage() {
                     <Card>
                         <CardContent className="p-4 space-y-2 text-sm">
                             {Object.entries(methods.getValues()).map(([key, value]) => {
-                                if (typeof value === 'object' && value !== null || value instanceof FileList) return null;
-                                if (value === '' || value === undefined) return null;
+                                if (value instanceof FileList || typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0) return null;
+                                if (value === '' || value === undefined || value === null) return null;
                                 return (
                                     <div key={key} className="flex justify-between">
                                         <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
