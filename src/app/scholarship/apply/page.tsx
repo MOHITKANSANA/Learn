@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -56,7 +55,7 @@ const uploadSchema = z.object({
   signature: z.any().optional(),
 });
 
-const combinedSchema = personalInfoSchema.merge(academicInfoSchema).merge(centerChoiceSchema).merge(uploadSchema);
+const combinedSchema = personalInfoSchema.extend(academicInfoSchema.shape).extend(centerChoiceSchema.shape).extend(uploadSchema.shape);
 
 
 const steps = [
@@ -96,7 +95,7 @@ export default function ScholarshipApplyPage() {
       dob: '',
       gender: '',
       mobile: '',
-      email: '',
+      email: user?.email || '',
       currentClass: '',
       school: '',
       previousMarks: 0,
@@ -136,36 +135,36 @@ export default function ScholarshipApplyPage() {
 
     setIsSubmitting(true);
     try {
-      const applicationRef = doc(collection(firestore, 'scholarshipApplications'));
+        const applicationRef = doc(collection(firestore, 'scholarshipApplications'));
 
-      const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
-      const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
+        const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
+        const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
 
-      const applicationData = {
-        id: applicationRef.id,
-        userId: user.uid,
-        ...data,
-        photoUrl,
-        signatureUrl,
-        status: 'submitted',
-        createdAt: serverTimestamp(),
-      };
-      
-      delete (applicationData as any).photo;
-      delete (applicationData as any).signature;
+        const applicationData = {
+            id: applicationRef.id,
+            userId: user.uid,
+            ...data,
+            photoUrl,
+            signatureUrl,
+            status: 'submitted',
+            createdAt: serverTimestamp(),
+        };
+        
+        delete (applicationData as any).photo;
+        delete (applicationData as any).signature;
 
-      await setDoc(applicationRef, applicationData);
-      
-      toast({
-        title: 'Application Submitted!',
-        description: `Your application number is ${applicationRef.id}. You will be redirected shortly.`,
-      });
-      router.push('/scholarship/my-applications');
+        await setDoc(applicationRef, applicationData);
+        
+        toast({
+            title: 'Application Submitted!',
+            description: `Your application number is ${applicationRef.id}. You will be redirected shortly.`,
+        });
+        router.push('/scholarship/my-applications');
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
@@ -256,7 +255,7 @@ export default function ScholarshipApplyPage() {
                         <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField name="signature" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormMessage>
                     )} />
                  </>
                )}
