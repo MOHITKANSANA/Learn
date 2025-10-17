@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, getDocs } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Loader2, Download, User, Calendar, Clock, MapPin, School, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,7 +21,6 @@ export default function AdmitCardPage() {
 
     const [allottedCenter, setAllottedCenter] = useState<any>(null);
 
-    const { data: settings } = useDoc(useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]));
     const { data: centers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
 
     const handleSearch = async () => {
@@ -53,16 +52,28 @@ export default function AdmitCardPage() {
             return;
         }
         
+        let centerForAdmitCardDate: any = null;
+
         if (appData.examMode === 'offline' && appData.allottedCenterId) {
-            const center = centers?.find(c => c.id === appData.allottedCenterId);
-            if (center) {
-                const admitCardDate = new Date(center.admitCardDate);
-                 if (new Date() < admitCardDate) {
-                    toast({variant: 'destructive', title: 'Not Available Yet', description: `Admit card will be available from ${admitCardDate.toLocaleDateString()}.`});
-                    setIsLoading(false);
-                    return;
-                }
-                setAllottedCenter(center);
+            centerForAdmitCardDate = centers?.find(c => c.id === appData.allottedCenterId);
+        } else if (appData.examMode === 'online' && centers && centers.length > 0) {
+            // For online, use the latest general schedule for admit card date check
+            centerForAdmitCardDate = centers.sort((a,b) => b.createdAt.seconds - a.createdAt.seconds)[0];
+        }
+
+        if (centerForAdmitCardDate) {
+            const admitCardDate = new Date(centerForAdmitCardDate.admitCardDate);
+            if (new Date() < admitCardDate) {
+                toast({
+                    variant: 'destructive', 
+                    title: 'Not Available Yet', 
+                    description: `आपके केंद्र का एडमिट कार्ड अभी डाउनलोड करने का समय नहीं आया है। आपका एडमिट कार्ड ${admitCardDate.toLocaleDateString()} को आएगा।`
+                });
+                setIsLoading(false);
+                return;
+            }
+            if (appData.examMode === 'offline') {
+                setAllottedCenter(centerForAdmitCardDate);
             }
         }
         
@@ -72,6 +83,8 @@ export default function AdmitCardPage() {
     
 
     const handlePrint = () => window.print();
+
+    const offlineFee = centers?.sort((a,b) => b.createdAt.seconds - a.createdAt.seconds)[0]?.offlineScholarshipFee || 60;
 
     if (!application) {
          return (
@@ -124,7 +137,7 @@ export default function AdmitCardPage() {
                                 <h3 className="font-bold mb-2 text-primary">Examination Center Details</h3>
                                 <div className="space-y-2">
                                      <div className="flex items-center gap-2"><School className="h-4 w-4 text-muted-foreground" /><p><strong>Center:</strong> {allottedCenter.name}</p></div>
-                                     <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" /><p><strong>Address:</strong> {allottedCenter.address}, {allottedCenter.city}, {allottedCenter.state} - {allottedCenter.pincode}</p></div>
+                                     <div className="flex items-start gap-2"><MapPin className="h-4 w-4 text-muted-foreground mt-1" /><p><strong>Address:</strong> {allottedCenter.address}, {allottedCenter.city}, {allottedCenter.state} - {allottedCenter.pincode}</p></div>
                                      <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>Date:</strong> {new Date(allottedCenter.examDate).toLocaleDateString()}</p></div>
                                      <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><p><strong>Time:</strong> {allottedCenter.examTime}</p></div>
                                 </div>
@@ -133,8 +146,9 @@ export default function AdmitCardPage() {
                              <div className="pt-4 border-t">
                                 <h3 className="font-bold mb-2 text-primary">Online Examination Details</h3>
                                  <div className="space-y-2">
-                                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>Date:</strong> {allottedCenter.onlineExamStartDate} to {allottedCenter.onlineExamEndDate}</p></div>
-                                     <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><p><strong>Time:</strong> {allottedCenter.onlineExamStartTime} to {allottedCenter.onlineExamEndTime}</p></div>
+                                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>Start Date:</strong> {new Date(centers[0]?.onlineExamStartDate).toLocaleDateString()}</p></div>
+                                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>End Date:</strong> {new Date(centers[0]?.onlineExamEndDate).toLocaleDateString()}</p></div>
+                                     <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><p><strong>Time:</strong> {centers[0]?.onlineExamStartTime} to {centers[0]?.onlineExamEndTime}</p></div>
                                  </div>
                                  <p className="text-sm text-muted-foreground mt-2">You can start the test from the scholarship page on the scheduled date and time.</p>
                             </div>
@@ -143,11 +157,11 @@ export default function AdmitCardPage() {
                         
                     </div>
                     <div className="space-y-4 flex flex-col items-center">
-                        <div className="w-32 h-32 bg-muted rounded-md flex items-center justify-center">
-                           {application.photoUrl ? <Image src={application.photoUrl} alt="Candidate Photo" width={128} height={128} className="object-cover rounded-md"/> : <p className="text-xs text-muted-foreground">Photo</p>}
+                        <div className="w-32 h-40 bg-muted rounded-md flex items-center justify-center">
+                           {application.photoUrl ? <Image src={application.photoUrl} alt="Candidate Photo" width={128} height={160} className="object-cover rounded-md"/> : <p className="text-xs text-muted-foreground">Photo</p>}
                         </div>
-                         <div className="w-32 h-12 bg-muted rounded-md flex items-center justify-center">
-                           {application.signatureUrl ? <Image src={application.signatureUrl} alt="Candidate Signature" width={128} height={48} className="object-contain rounded-md"/> : <p className="text-xs text-muted-foreground">Signature</p>}
+                         <div className="w-32 h-16 bg-muted rounded-md flex items-center justify-center">
+                           {application.signatureUrl ? <Image src={application.signatureUrl} alt="Candidate Signature" width={128} height={64} className="object-contain p-1"/> : <p className="text-xs text-muted-foreground">Signature</p>}
                         </div>
                     </div>
 
@@ -158,7 +172,7 @@ export default function AdmitCardPage() {
                         <ul className="list-decimal list-inside text-xs space-y-1">
                            {application.examMode === 'offline' && <li>कृपया परीक्षा केंद्र पर प्रवेश पत्र के साथ एक वैध फोटो पहचान पत्र (जैसे आधार कार्ड) अवश्य लाएं।</li>}
                            {application.examMode === 'offline' && <li>परीक्षा शुरू होने से कम से कम 30 मिनट पहले परीक्षा केंद्र पर पहुंचें।</li>}
-                           {application.examMode === 'offline' && settings?.offlineScholarshipFee > 0 && <li>आपको परीक्षा केंद्र पर ₹{settings.offlineScholarshipFee} का शुल्क नकद जमा करना होगा।</li>}
+                           {application.examMode === 'offline' && <li className='font-bold'>आपको परीक्षा केंद्र पर ₹{offlineFee} का शुल्क नकद जमा करना होगा।</li>}
                             <li>परीक्षा हॉल में किसी भी प्रकार के इलेक्ट्रॉनिक उपकरण (मोबाइल फोन, स्मार्ट वॉच आदि) ले जाना सख्त वर्जित है।</li>
                            {application.examMode === 'online' && <li>सुनिश्चित करें कि आपके पास एक स्थिर इंटरनेट कनेक्शन है।</li>}
                         </ul>
