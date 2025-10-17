@@ -17,7 +17,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import Link from 'next/link';
 
 const checkoutSchema = z.object({
   couponCode: z.string().optional(),
@@ -25,15 +24,15 @@ const checkoutSchema = z.object({
   paymentMobileNumber: z.string().optional(),
   paymentScreenshot: z.any().optional(),
 }).refine(data => {
-    if (data.paymentMethod === 'qr') {
-        return data.paymentScreenshot?.length > 0 || !!data.paymentMobileNumber;
-    }
     if (data.paymentMethod === 'upi_intent') {
-        return !!data.paymentMobileNumber;
+        return !!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10;
+    }
+    if (data.paymentMethod === 'qr') {
+        return data.paymentScreenshot?.length > 0 || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
     }
     return true;
 }, {
-    message: 'For QR, please upload screenshot or enter mobile number. For UPI, mobile number is required.',
+    message: 'Please provide the required information for your selected payment method.',
     path: ['paymentMethod'],
 });
 
@@ -166,11 +165,11 @@ export default function CheckoutPage() {
     }
 
     const enrollmentsRef = collection(firestore, 'enrollments');
-    const q = query(enrollmentsRef, where('studentId', '==', user.uid), where('itemId', '==', item.id));
+    const q = query(enrollmentsRef, where('studentId', '==', user.uid), where('itemId', '==', item.id), where('isApproved', '==', false));
     const existingEnrollments = await getDocs(q);
 
     if (!existingEnrollments.empty) {
-        toast({ variant: 'destructive', title: 'Already Requested', description: 'You have already submitted a payment request for this item.' });
+        toast({ variant: 'destructive', title: 'Already Requested', description: 'You have already submitted a payment request for this item. Please wait for approval.' });
         return;
     }
     
@@ -200,8 +199,9 @@ export default function CheckoutPage() {
         isApproved: false,
     };
 
-    setDoc(enrollmentRef, enrollmentData)
-      .then(async () => {
+    try {
+        await setDoc(enrollmentRef, enrollmentData);
+        
         if (appliedCoupon) {
             const couponRef = doc(firestore, 'coupons', appliedCoupon.id);
             await updateDoc(couponRef, {
@@ -210,7 +210,7 @@ export default function CheckoutPage() {
         }
         
         toast({
-            title: 'Order Placed!',
+            title: 'Payment Request Sent!',
             description: 'Your enrollment is pending approval. We will notify you shortly.',
         });
 
@@ -220,8 +220,7 @@ export default function CheckoutPage() {
             router.push('/my-library');
         }
 
-      })
-      .catch((error) => {
+    } catch (error) {
         console.error("Error placing order: ", error);
         const permissionError = new FirestorePermissionError({
             path: (error as any).path || 'enrollments',
@@ -230,10 +229,9 @@ export default function CheckoutPage() {
         });
         errorEmitter.emit('permission-error', permissionError);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to place order.' });
-      })
-      .finally(() => {
-          setIsSubmitting(false);
-      });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   if (isItemLoading || !item || isLoadingSettings) {
@@ -292,7 +290,7 @@ export default function CheckoutPage() {
                             <FormItem className="flex-grow">
                             <FormLabel>Coupon Code (Optional)</FormLabel>
                             <FormControl>
-                                <Input placeholder="Enter coupon" {...field} />
+                                <Input placeholder="Enter coupon" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -343,7 +341,7 @@ export default function CheckoutPage() {
                             <FormControl>
                                 <div className="flex items-center">
                                 <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
-                                <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" />
+                                <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" value={field.value ?? ''} />
                                 </div>
                             </FormControl>
                             <FormMessage />
@@ -389,7 +387,7 @@ export default function CheckoutPage() {
                              <FormControl>
                                 <div className="flex items-center">
                                     <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
-                                    <Input type="tel" placeholder="Number you paid from" {...field} className="rounded-l-none" />
+                                    <Input type="tel" placeholder="Number you paid from" {...field} className="rounded-l-none" value={field.value ?? ''} />
                                 </div>
                             </FormControl>
                             <FormMessage />

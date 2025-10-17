@@ -33,12 +33,15 @@ const verificationSchema = z.object({
     paymentMobileNumber: z.string().optional(),
     paymentScreenshot: z.any().optional(),
 }).refine(data => {
+    if (data.paymentMethod === 'upi_intent') {
+        return !!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10;
+    }
     if (data.paymentMethod === 'qr') {
-        return data.paymentScreenshot?.length > 0 || !!data.paymentMobileNumber;
+        return data.paymentScreenshot?.length > 0 || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
     }
     return true;
 }, {
-    message: 'Please provide either a screenshot or the mobile number for QR payment.',
+    message: 'Please provide the required information for your selected payment method.',
     path: ['paymentMethod'],
 });
 
@@ -177,25 +180,23 @@ export default function BookCheckoutPage() {
         });
     }
 
-    batch.commit()
-      .then(() => {
-          toast({
-            title: 'आदेश दिया गया!',
+    try {
+        await batch.commit();
+        toast({
+            title: 'आदेश अनुरोध भेजा गया!',
             description: 'आपका ऑर्डर सत्यापन के लिए लंबित है। स्थिति को "मेरे आदेश" में ट्रैक करें।',
-          });
-          if (values.paymentMethod === 'upi_intent') {
-             window.location.href = upiDeepLink;
-          } else {
-             router.push('/my-orders');
-          }
-      })
-      .catch(async (serverError) => {
-          console.error("Order failed:", serverError);
-          toast({ variant: 'destructive', title: 'त्रुटि', description: 'ऑर्डर देने में विफल।' });
-      })
-      .finally(() => {
-          setIsSubmitting(false);
-      });
+        });
+        if (values.paymentMethod === 'upi_intent' && upiDeepLink !== '#') {
+           window.location.href = upiDeepLink;
+        } else {
+           router.push('/my-orders');
+        }
+    } catch (serverError) {
+        console.error("Order failed:", serverError);
+        toast({ variant: 'destructive', title: 'त्रुटि', description: 'ऑर्डर देने में विफल।' });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   if ((isBookLoading && bookId !== 'cart') || items.length === 0 || isLoadingSettings) {
@@ -333,7 +334,7 @@ export default function BookCheckoutPage() {
                                   <FormControl>
                                     <div className="flex items-center">
                                       <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
-                                      <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" />
+                                      <Input type="tel" placeholder="Enter number you will pay from" {...field} className="rounded-l-none" value={field.value ?? ''}/>
                                     </div>
                                   </FormControl>
                                   <FormMessage />
@@ -379,7 +380,7 @@ export default function BookCheckoutPage() {
                                      <FormControl>
                                         <div className="flex items-center">
                                             <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground sm:text-sm">+91</span>
-                                            <Input type="tel" placeholder="जिस नंबर से भुगतान किया है" {...field} className="rounded-l-none" />
+                                            <Input type="tel" placeholder="जिस नंबर से भुगतान किया है" {...field} className="rounded-l-none" value={field.value ?? ''}/>
                                         </div>
                                     </FormControl>
                                     <FormMessage />
