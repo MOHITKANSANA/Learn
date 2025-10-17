@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -99,6 +100,18 @@ export default function LiveClassesPage() {
         const startTime = liveClass.startTime?.toDate();
         const isLive = startTime && startTime <= now && new Date(startTime.getTime() + 60*60*1000) > now; // Assuming 1 hour duration
         const isUpcoming = startTime && startTime > now;
+        
+        let youtubeVideoId = '';
+        try {
+            const url = new URL(liveClass.youtubeUrl);
+            if (url.hostname === 'youtu.be') {
+                youtubeVideoId = url.pathname.slice(1);
+            } else {
+                youtubeVideoId = url.searchParams.get('v') || '';
+            }
+        } catch (error) {
+            console.error('Invalid YouTube URL:', liveClass.youtubeUrl);
+        }
 
         return (
             <Card key={liveClass.id} className="overflow-hidden shadow-lg transition-transform transform hover:-translate-y-1">
@@ -132,7 +145,7 @@ export default function LiveClassesPage() {
                 </CardContent>
                 <CardFooter>
                     <Button asChild className="w-full">
-                        <Link href={liveClass.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                        <Link href={`/live-classes/${liveClass.id}?videoId=${youtubeVideoId}`}>
                             <Video className="mr-2 h-4 w-4" />
                             {isUpcoming ? 'Join Now' : 'Watch Recording'}
                         </Link>

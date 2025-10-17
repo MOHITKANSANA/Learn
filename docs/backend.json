@@ -320,6 +320,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "userId", "authorName", "videoId", "text", "createdAt"]
+    },
+    "Settings": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Settings",
+      "type": "object",
+      "description": "Represents application-wide settings.",
+      "properties": {
+        "qrCodeImageUrl": { "type": "string" },
+        "mobileNumber": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -440,6 +450,13 @@
         "definition": {
           "entityName": "ChatMessage",
           "schema": { "$ref": "#/backend/entities/ChatMessage" }
+        }
+      },
+      {
+        "path": "/settings/payment",
+        "definition": {
+            "entityName": "Settings",
+            "schema": { "$ref": "#/backend/entities/Settings" }
         }
       }
     ]

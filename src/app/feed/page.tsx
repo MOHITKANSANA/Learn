@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -15,120 +16,8 @@ import { useFirestore, useUser, useCollection, useMemoFirebase, errorEmitter } f
 import { collection, doc, setDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove, query, orderBy } from 'firebase/firestore';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose
-} from "@/components/ui/dialog"
+import Link from 'next/link';
 
-const postSchema = z.object({
-  content: z.string().min(1, 'Post cannot be empty.'),
-  image: z.any().optional(),
-});
-
-function CreatePost() {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  const form = useForm({
-    resolver: zodResolver(postSchema),
-    defaultValues: { content: '' },
-  });
-
-  const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-    reader.readAsDataURL(file);
-  });
-
-  async function onSubmit(values: z.infer<typeof postSchema>) {
-    if (!user || !firestore) return;
-    setIsSubmitting(true);
-
-    let imageUrl: string | null = null;
-    if (values.image && values.image.length > 0) {
-      imageUrl = await fileToDataUrl(values.image[0]);
-    }
-
-    const postRef = doc(collection(firestore, 'feed_posts'));
-    const postData = {
-      id: postRef.id,
-      authorId: user.uid,
-      authorName: user.displayName || 'Anonymous',
-      authorImage: user.photoURL || `https://picsum.photos/seed/${user.uid}/40/40`,
-      content: values.content,
-      imageUrl: imageUrl,
-      likes: [],
-      comments: 0,
-      createdAt: serverTimestamp(),
-    };
-    
-    setDoc(postRef, postData)
-        .then(() => {
-            toast({ title: 'Success', description: 'Your post has been published.' });
-            form.reset();
-            setOpen(false);
-        })
-        .catch(err => toast({ variant: 'destructive', title: 'Error', description: 'Failed to publish post.' }))
-        .finally(() => setIsSubmitting(false));
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-             <Card className="mb-6 cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardContent className="p-4 flex items-center gap-4">
-                    <Avatar>
-                        <AvatarImage src={user?.photoURL || ''} />
-                        <AvatarFallback>{user?.displayName?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <p className="text-muted-foreground">What's on your mind, {user?.displayName?.split(' ')[0] || 'User'}?</p>
-                </CardContent>
-            </Card>
-        </DialogTrigger>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Create a new post</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <Textarea
-                    {...form.register('content')}
-                    placeholder="Share your thoughts, ask a question, or start a discussion..."
-                    className="min-h-[120px]"
-                />
-                 <Controller
-                    control={form.control}
-                    name="image"
-                    render={({ field }) => (
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={e => field.onChange(e.target.files)}
-                        />
-                    )}
-                />
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button type="button" variant="ghost">Cancel</Button>
-                    </DialogClose>
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Post
-                    </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
-  );
-}
 
 function PostCard({ post }: { post: any }) {
     const { user } = useUser();
@@ -201,12 +90,18 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <header className="flex items-center gap-2 mb-6">
-        <Rss className="h-8 w-8 text-primary" />
-        <h1 className="text-4xl font-bold font-headline">Feed</h1>
+      <header className="flex items-center justify-between gap-2 mb-6">
+        <div className='flex items-center gap-2'>
+            <Rss className="h-8 w-8 text-primary" />
+            <h1 className="text-4xl font-bold font-headline">Feed</h1>
+        </div>
+        <Button asChild>
+            <Link href="/feed/create">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Post
+            </Link>
+        </Button>
       </header>
-
-      <CreatePost />
 
       {isLoading ? (
         <div className="flex justify-center mt-10">
@@ -224,5 +119,3 @@ export default function FeedPage() {
     </div>
   );
 }
-
-    

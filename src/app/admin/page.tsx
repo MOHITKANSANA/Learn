@@ -37,7 +37,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase, errorEmitter, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, errorEmitter, useUser, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
@@ -70,6 +70,7 @@ const adminNavItems = [
   { value: 'book-orders', icon: ShoppingBag, label: 'Book Orders' },
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
   { value: 'manage-content', icon: List, label: 'Manage Content' },
+  { value: 'app-settings', icon: Settings, label: 'App Settings' },
 ];
 
 const courseSchema = z.object({
@@ -1513,7 +1514,7 @@ function ManageContent() {
 
     return (
         <Tabs defaultValue="courses" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 {collections.map(c => <TabsTrigger key={c.path} value={c.path}>{c.name}</TabsTrigger>)}
             </TabsList>
             {collections.map(c => {
@@ -1561,6 +1562,110 @@ function ManageContent() {
     );
 }
 
+const settingsSchema = z.object({
+  qrCodeImage: z.any().optional(),
+  mobileNumber: z.string().optional(),
+});
+
+function AppSettingsForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+  const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
+  const { data: settings, isLoading } = useDoc(settingsRef);
+
+  const form = useForm<z.infer<typeof settingsSchema>>({
+    resolver: zodResolver(settingsSchema),
+    defaultValues: {
+      mobileNumber: '',
+    }
+  });
+  
+  useState(() => {
+    if (settings) {
+      form.reset({
+        mobileNumber: settings.mobileNumber || '',
+      });
+    }
+  }, [settings, form]);
+
+  const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(new Error('Failed to read file.'));
+    reader.readAsDataURL(file);
+  });
+
+  async function onSubmit(values: z.infer<typeof settingsSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const settingsData: { mobileNumber?: string, qrCodeImageUrl?: string } = {
+        mobileNumber: values.mobileNumber,
+      };
+
+      if (values.qrCodeImage && values.qrCodeImage.length > 0) {
+        settingsData.qrCodeImageUrl = await fileToDataUrl(values.qrCodeImage[0]);
+      }
+      
+      const docRef = doc(firestore, 'settings', 'payment');
+      await setDoc(docRef, settingsData, { merge: true });
+      toast({ title: 'Success!', description: 'Settings saved successfully.' });
+    } catch(e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save settings.' });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Form {...form}>
+      {isLoading ? <Loader2 className="animate-spin" /> :
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="mobileNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Payment Mobile Number</FormLabel>
+              <FormControl><Input placeholder="Enter mobile number for payments" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="qrCodeImage"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Payment QR Code</FormLabel>
+              <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {settings?.qrCodeImageUrl && (
+            <div>
+                <p className="text-sm font-medium mb-2">Current QR Code:</p>
+                <Image src={settings.qrCodeImageUrl} alt="Current QR Code" width={150} height={150} className="rounded-md border"/>
+            </div>
+        )}
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Save Settings
+        </Button>
+      </form>}
+    </Form>
+  )
+
+}
+
+
 export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('add-course');
   
@@ -1592,6 +1697,8 @@ export default function AdminDashboardPage() {
         return <Card><CardHeader><CardTitle>Create a New Coupon</CardTitle></CardHeader><CardContent className="pt-6"><AddCouponForm /></CardContent></Card>;
       case 'manage-content':
         return <ManageContent />;
+      case 'app-settings':
+        return <Card><CardHeader><CardTitle>App Settings</CardTitle></CardHeader><CardContent className="pt-6"><AppSettingsForm /></CardContent></Card>;
       default:
         return null;
     }
@@ -1633,5 +1740,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

@@ -15,6 +15,8 @@ import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/
 import { doc, collection, setDoc, serverTimestamp, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 const checkoutSchema = z.object({
   paymentScreenshot: z.any().refine(
@@ -34,6 +36,7 @@ export default function CheckoutPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'mobile'>('qr');
 
 
   const firestore = useFirestore();
@@ -51,13 +54,16 @@ export default function CheckoutPage() {
       case 'course': collectionName = 'courses'; break;
       case 'ebook': collectionName = 'ebooks'; break;
       case 'previous-year-paper': collectionName = 'previousYearPapers'; break;
-      // Add other types here
+      case 'testSeries': collectionName = 'test_series'; break;
       default: return null;
     }
     return doc(firestore, collectionName, itemId);
   }, [firestore, itemId, itemType]);
 
   const { data: itemData, isLoading: isItemLoading } = useDoc(itemRef);
+
+  const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
+  const { data: settings, isLoading: isLoadingSettings } = useDoc(settingsRef);
 
   useEffect(() => {
     if (itemData) {
@@ -179,7 +185,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (isItemLoading || !item) {
+  if (isItemLoading || !item || isLoadingSettings) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }
 
@@ -248,9 +254,38 @@ export default function CheckoutPage() {
                  </div>
                  {couponError && <p className="text-sm text-destructive">{couponError}</p>}
                 
-                <p className="text-sm font-semibold text-center bg-primary/10 p-3 rounded-md">
-                  कृपया ₹{(finalPrice ?? item.price).toFixed(2)} का भुगतान करें और स्क्रीनशॉट अपलोड करें।
-                </p>
+                 <RadioGroup defaultValue="qr" onValueChange={(value: 'qr' | 'mobile') => setPaymentMethod(value)}>
+                   <FormLabel>Payment Method</FormLabel>
+                   <div className="flex items-center space-x-2 pt-2">
+                     <RadioGroupItem value="qr" id="qr" />
+                     <Label htmlFor="qr">Pay with QR Code</Label>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                     <RadioGroupItem value="mobile" id="mobile" />
+                     <Label htmlFor="mobile">Pay to Mobile Number</Label>
+                   </div>
+                 </RadioGroup>
+
+                {paymentMethod === 'qr' && settings?.qrCodeImageUrl && (
+                    <div className='flex flex-col items-center gap-2'>
+                        <p className="text-sm font-semibold text-center bg-primary/10 p-3 rounded-md">
+                          कृपया ₹{(finalPrice ?? item.price).toFixed(2)} का भुगतान करें और स्क्रीनशॉट अपलोड करें।
+                        </p>
+                        <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={200} height={200} className="rounded-md border p-2"/>
+                        <p className="text-sm text-muted-foreground">Scan the QR code to pay.</p>
+                    </div>
+                )}
+
+                 {paymentMethod === 'mobile' && settings?.mobileNumber && (
+                     <div className='text-center p-4 bg-muted rounded-md'>
+                        <p className="text-sm font-semibold text-center bg-primary/10 p-3 rounded-md">
+                           कृपया ₹{(finalPrice ?? item.price).toFixed(2)} का भुगतान करें और स्क्रीनशॉट अपलोड करें।
+                        </p>
+                         <p className="text-sm text-muted-foreground">Pay to the following mobile number:</p>
+                        <p className="text-lg font-bold">{settings.mobileNumber}</p>
+                    </div>
+                )}
+
 
                 <FormField
                   control={form.control}

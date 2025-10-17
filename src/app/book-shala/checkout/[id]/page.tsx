@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { doc, collection, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import Image from 'next/image';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const shippingSchema = z.object({
   name: z.string().min(2, 'Full name is required.'),
@@ -39,6 +40,8 @@ export default function BookCheckoutPage() {
   const [book, setBook] = useState<any>(null);
   const [step, setStep] = useState(1);
   const [shippingData, setShippingData] = useState<z.infer<typeof shippingSchema> | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'qr' | 'mobile'>('qr');
+
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -52,6 +55,10 @@ export default function BookCheckoutPage() {
   }, [firestore, bookId]);
 
   const { data: bookData, isLoading: isBookLoading } = useDoc(bookRef);
+  
+  const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
+  const { data: settings, isLoading: isLoadingSettings } = useDoc(settingsRef);
+
 
   useEffect(() => {
     if (bookData) {
@@ -125,7 +132,7 @@ export default function BookCheckoutPage() {
       });
   }
 
-  if (isBookLoading || !book) {
+  if (isBookLoading || !book || isLoadingSettings) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>
   }
 
@@ -218,6 +225,32 @@ export default function BookCheckoutPage() {
                             <p>You only need to pay a verification charge of ₹{book.verificationCharge.toFixed(2)} now.</p>
                             <p className="font-normal text-xs mt-1">The rest of the amount (₹{book.price.toFixed(2)}) is Cash on Delivery (COD).</p>
                         </div>
+                        
+                        <RadioGroup defaultValue="qr" onValueChange={(value: 'qr' | 'mobile') => setPaymentMethod(value)}>
+                           <div className="flex items-center space-x-2">
+                             <RadioGroupItem value="qr" id="qr" />
+                             <Label htmlFor="qr">Pay with QR Code</Label>
+                           </div>
+                           <div className="flex items-center space-x-2">
+                             <RadioGroupItem value="mobile" id="mobile" />
+                             <Label htmlFor="mobile">Pay to Mobile Number</Label>
+                           </div>
+                         </RadioGroup>
+
+                        {paymentMethod === 'qr' && settings?.qrCodeImageUrl && (
+                            <div className='flex flex-col items-center gap-2'>
+                                <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={200} height={200} className="rounded-md border p-2"/>
+                                <p className="text-sm text-muted-foreground">Scan the QR code to pay.</p>
+                            </div>
+                        )}
+
+                         {paymentMethod === 'mobile' && settings?.mobileNumber && (
+                             <div className='text-center p-4 bg-muted rounded-md'>
+                                 <p className="text-sm text-muted-foreground">Pay to the following mobile number:</p>
+                                <p className="text-lg font-bold">{settings.mobileNumber}</p>
+                            </div>
+                        )}
+
 
                         <FormField
                         control={paymentForm.control}
@@ -254,5 +287,3 @@ export default function BookCheckoutPage() {
     </div>
   );
 }
-
-    
