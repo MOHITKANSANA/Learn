@@ -31,7 +31,6 @@ const shippingSchema = z.object({
 
 const verificationSchema = z.object({
   paymentMethod: z.enum(['upi_intent', 'qr']),
-  transactionId: z.string().optional(),
   paymentMobileNumber: z.string().optional(),
   paymentScreenshot: z.any().optional(),
 });
@@ -106,10 +105,11 @@ export default function BookCheckoutPage() {
         return;
     }
     
-    if (values.paymentMethod === 'qr') {
-        if (!values.paymentScreenshot && !values.paymentMobileNumber) {
-            return verificationForm.setError('root', { message: 'Please upload a screenshot or enter your mobile number.' });
-        }
+    if (values.paymentMethod === 'qr' && !values.paymentScreenshot?.[0] && !values.paymentMobileNumber) {
+        return verificationForm.setError('paymentMethod', { message: 'Please upload a screenshot or enter your mobile number.' });
+    }
+     if (values.paymentMethod === 'upi_intent' && !values.paymentMobileNumber) {
+        return verificationForm.setError('paymentMobileNumber', { message: 'Please enter the mobile number you will pay from.' });
     }
     
     setIsSubmitting(true);
@@ -125,8 +125,10 @@ export default function BookCheckoutPage() {
         bookId: book.id,
         studentId: user.uid,
         shippingAddress: shippingData,
-        status: 'pending', // Initial status
-        paymentMethod: values.paymentMethod,
+        status: 'pending',
+        paymentMethod: values.paymentMethod === 'qr' 
+            ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
+            : 'upi_intent',
         paymentScreenshotUrl: screenshotUrl, 
         paymentMobileNumber: values.paymentMobileNumber || null,
         orderDate: serverTimestamp(),
@@ -140,7 +142,11 @@ export default function BookCheckoutPage() {
             title: 'आदेश दिया गया!',
             description: 'आपका ऑर्डर सत्यापन के लिए लंबित है। स्थिति को "मेरे आदेश" में ट्रैक करें।',
           });
-          router.push('/my-orders');
+          if (values.paymentMethod === 'upi_intent') {
+             window.location.href = upiDeepLink;
+          } else {
+             router.push('/my-orders');
+          }
       })
       .catch(async (serverError) => {
           const permissionError = new FirestorePermissionError({
@@ -295,8 +301,9 @@ export default function BookCheckoutPage() {
                                 </FormItem>
                               )}
                             />
-                            <Button asChild className='w-full'>
-                                <Link href={upiDeepLink}>Proceed to Pay</Link>
+                            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Proceed to Pay &amp; Confirm
                             </Button>
                           </div>
                         )}
@@ -340,15 +347,17 @@ export default function BookCheckoutPage() {
                                   </FormItem>
                                 )}
                               />
+                               <Button type="submit" className="w-full" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                ऑर्डर कन्फर्म करें
+                               </Button>
                           </div>
                         )}
                         {verificationForm.formState.errors.root && <p className="text-sm font-medium text-destructive">{verificationForm.formState.errors.root.message}</p>}
+                        {verificationForm.formState.errors.paymentMethod && <p className="text-sm font-medium text-destructive">{verificationForm.formState.errors.paymentMethod.message}</p>}
+
                     </CardContent>
                     <CardFooter className="flex-col gap-4">
-                        <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            ऑर्डर कन्फर्म करें
-                        </Button>
                         <Button variant="ghost" className="w-full" onClick={() => setStep(1)}>Back to Address</Button>
                     </CardFooter>
                     </form>
@@ -360,5 +369,3 @@ export default function BookCheckoutPage() {
     </div>
   );
 }
-
-    

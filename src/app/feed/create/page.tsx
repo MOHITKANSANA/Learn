@@ -117,22 +117,20 @@ export default function CreatePostPage() {
                 control={form.control}
                 name="type"
                 render={({ field }) => (
-                  <FormItem>
-                    <Tabs
-                      defaultValue={field.value}
-                      onValueChange={(value) => {
-                          field.onChange(value);
-                          setActiveTab(value);
-                      }}
-                      className="w-full"
-                    >
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="post">Post</TabsTrigger>
-                        <TabsTrigger value="poll"><Mic className="mr-2 h-4 w-4" />Poll</TabsTrigger>
-                        <TabsTrigger value="qa"><FileQuestion className="mr-2 h-4 w-4" />Q&A</TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                  </FormItem>
+                  <Tabs
+                    defaultValue={field.value}
+                    onValueChange={(value) => {
+                        field.onChange(value);
+                        setActiveTab(value);
+                    }}
+                    className="w-full"
+                  >
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="post">Post</TabsTrigger>
+                      <TabsTrigger value="poll"><Mic className="mr-2 h-4 w-4" />Poll</TabsTrigger>
+                      <TabsTrigger value="qa"><FileQuestion className="mr-2 h-4 w-4" />Q&A</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 )}
               />
 
@@ -225,4 +223,3 @@ export default function CreatePostPage() {
     </div>
   );
 }
-

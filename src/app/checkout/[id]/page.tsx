@@ -24,17 +24,6 @@ const checkoutSchema = z.object({
   paymentMethod: z.enum(['upi_intent', 'qr']),
   paymentMobileNumber: z.string().optional(),
   paymentScreenshot: z.any().optional(),
-}).refine(data => {
-    if (data.paymentMethod === 'qr' && !data.paymentScreenshot && !data.paymentMobileNumber) {
-        return false;
-    }
-    if (data.paymentMethod === 'upi_intent' && !data.paymentMobileNumber) {
-        return false;
-    }
-    return true;
-}, {
-    message: "Please provide a verification method.",
-    path: ['paymentMethod']
 });
 
 
@@ -163,6 +152,11 @@ export default function CheckoutPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'An unexpected error occurred.' });
         return;
     }
+     if (values.paymentMethod === 'qr' && !values.paymentScreenshot?.[0] && !values.paymentMobileNumber) {
+        form.setError('paymentMethod', { message: 'Please upload screenshot or enter mobile number.'});
+        return;
+    }
+
     setIsSubmitting(true);
 
     let screenshotUrl: string | null = null;
@@ -182,7 +176,9 @@ export default function CheckoutPage() {
             pricePaid: finalPrice,
             couponUsed: appliedCoupon ? appliedCoupon.code : null,
             enrollmentDate: serverTimestamp(),
-            paymentMethod: values.paymentMethod,
+            paymentMethod: values.paymentMethod === 'qr' 
+                ? (screenshotUrl ? 'qr_screenshot' : 'qr_mobile')
+                : 'upi_intent',
             paymentScreenshotUrl: screenshotUrl,
             paymentMobileNumber: values.paymentMobileNumber || null,
             isApproved: false,
@@ -204,6 +200,12 @@ export default function CheckoutPage() {
         router.push('/my-library');
     } catch (error) {
         console.error("Error placing order: ", error);
+        const permissionError = new FirestorePermissionError({
+            path: (error as any).path || 'enrollments',
+            operation: 'create',
+            requestResourceData: (error as any).requestResourceData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to place order.' });
     } finally {
         setIsSubmitting(false);
@@ -324,8 +326,9 @@ export default function CheckoutPage() {
                             </FormItem>
                         )}
                         />
-                        <Button asChild className='w-full'>
-                            <Link href={upiDeepLink}>Proceed to Pay</Link>
+                         <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Submit for Verification
                         </Button>
                     </div>
                 )}
@@ -369,17 +372,15 @@ export default function CheckoutPage() {
                           </FormItem>
                         )}
                       />
+                      <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Submit for Verification
+                     </Button>
                   </div>
                 )}
                 {form.formState.errors.paymentMethod && <p className="text-sm font-medium text-destructive">{form.formState.errors.paymentMethod.message}</p>}
 
               </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Submit for Verification
-                </Button>
-              </CardFooter>
             </form>
           </Form>
         </Card>
@@ -387,5 +388,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-
-    

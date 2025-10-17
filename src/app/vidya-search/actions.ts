@@ -1,20 +1,26 @@
+
 'use server';
 
 import { z } from 'zod';
 import { firestore } from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { vidyaSearch } from '@/ai/flows/vidya-search';
 
-// Initialize Firebase Admin SDK if not already initialized
-if (!getApps().length) {
+// Singleton pattern to ensure Firebase Admin is initialized only once.
+function initializeAdminApp(): App {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-    initializeApp({
+    return initializeApp({
       credential: cert(serviceAccount),
     });
   } catch (e) {
     console.error('Failed to initialize Firebase Admin SDK:', e);
+    // This will cause subsequent getFirestore() calls to fail, which is intended.
+    throw new Error('Could not initialize Firebase Admin SDK. Service account key might be missing or invalid.');
   }
 }
 
@@ -61,9 +67,17 @@ export async function performSearch(prevState: State, formData: FormData): Promi
       error: validatedFields.error.flatten().fieldErrors.query?.join(', '),
     };
   }
+  
+  let db: firestore.Firestore;
+  try {
+    initializeAdminApp();
+    db = getFirestore();
+  } catch (e: any) {
+    console.error('Firestore initialization failed in performSearch:', e);
+    return { error: e.message || 'Failed to connect to the database.' };
+  }
 
   const query = validatedFields.data.query;
-  const db = getFirestore();
   const results: SearchResultItem[] = [];
 
   try {

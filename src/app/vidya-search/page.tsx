@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState } from 'react';
@@ -47,7 +48,7 @@ export default function VidyaSearchPage() {
             <span className="text-blue-500">y</span>
             <span className="text-green-500">a</span>
             <span className="text-red-500"> </span>
-            Search
+            <span className="text-foreground">Search</span>
         </h1>
         <p className="text-muted-foreground mt-2">
             Your personal gateway to information and services.
@@ -63,6 +64,14 @@ export default function VidyaSearchPage() {
         />
         <SubmitButton />
       </form>
+       
+      <div className="flex justify-center gap-4 text-sm">
+        <Link href="https://chat.openai.com" target="_blank" className="text-blue-400 hover:underline">ChatGPT</Link>
+        <Link href="https://youtube.com" target="_blank" className="text-red-500 hover:underline">YouTube</Link>
+        <Link href="https://web.whatsapp.com" target="_blank" className="text-green-500 hover:underline">WhatsApp</Link>
+        <Link href="https://gemini.google.com/" target="_blank" className="text-purple-400 hover:underline">Gemini</Link>
+      </div>
+
 
        {state.results && (
         <div className="space-y-4">
