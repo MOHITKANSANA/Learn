@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
@@ -71,7 +72,8 @@ function ChatSection({ videoId }: { videoId: string }) {
     };
     
     const sortedMessages = useMemo(() => {
-        return messages?.sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
+        if (!messages) return [];
+        return [...messages].sort((a, b) => a.createdAt?.seconds - b.createdAt?.seconds);
     }, [messages]);
 
     return (

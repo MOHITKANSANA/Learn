@@ -38,7 +38,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   if (isAuthPage) {
     return (
       <div className="flex flex-col min-h-screen">
-        <main className="flex-grow flex items-center">
+        <main className="flex items-center flex-1">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full">
             {children}
           </div>
