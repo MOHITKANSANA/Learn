@@ -37,9 +37,9 @@ const verificationSchema = z.object({
         return !!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10;
     }
     if (data.paymentMethod === 'qr') {
-        return data.paymentScreenshot?.length > 0 || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
+        return (data.paymentScreenshot && data.paymentScreenshot.length > 0) || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
     }
-    return true;
+    return false;
 }, {
     message: 'Please provide the required information for your selected payment method.',
     path: ['paymentMethod'],
@@ -146,7 +146,13 @@ export default function BookCheckoutPage() {
     
     let screenshotUrl: string | null = null;
     if (values.paymentMethod === 'qr' && values.paymentScreenshot?.[0]) {
-        screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
+        try {
+            screenshotUrl = await fileToDataUrl(values.paymentScreenshot[0]);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not read screenshot file.' });
+            setIsSubmitting(false);
+            return;
+        }
     }
     
     const batch = writeBatch(firestore);
@@ -182,14 +188,19 @@ export default function BookCheckoutPage() {
 
     try {
         await batch.commit();
-        toast({
-            title: 'आदेश अनुरोध भेजा गया!',
-            description: 'आपका ऑर्डर सत्यापन के लिए लंबित है। स्थिति को "मेरे आदेश" में ट्रैक करें।',
-        });
+
         if (values.paymentMethod === 'upi_intent' && upiDeepLink !== '#') {
-           window.location.href = upiDeepLink;
+            toast({
+                title: 'Attempting to open UPI app...',
+                description: 'Once payment is complete, your order will be placed.',
+            });
+            window.location.href = upiDeepLink;
         } else {
-           router.push('/my-orders');
+            toast({
+                title: 'आदेश अनुरोध भेजा गया!',
+                description: 'आपका ऑर्डर सत्यापन के लिए लंबित है। स्थिति को "मेरे आदेश" में ट्रैक करें।',
+            });
+            router.push('/my-orders');
         }
     } catch (serverError) {
         console.error("Order failed:", serverError);
@@ -408,3 +419,5 @@ export default function BookCheckoutPage() {
     </div>
   );
 }
+
+    

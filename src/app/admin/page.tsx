@@ -1008,7 +1008,7 @@ function AddBookForm() {
 function ManageBookOrders() {
     const firestore = useFirestore();
     const ordersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'bookOrders') : null, [firestore]);
-    const { data: orders, isLoading } = useCollection(ordersQuery);
+    const { data: orders, isLoading, forceRefresh } = useCollection(ordersQuery);
     const { toast } = useToast();
     const [editingOrder, setEditingOrder] = useState<any>(null);
 
@@ -1020,6 +1020,17 @@ function ManageBookOrders() {
             toast({ title: 'Success', description: `Order status updated to ${status}.` });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update order status.' });
+        }
+    };
+
+    const handleDelete = async (orderId: string) => {
+        if (!firestore) return;
+        try {
+            await deleteDoc(doc(firestore, "bookOrders", orderId));
+            toast({ title: "Order Deleted", description: "The order has been removed." });
+            forceRefresh();
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete order.' });
         }
     };
 
@@ -1036,10 +1047,13 @@ function ManageBookOrders() {
     };
 
     if (isLoading) return <div className="flex justify-center items-center"><Loader2 className="animate-spin" /></div>;
+    
+    const sortedOrders = orders ? [...orders].sort((a, b) => b.orderDate.seconds - a.orderDate.seconds) : [];
+
 
     return (
         <div className="space-y-4">
-            {orders && orders.length > 0 ? orders.map(order => (
+            {sortedOrders && sortedOrders.length > 0 ? sortedOrders.map(order => (
                 <Card key={order.id}>
                     <CardHeader>
                         <CardTitle>Order #{order.id.substring(0, 6)}</CardTitle>
@@ -1062,6 +1076,23 @@ function ManageBookOrders() {
                          {order.status === 'approved' && (
                              <Button size="sm" onClick={() => setEditingOrder(order)}>Add Shipping Details</Button>
                          )}
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive" className="ml-auto"><Trash2 className="h-4 w-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Order?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will permanently remove the order. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(order.id)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                         </AlertDialog>
                     </CardContent>
                 </Card>
             )) : <p>No book orders found.</p>}
@@ -1768,3 +1799,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

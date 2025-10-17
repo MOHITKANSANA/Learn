@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,7 +14,6 @@ import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
 import { doc, collection, setDoc, serverTimestamp, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 
@@ -28,9 +27,9 @@ const checkoutSchema = z.object({
         return !!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10;
     }
     if (data.paymentMethod === 'qr') {
-        return data.paymentScreenshot?.length > 0 || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
+        return (data.paymentScreenshot && data.paymentScreenshot.length > 0) || (!!data.paymentMobileNumber && data.paymentMobileNumber.length >= 10);
     }
-    return true;
+    return false;
 }, {
     message: 'Please provide the required information for your selected payment method.',
     path: ['paymentMethod'],
@@ -209,25 +208,22 @@ export default function CheckoutPage() {
             });
         }
         
-        toast({
-            title: 'Payment Request Sent!',
-            description: 'Your enrollment is pending approval. We will notify you shortly.',
-        });
-
         if (values.paymentMethod === 'upi_intent' && upiDeepLink !== '#') {
+            toast({
+                title: 'Attempting to open UPI app...',
+                description: 'Once payment is complete, your request will be submitted.',
+            });
             window.location.href = upiDeepLink;
         } else {
+             toast({
+                title: 'Payment Request Sent!',
+                description: 'Your enrollment is pending approval. We will notify you shortly.',
+            });
             router.push('/my-library');
         }
 
     } catch (error) {
         console.error("Error placing order: ", error);
-        const permissionError = new FirestorePermissionError({
-            path: (error as any).path || 'enrollments',
-            operation: 'create',
-            requestResourceData: enrollmentData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to place order.' });
     } finally {
         setIsSubmitting(false);
@@ -410,3 +406,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+    

@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay"
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import { collection, query, where, doc, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -34,8 +34,6 @@ export default function Home() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState(new Set());
-
   const educatorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'educators') : null, [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
   
@@ -54,10 +52,18 @@ export default function Home() {
   }, [firestore, user]);
   const { data: enrollments, isLoading: areEnrollmentsLoading } = useCollection(enrollmentsQuery);
   
-  useEffect(() => {
+  const enrollmentStatus = useMemo(() => {
+    const statusMap = new Map<string, 'approved' | 'pending'>();
     if (enrollments) {
-      setEnrolledCourseIds(new Set(enrollments.map(e => e.itemId)));
+      for (const e of enrollments) {
+        if (e.isApproved) {
+          statusMap.set(e.itemId, 'approved');
+        } else if (!statusMap.has(e.itemId)) {
+          statusMap.set(e.itemId, 'pending');
+        }
+      }
     }
+    return statusMap;
   }, [enrollments]);
 
   useEffect(() => {
@@ -117,6 +123,34 @@ export default function Home() {
       </div>
     );
   }
+
+  const renderPaidCourseButton = (course: any) => {
+    const status = enrollmentStatus.get(course.id);
+    if (status === 'approved') {
+        return (
+            <Button variant="secondary" size="sm" asChild><Link href={`/courses/content/${course.id}`}>Start Learning</Link></Button>
+        );
+    }
+    if (status === 'pending') {
+        return <Button disabled size="sm">Pending Approval</Button>;
+    }
+    return (
+        <Button size="sm" asChild><Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link></Button>
+    );
+  };
+  
+  const renderFreeCourseButton = (course: any) => {
+    const status = enrollmentStatus.get(course.id);
+    if (status === 'approved') {
+        return (
+            <Button variant="secondary" size="sm" asChild className="w-full"><Link href={`/courses/content/${course.id}`}>Start Learning</Link></Button>
+        );
+    }
+    return (
+        <Button size="sm" className="w-full" onClick={(e) => handleFreeEnrollment(course, e)}>Enroll Now</Button>
+    );
+  };
+
 
   return (
     <div className="space-y-8">
@@ -183,20 +217,16 @@ export default function Home() {
           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
             <CarouselContent>
                 {freeCourses.map(course => {
-                    const isEnrolled = enrolledCourseIds.has(course.id);
+                    const isEnrolled = enrollmentStatus.get(course.id) === 'approved';
                     return (
                         <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
-                                <Link href={isEnrolled ? `/courses/content/${course.id}` : `/checkout/${course.id}?type=course`} className="flex flex-col flex-grow">
+                                <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className={`flex flex-col flex-grow ${!isEnrolled ? 'cursor-pointer' : ''}`}>
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
                                     <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
                                 </Link>
                                 <CardFooter className="p-3 mt-auto">
-                                    {isEnrolled ? (
-                                        <Button variant="secondary" size="sm" asChild className="w-full"><Link href={`/courses/content/${course.id}`}>Start Learning</Link></Button>
-                                    ) : (
-                                        <Button size="sm" className="w-full" onClick={(e) => handleFreeEnrollment(course, e)}>Enroll Now</Button>
-                                    )}
+                                    {renderFreeCourseButton(course)}
                                 </CardFooter>
                             </Card>
                         </CarouselItem>
@@ -219,21 +249,17 @@ export default function Home() {
            <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
             <CarouselContent>
                 {paidCourses.map(course => {
-                     const isEnrolled = enrolledCourseIds.has(course.id);
+                    const isEnrolled = enrollmentStatus.get(course.id) === 'approved';
                     return (
                         <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
-                                <Link href={isEnrolled ? `/courses/content/${course.id}` : `/checkout/${course.id}?type=course`} className="flex flex-col flex-grow">
+                                <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className={`flex flex-col flex-grow ${!isEnrolled ? 'cursor-pointer' : ''}`}>
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
                                     <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
                                 </Link>
                                 <CardFooter className="p-3 mt-auto flex justify-between items-center">
                                     <p className="font-bold text-primary">₹{course.price}</p>
-                                    {isEnrolled ? (
-                                        <Button variant="secondary" size="sm" asChild><Link href={`/courses/content/${course.id}`}>Start Learning</Link></Button>
-                                    ) : (
-                                        <Button size="sm" asChild><Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link></Button>
-                                    )}
+                                    {renderPaidCourseButton(course)}
                                 </CardFooter>
                             </Card>
                         </CarouselItem>
@@ -286,3 +312,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
