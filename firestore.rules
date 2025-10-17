@@ -1,30 +1,37 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a combination of public read access and owner-based write access.
+ * @description This ruleset enforces a tiered security model for the application.
+ *
+ * Core Philosophy:
+ *  - Public Read Access: Most content collections (courses, ebooks, test series, etc.) are publicly readable.
+ *  - Owner-Only Write Access: Modifications (create, update, delete) are restricted to authorized users, typically the content owners or administrators.
+ *  - User-Specific Data Isolation: User-related data (enrollments, book orders, cart items, notes) is stored under the `/users/{userId}` path and is accessible only to the authenticated user.
  *
  * Data Structure:
- * - Top-level collections (e.g., /courses, /ebooks) are generally publicly readable.
- * - User-specific data (e.g., /users/{userId}/cart) is restricted to the owning user.
+ *  - Top-Level Collections: `/courses`, `/ebooks`, `/test_series`, `/educators`, `/live_classes`, `/promotions`, `/books`, `/coupons`, `/previousYearPapers`, `/feed_posts`, `/video_notes`, `/video_chat`, `/scholarship_centers`, `/scholarshipPayments`, `/scholarshipApplications`.
+ *  - User-Specific Subcollections: `/users/{userId}/cart/{bookId}`.
+ *  - Nested Collections: `/feed_posts/{postId}/comments/{commentId}`.
  *
  * Key Security Decisions:
- * - Public read access is granted to most top-level collections to allow for open browsing of content.
- * - Writes (create, update, delete) are strictly controlled using the `isOwner()` function.
- * - The rules do not enforce any schema validation.
+ *  - Public Content: Read access to content like courses, ebooks, and test series is open to all users, including unauthenticated users.
+ *  - User Data: User profiles and related data are strictly private, accessible only to the authenticated user.
+ *  - No User Listing: Listing all users is not permitted for privacy and security reasons.
+ *  - Settings: The settings document is publicly readable.
  *
- * Denormalization for Authorization:
- * - The rules rely on denormalized `userId` and `authorId` fields within documents to enforce ownership.
- *   This avoids costly `get()` calls to other documents.
+ * Authorization Denormalization:
+ *  - Owner Identification: Publicly readable documents like `feed_posts` should include fields like `authorId` to simplify ownership checks for write operations.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read courses, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read courses, but only authorized users to create, update, or delete them.
      * @path /courses/{courseId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(course.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /courses/{courseId} {
       allow get, list: if true;
@@ -32,11 +39,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read ebooks, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read ebooks, but only authorized users to create, update, or delete them.
      * @path /ebooks/{ebookId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(ebook.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /ebooks/{ebookId} {
       allow get, list: if true;
@@ -44,35 +52,39 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read test series, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read test series, but only authorized users to create, update, or delete them.
      * @path /test_series/{testSeriesId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(testSeries.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /test_series/{testSeriesId} {
       allow get, list: if true;
       allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
-    /**
-     * @description Allows anyone to read questions, but only allows authenticated users to create, update, or delete them.
-     * @path /questions/{questionId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
-     */
+     /**
+      * @description Allows anyone to read questions, but no one to modify them.
+      * @path /questions/{questionId}
+      * @allow get, list: if true;
+      * @allow create, update, delete: if false;
+      * @principle Public read-only.
+      */
     match /questions/{questionId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Allows anyone to read educators, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read educator profiles, but only authorized users to create, update, or delete them.
      * @path /educators/{educatorId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(educator.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /educators/{educatorId} {
       allow get, list: if true;
@@ -80,11 +92,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read live classes, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read live classes, but only authorized users to create, update, or delete them.
      * @path /live_classes/{liveClassId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(liveClass.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /live_classes/{liveClassId} {
       allow get, list: if true;
@@ -92,47 +105,46 @@ service cloud.firestore {
     }
 
     /**
-     * @description Manages user-specific data, restricting access to the owner.
+     * @description Allows a user to read, update, and delete their own profile. Allows self-creation.
      * @path /users/{studentId}
-     * @allow (get): if isOwner(studentId);
-     * @allow (list): if false;
-     * @allow (create): if isOwner(studentId);
-     * @allow (update): if isExistingOwner(studentId);
-     * @allow (delete): if isExistingOwner(studentId);
-     * @principle Enforces document ownership for writes.
+     * @allow (get, update, delete) - if isOwner(studentId)
+     * @allow (create) - if isSelfCreate(studentId)
+     * @deny (get, update, delete) - if !isOwner(studentId)
+     * @deny (create) - if !isSelfCreate(studentId)
+     * @principle Owner-only access.
      */
     match /users/{studentId} {
       allow get: if isOwner(studentId);
       allow list: if false;
-      allow create: if isOwner(studentId);
-      allow update: if isExistingOwner(studentId);
+      allow create: if isSelfCreate(studentId);
+      allow update: if isOwner(studentId);
       allow delete: if isExistingOwner(studentId);
     }
 
-    /**
-     * @description Restricts cart access to the owning user.
-     * @path /users/{studentId}/cart/{bookId}
-     * @allow (get): if isOwner(studentId);
-     * @allow (list): if isOwner(studentId);
-     * @allow (create): if isOwner(studentId);
-     * @allow (update): if isExistingOwner(studentId);
-     * @allow (delete): if isExistingOwner(studentId);
-     * @principle Enforces document ownership for writes.
-     */
-    match /users/{studentId}/cart/{bookId} {
-      allow get: if isOwner(studentId);
-      allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId);
-      allow update: if isExistingOwner(studentId);
-      allow delete: if isExistingOwner(studentId);
-    }
+     /**
+      * @description Allows a user to manage their own cart items.
+      * @path /users/{studentId}/cart/{bookId}
+      * @allow (get, update, delete) - if isOwner(studentId)
+      * @allow (create) - if isOwner(studentId)
+      * @deny (get, update, delete) - if !isOwner(studentId)
+      * @deny (create) - if !isOwner(studentId)
+      * @principle Owner-only access.
+      */
+     match /users/{studentId}/cart/{bookId} {
+        allow get: if isOwner(studentId);
+        allow list: if isOwner(studentId);
+        allow create: if isOwner(studentId);
+        allow update: if isOwner(studentId);
+        allow delete: if isExistingOwner(studentId);
+     }
 
     /**
-     * @description Allows anyone to read promotions, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read promotions, but only authorized users to create, update, or delete them.
      * @path /promotions/{promotionId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(promotion.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /promotions/{promotionId} {
       allow get, list: if true;
@@ -140,11 +152,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read enrollments, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read enrollments, but only authorized users to create, update, or delete them.
      * @path /enrollments/{enrollmentId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(enrollment.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /enrollments/{enrollmentId} {
       allow get, list: if true;
@@ -152,11 +165,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read books, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read books, but only authorized users to create, update, or delete them.
      * @path /books/{bookId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(book.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /books/{bookId} {
       allow get, list: if true;
@@ -164,11 +178,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read book orders, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read book orders, but only authorized users to create, update, or delete them.
      * @path /bookOrders/{orderId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(bookOrder.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /bookOrders/{orderId} {
       allow get, list: if true;
@@ -176,11 +191,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read coupons, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read coupons, but only authorized users to create, update, or delete them.
      * @path /coupons/{couponId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(coupon.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /coupons/{couponId} {
       allow get, list: if true;
@@ -188,11 +204,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read previous year papers, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read previous year papers, but only authorized users to create, update, or delete them.
      * @path /previousYearPapers/{paperId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(paper.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /previousYearPapers/{paperId} {
       allow get, list: if true;
@@ -200,105 +217,160 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows anyone to read feed posts, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read feed posts, but only the author to create, update, or delete them.
      * @path /feed_posts/{postId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create) - if request.resource.data.authorId == request.auth.uid
+     * @allow (update, delete) - if isExistingOwner(resource.data.authorId)
+     * @deny (create) - if request.auth == null
+     * @deny (update, delete) - if request.auth == null || resource.data.authorId != request.auth.uid
+     * @principle Public read, owner-only write.  Requires authorId field.
      */
     match /feed_posts/{postId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
+      allow update: if request.auth != null && isExistingOwner(resource.data.authorId);
+      allow delete: if request.auth != null && isExistingOwner(resource.data.authorId);
+    }
+
+     /**
+      * @description Allows anyone to read comments, but only authenticated users to create them.  Update/Delete are not allowed.
+      * @path /feed_posts/{postId}/comments/{commentId}
+      * @allow get, list: if true;
+      * @allow create: if isSignedIn();
+      * @deny update, delete: if true;
+      * @principle Public read, authenticated create only.
+      */
+    match /feed_posts/{postId}/comments/{commentId} {
+        allow get, list: if true;
+        allow create: if isSignedIn();
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Allows anyone to read comments, but only the author can write.
-     * @path /feed_posts/{postId}/comments/{commentId}
-     */
-    match /feed_posts/{postId}/comments/{commentId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
-     /**
-     * @description Allows owner to read/write their notes.
+     * @description Allows a user to manage their own video notes.
      * @path /video_notes/{noteId}
+     * @allow (get, update, delete) - if isOwner(resource.data.userId)
+     * @allow (create) - if request.resource.data.userId == request.auth.uid
+     * @deny (get, update, delete) - if !isOwner(resource.data.userId)
+     * @deny (create) - if request.resource.data.userId != request.auth.uid
+     * @principle Owner-only access.
      */
     match /video_notes/{noteId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isOwner(resource.data.userId);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && isExistingOwner(resource.data.userId);
+      allow delete: if request.auth != null && isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Allows anyone to read comments, but only the author can write.
+     * @description Allows anyone to read chat messages, but only authenticated users to create them.  Update/Delete are not allowed.
      * @path /video_chat/{chatId}
+     * @allow get, list: if true;
+     * @allow create: if isSignedIn();
+     * @deny update, delete: if true;
+     * @principle Public read, authenticated create only.
      */
     match /video_chat/{chatId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get, list: if true;
+        allow create: if isSignedIn();
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Allows anyone to read settings, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read the settings document, but no one to modify it.
      * @path /settings/payment
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow get: if true;
+     * @deny create, update, delete: if true;
+     * @principle Public read-only.
      */
     match /settings/payment {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get: if true;
+        allow list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
-    /**
-     * @description Allows anyone to read scholarship centers, but only allows authenticated users to create, update, or delete them.
-     * @path /scholarship_centers/{centerId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
-     */
+     /**
+      * @description Allows anyone to read Scholarship Centers, but no one to modify them.
+      * @path /scholarship_centers/{centerId}
+      * @allow get, list: if true;
+      * @allow create, update, delete: if false;
+      * @principle Public read-only.
+      */
     match /scholarship_centers/{centerId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get, list: if true;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description Allows anyone to read scholarship payments, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read scholarship payments, but only authorized users to create, update, or delete them.
      * @path /scholarshipPayments/{paymentId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(payment.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /scholarshipPayments/{paymentId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get, list: if true;
+        allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows anyone to read scholarship applications, but only allows authenticated users to create, update, or delete them.
+     * @description Allows anyone to read scholarship applications, but only authorized users to create, update, or delete them.
      * @path /scholarshipApplications/{applicationId}
-     * @allow (get, list): if true;
-     * @deny (create, update, delete): if false;
-     * @principle Public read, owner-only writes.
+     * @allow (get, list)
+     * @allow (create, update, delete) - if isOwner(application.ownerId)
+     * @deny (create, update, delete) - if request.auth == null
+     * @principle Public read, owner-only write.
      */
     match /scholarshipApplications/{applicationId} {
-       allow get, list: if true;
-       allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get, list: if true;
+        allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
-  }
+    //------------------- Helper Functions -------------------
 
-  // Helper function to determine if the user is signed in
-  function isSignedIn() {
-    return request.auth != null;
-  }
+    /**
+     * @description Checks if the user is signed in.
+     * @return True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-  // Helper function to determine if the user is the owner of the document based on the user ID.
-  function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
-  }
+    /**
+     * @description Checks if the request is made by the owner of the resource.
+     * @param {string} userId - The user ID to check against.
+     * @return True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
 
-  // Helper function to determine if the user is the owner of an existing document.
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource != null;
+     /**
+      * @description Checks if the user is creating their own document (e.g., /users/{userId}).
+      * @param {string} userId - The user ID from the path.
+      * @return True if the authenticated user's ID matches the document ID.
+      */
+    function isSelfCreate(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the resource and the resource exists.
+     *              Use this for update and delete operations.
+     * @param {string} userId - The user ID to check against.
+     * @return True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
   }
 }
