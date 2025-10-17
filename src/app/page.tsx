@@ -64,7 +64,7 @@ export default function Home() {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
-  }, [user, isUserLoading]);
+  }, [user, isUserLoading, router]);
 
   const handleFreeEnrollment = async (course: any, e: React.MouseEvent) => {
     e.preventDefault();
