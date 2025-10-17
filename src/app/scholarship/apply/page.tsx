@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -27,10 +28,9 @@ const personalInfoSchema = z.object({
 });
 
 const academicInfoSchema = z.object({
-  lastExam: z.string().min(1, "Please specify the last exam passed."),
-  board: z.string().min(2, "Board/University name is required."),
-  year: z.coerce.number().min(2000).max(new Date().getFullYear(), "Invalid year."),
-  marks: z.coerce.number().min(0).max(100, "Marks must be between 0 and 100."),
+  currentClass: z.string().min(1, "Please select your current class."),
+  school: z.string().min(2, "School name is required."),
+  previousMarks: z.coerce.number().min(0).max(100, "Marks must be between 0 and 100."),
 });
 
 const centerChoiceSchema = z.object({
@@ -95,10 +95,9 @@ export default function ScholarshipApplyPage() {
       gender: '',
       mobile: '',
       email: '',
-      lastExam: '',
-      board: '',
-      year: new Date().getFullYear(),
-      marks: 0,
+      currentClass: '',
+      school: '',
+      previousMarks: 0,
       examMode: 'offline',
       center1: '',
       center2: '',
@@ -210,18 +209,18 @@ export default function ScholarshipApplyPage() {
 
               {currentStep === 2 && (
                 <>
-                    <FormField name="lastExam" control={methods.control} render={({ field }) => (
-                        <FormItem><FormLabel>Last Exam Passed</FormLabel><FormControl><Input placeholder="e.g., 12th, B.Sc." {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField name="board" control={methods.control} render={({ field }) => (
-                        <FormItem><FormLabel>Board / University</FormLabel><FormControl><Input placeholder="e.g., CBSE, Delhi University" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField name="year" control={methods.control} render={({ field }) => (
-                        <FormItem><FormLabel>Passing Year</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                     <FormField name="marks" control={methods.control} render={({ field }) => (
-                        <FormItem><FormLabel>Percentage / CGPA (%)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
+                  <FormField name="currentClass" control={methods.control} render={({ field }) => (
+                    <FormItem><FormLabel>Current Class</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger></FormControl>
+                        <SelectContent>{Array.from({ length: 12 }, (_, i) => i + 1).map(c => <SelectItem key={c} value={String(c)}>Class {c}</SelectItem>)}</SelectContent>
+                    </Select><FormMessage /></FormItem>
+                  )} />
+                  <FormField name="school" control={methods.control} render={({ field }) => (
+                    <FormItem><FormLabel>School Name</FormLabel><FormControl><Input placeholder="e.g., Delhi Public School" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField name="previousMarks" control={methods.control} render={({ field }) => (
+                    <FormItem><FormLabel>Previous Class Percentage (%)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
                 </>
               )}
 
@@ -261,8 +260,20 @@ export default function ScholarshipApplyPage() {
               {currentStep === 5 && (
                  <div className="space-y-4">
                     <h3 className="font-semibold">Review your application details.</h3>
-                    {/* Display all form data for review */}
-                    <pre className="p-4 bg-muted rounded-md text-xs whitespace-pre-wrap">{JSON.stringify(methods.getValues(), null, 2)}</pre>
+                    <Card>
+                        <CardContent className="p-4 space-y-2 text-sm">
+                            {Object.entries(methods.getValues()).map(([key, value]) => {
+                                if (typeof value === 'object' && value !== null) return null;
+                                if (value === '' || value === undefined) return null;
+                                return (
+                                    <div key={key} className="flex justify-between">
+                                        <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
+                                        <span>{String(value)}</span>
+                                    </div>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
                  </div>
               )}
 
@@ -286,3 +297,5 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
+
+    

@@ -11,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, Youtube, Info, GraduationCap, FileText } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
+
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -40,6 +43,14 @@ function ResultIcon({ type }: { type: State['results'][0]['type'] }) {
 
 export default function VidyaSearchPage() {
   const [state, formAction] = useActionState(performSearch, {});
+  const firestore = useFirestore();
+
+  const defaultResultsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'vidya_search_data'), orderBy('createdAt', 'desc'), limit(5)) : null,
+    [firestore]
+  );
+  const { data: defaultResults, isLoading } = useCollection(defaultResultsQuery);
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -114,6 +125,38 @@ export default function VidyaSearchPage() {
         </div>
       )}
 
+      {!state.results && !state.error && (isLoading ? <Loader2 className="mx-auto animate-spin" /> : 
+        defaultResults && defaultResults.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Trending Topics</h2>
+             {defaultResults.map((result, index) => (
+                <Card key={index} className="bg-card/70 hover:bg-card/90 transition-colors">
+                     <div className="p-4 flex gap-4">
+                        {result.imageUrl ? (
+                             <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
+                        ) : (
+                             <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
+                                <ResultIcon type={result.type}/>
+                            </div>
+                        )}
+                        <div className="flex-grow">
+                            <CardTitle className="text-lg mb-1">{result.title}</CardTitle>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{result.description}</p>
+                            {result.link && (
+                                <Button asChild variant="link" className="px-0 h-auto pt-1">
+                                    <Link href={result.link} target="_blank" rel="noopener noreferrer">
+                                        Visit Link <LinkIcon className="ml-2 h-4 w-4"/>
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+            ))}
+          </div>
+        )
+      )}
+
       {state.error && (
          <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
            <CardHeader>
@@ -129,3 +172,5 @@ export default function VidyaSearchPage() {
   );
 }
 
+
+    

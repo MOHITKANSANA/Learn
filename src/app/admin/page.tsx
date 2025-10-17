@@ -40,9 +40,12 @@ import {
   Bot,
   Rss,
   Trophy,
-  MapPin
+  MapPin,
+  Check,
+  X,
+  CheckCircle,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -70,6 +73,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 
 
 const adminNavItems = [
@@ -1844,7 +1848,68 @@ function VidyaSearchAdmin() {
 }
 
 function ScholarshipManagement() {
-    return <Card><CardHeader><CardTitle>Scholarship Management</CardTitle></CardHeader><CardContent><p>Feature under development.</p></CardContent></Card>
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const applicationsQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'scholarshipApplications'), orderBy('createdAt', 'desc')) : null,
+        [firestore]
+    );
+    const { data: applications, isLoading, forceRefresh } = useCollection(applicationsQuery);
+
+    const handleStatusChange = async (appId: string, status: 'approved' | 'rejected') => {
+        if (!firestore) return;
+        const appRef = doc(firestore, 'scholarshipApplications', appId);
+        try {
+            await updateDoc(appRef, { status });
+            toast({ title: 'Success', description: `Application status updated to ${status}.` });
+            forceRefresh();
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
+        }
+    };
+    
+    if (isLoading) return <Loader2 className="animate-spin" />;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Scholarship Management</CardTitle>
+                <CardDescription>Review and manage all scholarship applications.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 {applications && applications.length > 0 ? applications.map((app: any) => (
+                    <Card key={app.id}>
+                         <CardHeader>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <CardTitle className="text-lg">{app.fullName}</CardTitle>
+                                    <CardDescription>ID: {app.id}</CardDescription>
+                                </div>
+                                 <Badge variant={app.status === 'rejected' ? 'destructive' : 'default'} className="capitalize">{app.status}</Badge>
+                            </div>
+                         </CardHeader>
+                         <CardContent className="text-sm space-y-2">
+                             <p><strong>Father's Name:</strong> {app.fatherName}</p>
+                             <p><strong>Exam Mode:</strong> {app.examMode}</p>
+                             <p><strong>Score:</strong> {app.testScore !== undefined ? `${app.testScore} / ${app.totalQuestions} (${app.percentage}%)` : 'Not Taken'}</p>
+                         </CardContent>
+                         <CardFooter className="flex gap-2">
+                            {app.status === 'submitted' || app.status === 'rejected' ? (
+                                 <Button size="sm" onClick={() => handleStatusChange(app.id, 'approved')}>
+                                    <Check className="mr-2 h-4 w-4" /> Approve
+                                </Button>
+                            ) : null}
+                            {app.status === 'submitted' || app.status === 'approved' ? (
+                                <Button size="sm" variant="destructive" onClick={() => handleStatusChange(app.id, 'rejected')}>
+                                    <X className="mr-2 h-4 w-4" /> Reject
+                                </Button>
+                            ) : null}
+                         </CardFooter>
+                    </Card>
+                 )) : <p className="text-muted-foreground text-center">No applications found.</p>}
+            </CardContent>
+        </Card>
+    );
 }
 
 const centerSchema = z.object({
@@ -2027,3 +2092,5 @@ export default function AdminDashboardPage() {
   );
 }
 
+
+    

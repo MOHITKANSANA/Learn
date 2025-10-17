@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -87,23 +88,21 @@ export default function ScholarshipPage() {
             </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {featureCards.map((card) => {
                 return (
-                    <Card 
-                        key={card.title} 
-                        className={`overflow-hidden transition-all duration-300  ${card.color} hover:shadow-xl hover:-translate-y-1`}
-                    >
-                        <Link href={card.href} className="flex flex-col items-center justify-start h-full p-4">
-                            <CardHeader className="items-center p-0 mb-3">
-                                <card.icon className="h-8 w-8 mb-2" />
-                                <CardTitle className="text-md font-bold text-foreground">{card.title}</CardTitle>
+                    <Link href={card.href} key={card.title} className="group">
+                        <Card 
+                            className={`overflow-hidden transition-all duration-300 h-full ${card.color} hover:shadow-xl hover:-translate-y-1 flex flex-col items-center justify-center p-4`}
+                        >
+                            <CardHeader className="items-center p-0 mb-2">
+                                <card.icon className="h-8 w-8" />
                             </CardHeader>
                             <CardContent className="p-0">
-                                <p className="text-xs text-muted-foreground">{card.description}</p>
+                                <CardTitle className="text-md font-bold text-foreground">{card.title}</CardTitle>
                             </CardContent>
-                        </Link>
-                    </Card>
+                        </Card>
+                    </Link>
                 )
             })}
         </div>
@@ -111,3 +110,5 @@ export default function ScholarshipPage() {
     </div>
   );
 }
+
+    

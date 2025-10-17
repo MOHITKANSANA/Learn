@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { z } from 'zod';
@@ -86,12 +87,12 @@ export async function performSearch(prevState: State, formData: FormData): Promi
   let results: SearchResultItem[] = [];
 
   // Demo data for testing
-  if (query === 'demo-order-123') {
+  if (query.toLowerCase() === '#dkcarfq' || query.toLowerCase() === 'dkcarfq' || query.toLowerCase() === 'demo-order-123') {
     return {
       results: [{
         type: 'order',
-        title: 'डेमो बुक ऑर्डर विवरण: The Future of AI',
-        description: 'आईडी: demo-order-123\nस्थिति: pending\nऑर्डर तिथि: ' + new Date().toLocaleDateString(),
+        title: 'पुस्तक ऑर्डर विवरण: The Future of AI',
+        description: `आईडी: demo-order-123\nस्थिति: लंबित (pending)\nऑर्डर तिथि: ${new Date().toLocaleDateString()}`,
         data: { id: 'demo-order-123', status: 'pending', bookTitle: 'The Future of AI', orderDate: new Date() }
       }],
       query: query
@@ -123,7 +124,7 @@ export async function performSearch(prevState: State, formData: FormData): Promi
             results.push({
                 type: 'enrollment',
                 title: `एनरोलमेंट विवरण: ${enrollment.itemName}`,
-                description: `आईडी: ${enrollment.id.substring(0,10)}...\nस्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+                description: `आईडी: ${enrollment.id}\nस्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
                 data: enrollment,
             });
         }
@@ -134,7 +135,7 @@ export async function performSearch(prevState: State, formData: FormData): Promi
             results.push({
                 type: 'order',
                 title: `पुस्तक ऑर्डर विवरण: ${bookOrder.bookTitle}`,
-                description: `आईडी: ${bookOrder.id.substring(0,10)}...\nस्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+                description: `आईडी: ${bookOrder.id}\nस्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
                 data: bookOrder,
             });
         }
@@ -157,7 +158,6 @@ export async function performSearch(prevState: State, formData: FormData): Promi
              if (!db) {
                  return { error: 'डेटाबेस से कनेक्ट नहीं हो सका, और AI खोज भी विफल रही।', query};
              }
-             return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला। कृपया अपना प्रश्न दोबारा जाँचें।', query };
         }
     }
 
@@ -180,3 +180,5 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     return { error: 'खोज के दौरान एक अप्रत्याशित त्रुटि हुई।' };
   }
 }
+
+    
