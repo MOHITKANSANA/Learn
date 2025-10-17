@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -85,6 +86,24 @@ export default function ScholarshipApplyPage() {
   const methods = useForm<z.infer<typeof combinedSchema>>({
     resolver: zodResolver(steps[currentStep - 1]?.schema || combinedSchema),
     mode: 'onChange',
+    defaultValues: {
+      fullName: '',
+      fatherName: '',
+      dob: '',
+      gender: '',
+      mobile: '',
+      email: '',
+      lastExam: '',
+      board: '',
+      year: new Date().getFullYear(),
+      marks: 0,
+      examMode: 'offline',
+      center1: '',
+      center2: '',
+      center3: '',
+      photo: undefined,
+      signature: undefined,
+    }
   });
 
   const watchExamMode = methods.watch('examMode');
