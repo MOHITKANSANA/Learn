@@ -17,6 +17,7 @@ import { useFirestore, useUser, useDoc, useMemoFirebase, errorEmitter } from '@/
 import { doc, collection, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import Image from 'next/image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 const shippingSchema = z.object({
   name: z.string().min(2, 'Full name is required.'),
