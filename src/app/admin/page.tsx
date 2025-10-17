@@ -638,6 +638,8 @@ function AddLiveClassForm() {
       title: '',
       description: '',
       youtubeUrl: '',
+      educatorId: '',
+      startTime: '',
     },
   });
 
