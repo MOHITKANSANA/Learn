@@ -1627,7 +1627,8 @@ const settingsSchema = z.object({
   qrCodeImage: z.any().optional(),
   mobileNumber: z.string().optional(),
   upiId: z.string().optional(),
-  scholarshipFee: z.coerce.number().min(0).optional(),
+  onlineScholarshipFee: z.coerce.number().min(0).optional(),
+  offlineScholarshipFee: z.coerce.number().min(0).optional(),
 });
 
 function AppSettingsForm() {
@@ -1642,7 +1643,8 @@ function AppSettingsForm() {
     defaultValues: {
       mobileNumber: '',
       upiId: '',
-      scholarshipFee: 60,
+      onlineScholarshipFee: 30,
+      offlineScholarshipFee: 60,
     }
   });
   
@@ -1651,7 +1653,8 @@ function AppSettingsForm() {
       form.reset({
         mobileNumber: settings.mobileNumber || '',
         upiId: settings.upiId || '',
-        scholarshipFee: settings.scholarshipFee || 60,
+        onlineScholarshipFee: settings.onlineScholarshipFee ?? 30,
+        offlineScholarshipFee: settings.offlineScholarshipFee ?? 60,
       });
     }
   }, [settings, form]);
@@ -1672,10 +1675,17 @@ function AppSettingsForm() {
     }
 
     try {
-      const settingsData: { mobileNumber?: string; qrCodeImageUrl?: string; upiId?: string; scholarshipFee?: number } = {
+      const settingsData: { 
+          mobileNumber?: string; 
+          qrCodeImageUrl?: string; 
+          upiId?: string; 
+          onlineScholarshipFee?: number,
+          offlineScholarshipFee?: number,
+        } = {
         mobileNumber: values.mobileNumber,
         upiId: values.upiId,
-        scholarshipFee: values.scholarshipFee,
+        onlineScholarshipFee: values.onlineScholarshipFee,
+        offlineScholarshipFee: values.offlineScholarshipFee
       };
 
       if (values.qrCodeImage && values.qrCodeImage.length > 0) {
@@ -1737,10 +1747,21 @@ function AppSettingsForm() {
         )}
         <FormField
           control={form.control}
-          name="scholarshipFee"
+          name="onlineScholarshipFee"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Scholarship Admit Card Fee (₹)</FormLabel>
+              <FormLabel>Online Scholarship Fee (₹)</FormLabel>
+              <FormControl><Input type="number" placeholder="e.g., 30" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="offlineScholarshipFee"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Offline Scholarship Fee (₹)</FormLabel>
               <FormControl><Input type="number" placeholder="e.g., 60" {...field} /></FormControl>
               <FormMessage />
             </FormItem>
@@ -1922,6 +1943,10 @@ const centerSchema = z.object({
   examTime: z.string().min(1, "Exam time is required."),
   admitCardDate: z.string().min(1, "Admit card download date is required."),
   resultDate: z.string().min(1, "Result date is required."),
+  onlineExamStartDate: z.string().optional(),
+  onlineExamEndDate: z.string().optional(),
+  onlineExamStartTime: z.string().optional(),
+  onlineExamEndTime: z.string().optional(),
 });
 
 function CenterManagement() {
@@ -1949,7 +1974,7 @@ function CenterManagement() {
     };
     try {
       await setDoc(centerRef, centerData);
-      toast({ title: 'Success', description: 'New examination center added.' });
+      toast({ title: 'Success', description: 'New examination center/schedule added.' });
       form.reset();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to add center.' });
@@ -1961,12 +1986,13 @@ function CenterManagement() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Center Management</CardTitle>
-        <CardDescription>Add and manage scholarship examination centers.</CardDescription>
+        <CardTitle>Center & Schedule Management</CardTitle>
+        <CardDescription>Add/manage scholarship examination centers and online schedules.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             <h3 className="font-semibold text-lg border-b pb-2">Offline Center Details</h3>
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Center Name</FormLabel><FormControl><Input placeholder="e.g., Vidya Public School" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
@@ -2000,9 +2026,28 @@ function CenterManagement() {
                 <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
+
+            <h3 className="font-semibold text-lg border-b pb-2 pt-4">Online Exam Schedule</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <FormField control={form.control} name="onlineExamStartDate" render={({ field }) => (
+                <FormItem><FormLabel>Online Exam Start Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="onlineExamEndDate" render={({ field }) => (
+                <FormItem><FormLabel>Online Exam End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <FormField control={form.control} name="onlineExamStartTime" render={({ field }) => (
+                <FormItem><FormLabel>Online Exam Start Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="onlineExamEndTime" render={({ field }) => (
+                <FormItem><FormLabel>Online Exam End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Center
+              Add/Update Center & Schedule
             </Button>
           </form>
         </Form>
@@ -2012,7 +2057,7 @@ function CenterManagement() {
 }
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState('add-course');
+  const [activeTab, setActiveTab] = useState('scholarship-management');
   
   const renderContent = () => {
     switch (activeTab) {
@@ -2091,6 +2136,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-
-    

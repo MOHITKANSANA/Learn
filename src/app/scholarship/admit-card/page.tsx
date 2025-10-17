@@ -1,38 +1,94 @@
+
 'use client';
 
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { Loader2, Download, User, Calendar, Clock, MapPin, School, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { useState, useEffect } from 'react';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdmitCardPage() {
     const { user } = useUser();
     const firestore = useFirestore();
+    const [applicationId, setApplicationId] = useState('');
+    const [application, setApplication] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
 
-    const applicationQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(collection(firestore, 'scholarshipApplications'), where('userId', '==', user.uid));
-    }, [user, firestore]);
-    
-    const { data: applications, isLoading } = useCollection(applicationQuery);
+    const [allottedCenter, setAllottedCenter] = useState<any>(null);
 
-    const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
-    const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
-    
-    if (isLoading || isLoadingCenters) {
-        return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
+    const { data: settings } = useDoc(useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]));
+    const { data: centers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
+
+    const handleSearch = async () => {
+        if(!applicationId || !user || !firestore) return;
+        setIsLoading(true);
+        setApplication(null);
+        setAllottedCenter(null);
+
+        const appQuery = query(collection(firestore, 'scholarshipApplications'), where('id', '==', applicationId), where('userId', '==', user.uid));
+        const appSnapshot = await getDocs(appQuery);
+
+        if(appSnapshot.empty) {
+            toast({variant: 'destructive', title: 'Not Found', description: 'No application found with this ID for your account.'});
+            setIsLoading(false);
+            return;
+        }
+
+        const appData = appSnapshot.docs[0].data();
+
+        if (appData.status !== 'approved') {
+             toast({variant: 'destructive', title: 'Not Approved', description: 'Your admit card is not yet available. Application is not approved.'});
+             setIsLoading(false);
+             return;
+        }
+        
+        if (appData.examMode === 'offline') {
+            const admitCardDate = centers?.find(c => c.id === appData.allottedCenterId)?.admitCardDate;
+            if (admitCardDate && new Date() < new Date(admitCardDate)) {
+                 toast({variant: 'destructive', title: 'Not Available Yet', description: `Admit card will be available from ${new Date(admitCardDate).toLocaleDateString()}.`});
+                 setIsLoading(false);
+                 return;
+            }
+            if (appData.allottedCenterId && centers) {
+                setAllottedCenter(centers.find(c => c.id === appData.allottedCenterId));
+            }
+        }
+        
+        setApplication(appData);
+        setIsLoading(false);
     }
-
-    if (!applications || applications.length === 0) {
-        return <div className="text-center mt-10">You have not applied for the scholarship yet.</div>;
-    }
-
-    const application = applications[0]; // Assuming one application per user for now
-    const allottedCenter = centers?.find(c => c.id === application.allottedCenterId);
+    
 
     const handlePrint = () => window.print();
+
+    if (!application) {
+         return (
+            <div className="max-w-md mx-auto">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Download Admit Card</CardTitle>
+                        <CardDescription>Enter your 5-digit Application ID to download your admit card.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex gap-2">
+                        <Input 
+                            placeholder="Enter Application ID" 
+                            value={applicationId}
+                            onChange={(e) => setApplicationId(e.target.value)}
+                            maxLength={5}
+                        />
+                        <Button onClick={handleSearch} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="animate-spin" /> : 'Search'}
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+         )
+    }
 
     return (
         <div className="max-w-4xl mx-auto p-4 print:p-0">
@@ -44,7 +100,7 @@ export default function AdmitCardPage() {
                 <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div><p className="text-sm text-muted-foreground">Application No.</p><p className="font-semibold">{application.id.substring(0, 12)}</p></div>
+                            <div><p className="text-sm text-muted-foreground">Application No.</p><p className="font-semibold">{application.id}</p></div>
                              <div><p className="text-sm text-muted-foreground">Exam Mode</p><p className="font-semibold capitalize">{application.examMode}</p></div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -91,10 +147,11 @@ export default function AdmitCardPage() {
                      <div className="w-full">
                         <h3 className="font-bold text-destructive mb-2">महत्वपूर्ण निर्देश:</h3>
                         <ul className="list-decimal list-inside text-xs space-y-1">
-                            <li>कृपया परीक्षा केंद्र पर प्रवेश पत्र के साथ एक वैध फोटो पहचान पत्र (जैसे आधार कार्ड) अवश्य लाएं।</li>
-                            <li>परीक्षा शुरू होने से कम से कम 30 मिनट पहले परीक्षा केंद्र पर पहुंचें।</li>
+                           {application.examMode === 'offline' && <li>कृपया परीक्षा केंद्र पर प्रवेश पत्र के साथ एक वैध फोटो पहचान पत्र (जैसे आधार कार्ड) अवश्य लाएं।</li>}
+                           {application.examMode === 'offline' && <li>परीक्षा शुरू होने से कम से कम 30 मिनट पहले परीक्षा केंद्र पर पहुंचें।</li>}
                             <li>परीक्षा हॉल में किसी भी प्रकार के इलेक्ट्रॉनिक उपकरण (मोबाइल फोन, स्मार्ट वॉच आदि) ले जाना सख्त वर्जित है।</li>
-                            <li>आपको परीक्षा केंद्र पर ₹60 का शुल्क नकद जमा करना होगा। (यह शुल्क एडमिन पैनल से बदला जा सकता है)।</li>
+                           {application.examMode === 'offline' && settings?.offlineScholarshipFee > 0 && <li>आपको परीक्षा केंद्र पर ₹{settings.offlineScholarshipFee} का शुल्क नकद जमा करना होगा।</li>}
+                           {application.examMode === 'online' && <li>सुनिश्चित करें कि आपके पास एक स्थिर इंटरनेट कनेक्शन है।</li>}
                         </ul>
                      </div>
                      <Button onClick={handlePrint} className="w-full print:hidden">

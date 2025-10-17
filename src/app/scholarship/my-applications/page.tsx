@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Loader2, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +15,7 @@ export default function MyApplicationsPage() {
 
     const applicationQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
-        // sorted by creation date descending
-        return query(collection(firestore, 'scholarshipApplications'), where('userId', '==', user.uid));
+        return query(collection(firestore, 'scholarshipApplications'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
     }, [user, firestore]);
     
     const { data: applications, isLoading } = useCollection(applicationQuery);
@@ -65,7 +65,7 @@ export default function MyApplicationsPage() {
                         <Card key={app.id}>
                             <CardHeader className="flex flex-row items-start justify-between">
                                 <div>
-                                    <CardTitle>Application #{app.id.substring(0, 8)}...</CardTitle>
+                                    <CardTitle>Application #{app.id}</CardTitle>
                                     <CardDescription>Submitted on: {new Date(app.createdAt.seconds * 1000).toLocaleDateString()}</CardDescription>
                                 </div>
                                 <Badge variant={getStatusVariant(app.status)} className="capitalize">
@@ -78,9 +78,11 @@ export default function MyApplicationsPage() {
                                 {app.status === 'approved' && (
                                     <div className="mt-4 flex gap-4">
                                         <Button asChild><Link href="/scholarship/admit-card">View Admit Card</Link></Button>
-                                        <Button asChild variant="secondary"><Link href="/scholarship/test">Start Test</Link></Button>
+                                        {app.examMode === 'online' && <Button asChild variant="secondary"><Link href="/scholarship/test">Start Test</Link></Button>}
                                     </div>
                                 )}
+                                {app.status === 'submitted' && <p className="text-sm text-muted-foreground mt-2">Your application is under review.</p>}
+                                {app.status === 'rejected' && <p className="text-sm text-destructive mt-2">Your application has been rejected.</p>}
                             </CardContent>
                         </Card>
                     ))}
@@ -91,7 +93,7 @@ export default function MyApplicationsPage() {
                     <h2 className="text-2xl font-semibold mb-2">No Applications Found</h2>
                     <p className="text-muted-foreground mb-6">You haven't applied for any scholarships yet.</p>
                     <Button asChild>
-                        <Link href="/scholarship/apply">Apply Now</Link>
+                        <Link href="/scholarship/payment">Apply Now</Link>
                     </Button>
                 </div>
             )}

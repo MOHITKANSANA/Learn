@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,9 +12,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction } from 'firebase/firestore';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const personalInfoSchema = z.object({
@@ -33,19 +33,15 @@ const academicInfoSchema = z.object({
 });
 
 const centerChoiceObject = z.object({
-  examMode: z.enum(['online', 'offline'], { required_error: "Please select an exam mode." }),
   center1: z.string().optional(),
   center2: z.string().optional(),
   center3: z.string().optional(),
 });
 
 const centerChoiceSchema = centerChoiceObject.refine(data => {
-  if (data.examMode === 'offline') {
     return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
-  }
-  return true;
 }, {
-  message: "Please select three different centers for offline mode.",
+  message: "Please select three different centers.",
   path: ["center1"],
 });
 
@@ -56,18 +52,24 @@ const uploadSchema = z.object({
 });
 
 const combinedSchema = personalInfoSchema
-  .extend(academicInfoSchema.shape)
-  .extend(centerChoiceSchema.shape)
-  .extend(uploadSchema.shape);
+    .merge(academicInfoSchema)
+    .merge(centerChoiceSchema)
+    .merge(uploadSchema);
 
-
-const steps = [
+const stepsOffline = [
   { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
   { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
   { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) as (keyof z.infer<typeof combinedSchema>)[] },
   { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
   { id: 5, title: 'Review & Submit', fields: [] },
 ];
+
+const stepsOnline = [
+  { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
+  { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) as (keyof z.infer<typeof combinedSchema>)[] },
+  { id: 3, title: 'Review & Submit', fields: [] },
+];
+
 
 const fileToDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -82,9 +84,28 @@ export default function ScholarshipApplyPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
+
+  const paymentId = searchParams.get('pid');
+  const examMode = searchParams.get('mode');
+  
+  const steps = examMode === 'offline' ? stepsOffline : stepsOnline;
+
+  const { data: paymentData, isLoading: isLoadingPayment } = useDoc(useMemoFirebase(
+    () => (firestore && paymentId ? doc(firestore, 'scholarshipPayments', paymentId) : null),
+    [firestore, paymentId]
+  ));
+
+  useEffect(() => {
+    if (!isLoadingPayment && (!paymentData || paymentData.userId !== user?.uid)) {
+        toast({variant: 'destructive', title: 'Invalid Access', description: 'Please complete the payment process first.'});
+        router.push('/scholarship/payment');
+    }
+  }, [paymentData, isLoadingPayment, user, router, toast]);
+
 
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
@@ -102,7 +123,6 @@ export default function ScholarshipApplyPage() {
       currentClass: '',
       school: '',
       previousMarks: 0,
-      examMode: 'offline',
       center1: '',
       center2: '',
       center3: '',
@@ -111,14 +131,12 @@ export default function ScholarshipApplyPage() {
     }
   });
 
-  const watchExamMode = methods.watch('examMode');
-
   const nextStep = async () => {
     const fieldsToValidate = steps[currentStep - 1].fields;
     const isValid = await methods.trigger(fieldsToValidate);
     
     if (isValid) {
-      if (currentStep < 5) {
+      if (currentStep < steps.length) {
         setCurrentStep(currentStep + 1);
       }
     }
@@ -130,46 +148,70 @@ export default function ScholarshipApplyPage() {
     }
   };
 
+  async function generateUniqueAppId() {
+        if (!firestore) throw new Error("Firestore not initialized");
+        const counterRef = doc(firestore, "counters", "scholarshipApplications");
+
+        let newId;
+        await runTransaction(firestore, async (transaction) => {
+            const counterDoc = await transaction.get(counterRef);
+            let nextId = 10001; // Start from 10001
+            if (counterDoc.exists()) {
+                nextId = counterDoc.data().currentId + 1;
+            }
+            transaction.set(counterRef, { currentId: nextId }, { merge: true });
+            newId = nextId;
+        });
+        return newId;
+    }
+
   const onSubmit = async (data: z.infer<typeof combinedSchema>) => {
-    if (!user || !firestore) {
+    if (!user || !firestore || !paymentId) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const applicationRef = doc(collection(firestore, 'scholarshipApplications'));
+      const newAppId = await generateUniqueAppId();
 
-      const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
-      const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
-
-      const applicationData = {
-        id: applicationRef.id,
+      const applicationData: any = {
+        id: String(newAppId),
         userId: user.uid,
+        paymentId: paymentId,
+        examMode: examMode,
         ...data,
-        photoUrl,
-        signatureUrl,
         status: 'submitted',
         createdAt: serverTimestamp(),
       };
       
-      delete (applicationData as any).photo;
-      delete (applicationData as any).signature;
+      if(examMode === 'offline') {
+        const photoUrl = data.photo?.[0] ? await fileToDataUrl(data.photo[0]) : null;
+        const signatureUrl = data.signature?.[0] ? await fileToDataUrl(data.signature[0]) : null;
+        applicationData.photoUrl = photoUrl;
+        applicationData.signatureUrl = signatureUrl;
+        delete applicationData.photo;
+        delete applicationData.signature;
+      }
 
-      await setDoc(applicationRef, applicationData);
+      await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
       
       toast({
         title: 'Application Submitted!',
-        description: `Your application number is ${applicationRef.id}. You will be redirected shortly.`,
+        description: `Your application number is ${newAppId}. You will be redirected shortly.`,
       });
       router.push('/scholarship/my-applications');
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
     } finally {
         setIsSubmitting(false);
     }
   };
+
+  if(isLoadingPayment || !paymentData) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -229,15 +271,9 @@ export default function ScholarshipApplyPage() {
                   )} />
                 </>
               )}
-
-              {currentStep === 3 && (
+              
+              {currentStep === 3 && examMode === 'offline' && (
                  <>
-                  <FormField name="examMode" control={methods.control} render={({ field }) => (
-                    <FormItem className="space-y-3"><FormLabel>Select Exam Mode</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="offline" /></FormControl><FormLabel className="font-normal">Offline</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="online" /></FormControl><FormLabel className="font-normal">Online</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
-                  )} />
-
-                  {watchExamMode === 'offline' && (
-                    <>
                     <FormField name="center1" control={methods.control} render={({ field }) => (
                       <FormItem><FormLabel>Center Choice 1</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select first choice" /></SelectTrigger></FormControl><SelectContent>{centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}, {c.city}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )} />
@@ -247,23 +283,21 @@ export default function ScholarshipApplyPage() {
                      <FormField name="center3" control={methods.control} render={({ field }) => (
                       <FormItem><FormLabel>Center Choice 3</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select third choice" /></SelectTrigger></FormControl><SelectContent>{centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}, {c.city}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )} />
-                    </>
-                  )}
                  </>
               )}
-
-               {currentStep === 4 && (
+               
+               {currentStep === 4 && examMode === 'offline' && (
                  <>
                     <FormField name="photo" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Upload Photo</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField name="signature" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Upload Signature</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                  </>
                )}
 
-              {currentStep === 5 && (
+              {currentStep === steps.length && (
                  <div className="space-y-4">
                     <h3 className="font-semibold">Review your application details.</h3>
                     <Card>
@@ -287,7 +321,7 @@ export default function ScholarshipApplyPage() {
                 <Button type="button" variant="outline" onClick={prevStep} disabled={currentStep === 1}>
                   Previous
                 </Button>
-                {currentStep < 5 ? (
+                {currentStep < steps.length ? (
                   <Button type="button" onClick={nextStep}>Next</Button>
                 ) : (
                   <Button type="submit" disabled={isSubmitting}>

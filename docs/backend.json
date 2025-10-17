@@ -335,7 +335,9 @@
       "properties": {
         "qrCodeImageUrl": { "type": "string" },
         "mobileNumber": { "type": "string" },
-        "upiId": { "type": "string" }
+        "upiId": { "type": "string" },
+        "onlineScholarshipFee": { "type": "number" },
+        "offlineScholarshipFee": { "type": "number" }
       }
     },
     "CartItem": {
@@ -352,6 +354,76 @@
         "addedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "title", "price", "imageUrl", "quantity", "addedAt"]
+    },
+     "ScholarshipCenter": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ScholarshipCenter",
+      "type": "object",
+      "description": "Represents a scholarship examination center and schedule.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "pincode": { "type": "string" },
+        "examDate": { "type": "string", "format": "date-time" },
+        "examTime": { "type": "string", "format": "time" },
+        "admitCardDate": { "type": "string", "format": "date-time" },
+        "resultDate": { "type": "string", "format": "date-time" },
+        "onlineExamStartDate": { "type": "string", "format": "date-time" },
+        "onlineExamEndDate": { "type": "string", "format": "date-time" },
+        "onlineExamStartTime": { "type": "string", "format": "time" },
+        "onlineExamEndTime": { "type": "string", "format": "time" }
+      },
+      "required": ["id", "name"]
+    },
+    "ScholarshipPayment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ScholarshipPayment",
+      "type": "object",
+      "description": "Represents a payment for a scholarship application.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "examMode": { "type": "string", "enum": ["online", "offline"] },
+        "amount": { "type": "number" },
+        "paymentMobileNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "examMode", "amount", "paymentMobileNumber", "status", "createdAt"]
+    },
+    "ScholarshipApplication": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ScholarshipApplication",
+        "type": "object",
+        "description": "Represents a student's application for a scholarship.",
+        "properties": {
+            "id": { "type": "string" },
+            "userId": { "type": "string" },
+            "paymentId": { "type": "string" },
+            "fullName": { "type": "string" },
+            "fatherName": { "type": "string" },
+            "dob": { "type": "string", "format": "date" },
+            "gender": { "type": "string" },
+            "mobile": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "currentClass": { "type": "string" },
+            "school": { "type": "string" },
+            "previousMarks": { "type": "number" },
+            "examMode": { "type": "string", "enum": ["online", "offline"] },
+            "center1": { "type": "string" },
+            "center2": { "type": "string" },
+            "center3": { "type": "string" },
+            "photoUrl": { "type": "string" },
+            "signatureUrl": { "type": "string" },
+            "status": { "type": "string", "enum": ["submitted", "approved", "rejected"] },
+            "allottedCenterId": { "type": "string" },
+            "testScore": { "type": "number" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "userId", "paymentId", "fullName", "fatherName", "dob", "gender", "mobile", "email", "currentClass", "school", "previousMarks", "examMode", "status", "createdAt"]
     }
   },
   "auth": {
@@ -493,6 +565,27 @@
         "definition": {
             "entityName": "Settings",
             "schema": { "$ref": "#/backend/entities/Settings" }
+        }
+      },
+      {
+        "path": "/scholarship_centers/{centerId}",
+        "definition": {
+          "entityName": "ScholarshipCenter",
+          "schema": { "$ref": "#/backend/entities/ScholarshipCenter" }
+        }
+      },
+      {
+        "path": "/scholarshipPayments/{paymentId}",
+        "definition": {
+          "entityName": "ScholarshipPayment",
+          "schema": { "$ref": "#/backend/entities/ScholarshipPayment" }
+        }
+      },
+      {
+        "path": "/scholarshipApplications/{applicationId}",
+        "definition": {
+          "entityName": "ScholarshipApplication",
+          "schema": { "$ref": "#/backend/entities/ScholarshipApplication" }
         }
       }
     ]
