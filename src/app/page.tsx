@@ -133,7 +133,7 @@ export default function Home() {
            </Card>
         ) : promotions && promotions.length > 0 ? (
           <Carousel
-            plugins={[Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: true })]}
+            plugins={[Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: false })]}
             opts={{ align: "start", loop: true }}
           >
             <CarouselContent>
