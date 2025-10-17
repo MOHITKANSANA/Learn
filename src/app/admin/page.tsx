@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -74,6 +74,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose
+} from "@/components/ui/sheet"
 
 
 const adminNavItems = [
@@ -2113,83 +2122,77 @@ function CenterManagement() {
   );
 }
 
+const componentMap: { [key: string]: React.FC } = {
+  'add-course': CreateCourseForm,
+  'add-content': AddContentForm,
+  'add-ebook': CreateEbookForm,
+  'add-test-series': AddTestSeriesForm,
+  'add-previous-paper': CreatePreviousPaperForm,
+  'add-educator': AddEducatorForm,
+  'add-live-class': AddLiveClassForm,
+  'enrollments': ManageEnrollments,
+  'promotions': AddPromotionForm,
+  'add-book': AddBookForm,
+  'book-orders': ManageBookOrders,
+  'add-coupon': AddCouponForm,
+  'scholarship-management': ScholarshipManagement,
+  'center-management': CenterManagement,
+  'manage-content': ManageContent,
+  'app-settings': AppSettingsForm,
+  'vidya-search-admin': VidyaSearchAdmin,
+};
+
+
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState('scholarship-management');
-  
+  const [activeDrawer, setActiveDrawer] = useState<string | null>(null);
+
   const renderContent = () => {
-    switch (activeTab) {
-      case 'add-course':
-        return <Card><CardHeader><CardTitle>Create a New Course</CardTitle></CardHeader><CardContent className="pt-6"><CreateCourseForm /></CardContent></Card>;
-      case 'add-content':
-        return <Card><CardHeader><CardTitle>Add Content to Course</CardTitle></CardHeader><CardContent className="pt-6"><AddContentForm /></CardContent></Card>;
-      case 'add-ebook':
-        return <Card><CardHeader><CardTitle>Add a New E-book</CardTitle></CardHeader><CardContent className="pt-6"><CreateEbookForm /></CardContent></Card>;
-      case 'add-test-series':
-        return <Card><CardHeader><CardTitle>Add a New Test Series</CardTitle></CardHeader><CardContent className="pt-6"><AddTestSeriesForm /></CardContent></Card>;
-      case 'add-previous-paper':
-        return <Card><CardHeader><CardTitle>Add Previous Year Paper</CardTitle></CardHeader><CardContent className="pt-6"><CreatePreviousPaperForm /></CardContent></Card>;
-      case 'add-educator':
-        return <Card><CardHeader><CardTitle>Add a New Educator</CardTitle></CardHeader><CardContent className="pt-6"><AddEducatorForm /></CardContent></Card>;
-      case 'add-live-class':
-        return <Card><CardHeader><CardTitle>Schedule a New Live Class</CardTitle></CardHeader><CardContent className="pt-6"><AddLiveClassForm /></CardContent></Card>;
-      case 'enrollments':
-        return <Card><CardHeader><CardTitle>Manage Enrollments</CardTitle></CardHeader><CardContent className="pt-6"><ManageEnrollments /></CardContent></Card>;
-      case 'promotions':
-        return <Card><CardHeader><CardTitle>Add New Promotion</CardTitle></CardHeader><CardContent className="pt-6"><AddPromotionForm /></CardContent></Card>;
-      case 'add-book':
-        return <Card><CardHeader><CardTitle>Add a New Book</CardTitle></CardHeader><CardContent className="pt-6"><AddBookForm /></CardContent></Card>;
-      case 'book-orders':
-        return <Card><CardHeader><CardTitle>Manage Book Orders</CardTitle></CardHeader><CardContent className="pt-6"><ManageBookOrders /></CardContent></Card>;
-      case 'add-coupon':
-        return <Card><CardHeader><CardTitle>Create a New Coupon</CardTitle></CardHeader><CardContent className="pt-6"><AddCouponForm /></CardContent></Card>;
-      case 'scholarship-management':
-        return <ScholarshipManagement />;
-      case 'center-management':
-        return <CenterManagement />;
-      case 'manage-content':
-        return <ManageContent />;
-      case 'app-settings':
-        return <Card><CardHeader><CardTitle>App Settings</CardTitle></CardHeader><CardContent className="pt-6"><AppSettingsForm /></CardContent></Card>;
-       case 'vidya-search-admin':
-        return <VidyaSearchAdmin />;
-      default:
-        return null;
-    }
+    if (!activeDrawer) return null;
+    const Component = componentMap[activeDrawer];
+    return Component ? <Component /> : null;
   }
+  
+  const activeNavItem = adminNavItems.find(item => item.value === activeDrawer);
+
 
   return (
-    <div className="bg-background text-foreground min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
+    <div className="bg-background text-foreground min-h-screen">
+       <header className="mb-8">
           <h1 className="text-4xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground mt-2">
             Manage your application content and users.
           </p>
         </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
-          <div className="flex flex-col gap-2">
-            {adminNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                 <Button 
-                   key={item.value}
-                   variant={activeTab === item.value ? "default" : "outline"}
-                   onClick={() => setActiveTab(item.value)}
-                   className="justify-start text-left h-12"
-                 >
-                    <Icon className="h-5 w-5 mr-3"/>
-                    <span className="text-base">{item.label}</span>
-                 </Button>
-              )
-            })}
-          </div>
-          
-          <div className="lg:col-start-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {adminNavItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Card 
+              key={item.value}
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setActiveDrawer(item.value)}
+            >
+              <CardContent className="flex flex-col items-center justify-center p-6">
+                <Icon className="h-8 w-8 mb-2 text-primary"/>
+                <p className="font-semibold text-center">{item.label}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+       <Sheet open={!!activeDrawer} onOpenChange={(isOpen) => !isOpen && setActiveDrawer(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{activeNavItem?.label}</SheetTitle>
+            <SheetDescription>
+                Manage the content for this section. Click the close button when you're done.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="py-4">
             {renderContent()}
           </div>
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

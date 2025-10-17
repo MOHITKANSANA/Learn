@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -11,11 +12,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, useDoc } from '@/firebase';
+import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction, query, where } from 'firebase/firestore';
 import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const personalInfoSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
@@ -32,24 +34,25 @@ const academicInfoSchema = z.object({
   previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
 });
 
-const centerChoiceObject = z.object({
+const centerChoiceSchema = z.object({
   center1: z.string().optional(),
   center2: z.string().optional(),
   center3: z.string().optional(),
 });
 
-const centerChoiceSchema = centerChoiceObject.refine(data => {
-    return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
-}, {
-  message: "Please select three different centers.",
-  path: ["center1"],
-});
-
-
 const uploadSchema = z.object({
   photo: z.any().optional(),
   signature: z.any().optional(),
 });
+
+const paymentSchema = z.object({
+    paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10),
+});
+
+const examModeSchema = z.object({
+    examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
+})
+
 
 const fileToDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -71,28 +74,15 @@ export default function ScholarshipApplyPage() {
   const firestore = useFirestore();
 
   const paymentId = searchParams.get('pid');
-  const examMode = searchParams.get('mode');
   
-  const offlineSchema = personalInfoSchema.merge(academicInfoSchema).merge(centerChoiceSchema).merge(uploadSchema);
-  const onlineSchema = personalInfoSchema.merge(academicInfoSchema);
-  const validationSchema = examMode === 'offline' ? offlineSchema : onlineSchema;
-
-  const steps = examMode === 'offline' ? [
-    { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
-    { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
-    { id: 3, title: 'Exam Center Choice', fields: Object.keys(centerChoiceObject.shape) },
-    { id: 4, title: 'Upload Documents', fields: Object.keys(uploadSchema.shape) },
-    { id: 5, title: 'Review & Submit', fields: [] },
-  ] : [
-    { id: 1, title: 'Personal Information', fields: Object.keys(personalInfoSchema.shape) },
-    { id: 2, title: 'Academic Information', fields: Object.keys(academicInfoSchema.shape) },
-    { id: 3, title: 'Review & Submit', fields: [] },
-  ];
-
   const { data: paymentData, isLoading: isLoadingPayment } = useDoc(useMemoFirebase(
     () => (firestore && paymentId ? doc(firestore, 'scholarshipPayments', paymentId) : null),
     [firestore, paymentId]
   ));
+
+  const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
+  const { data: settings, isLoading: isLoadingSettings } = useDoc(settingsRef);
+
 
   useEffect(() => {
     if (!isLoadingPayment && (!paymentData || paymentData.userId !== user?.uid)) {
@@ -104,32 +94,65 @@ export default function ScholarshipApplyPage() {
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
-  const methods = useForm<z.infer<typeof validationSchema>>({
-    resolver: zodResolver(validationSchema),
+  const combinedSchema = personalInfoSchema
+    .merge(academicInfoSchema)
+    .merge(examModeSchema)
+    .merge(centerChoiceSchema)
+    .merge(uploadSchema)
+    .merge(paymentSchema);
+
+  const methods = useForm<z.infer<typeof combinedSchema>>({
+    resolver: zodResolver(combinedSchema),
     mode: 'onChange',
     defaultValues: {
-      fullName: '',
+      fullName: user?.displayName || '',
       fatherName: '',
       dob: '',
       gender: '',
-      mobile: '',
+      mobile: user?.phoneNumber || '',
       email: user?.email || '',
       currentClass: '',
       school: '',
       previousMarks: 0,
+      examMode: 'offline',
+      paymentMobileNumber: paymentData?.paymentMobileNumber || '',
     }
   });
-  
+
+  const watchExamMode = methods.watch('examMode');
+
+  const steps = [
+    { id: 1, title: 'Personal Information', schema: personalInfoSchema },
+    { id: 2, title: 'Academic Information', schema: academicInfoSchema },
+    { id: 3, title: 'Choose Exam Mode', schema: examModeSchema },
+    ...(watchExamMode === 'offline' ? [
+        { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema.refine(data => {
+             return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
+            }, { message: "Please select three different centers.", path: ["center1"] }) 
+        },
+        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema }
+    ] : []),
+    { id: watchExamMode === 'offline' ? 6 : 4, title: 'Review & Submit', schema: z.object({}) },
+  ];
+
   const nextStep = async () => {
-    const fieldsToValidate = steps[currentStep - 1].fields;
-    const isValid = await methods.trigger(fieldsToValidate as any);
+    const currentSchema = steps[currentStep - 1].schema;
+    const allFields = methods.getValues();
+    const result = await currentSchema.safeParseAsync(allFields);
     
-    if (isValid) {
+    if (result.success) {
       if (currentStep < steps.length) {
         setCurrentStep(currentStep + 1);
       }
+    } else {
+        // Manually set errors for the current step's fields
+        Object.keys(result.error.flatten().fieldErrors).forEach(fieldName => {
+            // @ts-ignore
+             methods.setError(fieldName, { type: 'manual', message: result.error.flatten().fieldErrors[fieldName]?.[0] });
+        });
     }
   };
+
 
   const prevStep = () => {
     if (currentStep > 1) {
@@ -154,7 +177,7 @@ export default function ScholarshipApplyPage() {
         return newId;
     }
 
-  const onSubmit = async (data: z.infer<typeof validationSchema>) => {
+  const onSubmit = async (data: z.infer<typeof combinedSchema>) => {
     if (!user || !firestore || !paymentId) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
@@ -168,33 +191,38 @@ export default function ScholarshipApplyPage() {
         id: String(newAppId),
         userId: user.uid,
         paymentId: paymentId,
-        examMode: examMode,
         ...data,
         status: 'submitted',
         createdAt: serverTimestamp(),
       };
       
-      if(examMode === 'offline') {
-        const offlineData = data as z.infer<typeof offlineSchema>;
-        const photoUrl = offlineData.photo?.[0] ? await fileToDataUrl(offlineData.photo[0]) : null;
-        const signatureUrl = offlineData.signature?.[0] ? await fileToDataUrl(offlineData.signature[0]) : null;
-        applicationData.photoUrl = photoUrl;
-        applicationData.signatureUrl = signatureUrl;
-        delete applicationData.photo;
-        delete applicationData.signature;
+      if(watchExamMode === 'offline' && (data.photo || data.signature)) {
+        if (data.photo?.[0]) {
+            applicationData.photoUrl = await fileToDataUrl(data.photo[0]);
+        }
+        if (data.signature?.[0]) {
+            applicationData.signatureUrl = await fileToDataUrl(data.signature[0]);
+        }
       }
+      delete applicationData.photo;
+      delete applicationData.signature;
 
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
+      
+      // Update payment to mark as associated with an application
+      const paymentRef = doc(firestore, 'scholarshipPayments', paymentId);
+      await updateDoc(paymentRef, { status: 'submitted', applicationId: String(newAppId) });
+
       setSubmittedAppId(String(newAppId));
     } catch (error) {
-        console.error(error);
+        console.error("Application submission error:", error);
         toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error submitting your application.' });
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  if(isLoadingPayment || !paymentData) {
+  if(isLoadingPayment || isLoadingSettings || !paymentData) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
   }
   
@@ -229,7 +257,7 @@ export default function ScholarshipApplyPage() {
     <div className="max-w-3xl mx-auto">
         <div className='flex items-center gap-4 mb-6'>
             <Button asChild variant="ghost" size="icon">
-                <Link href="/scholarship/payment">
+                <Link href="/scholarship">
                     <ArrowLeft />
                 </Link>
             </Button>
@@ -283,8 +311,29 @@ export default function ScholarshipApplyPage() {
                   )} />
                 </>
               )}
+
+              {currentStep === 3 && (
+                 <FormField control={methods.control} name="examMode" render={({ field }) => (
+                    <FormItem className="space-y-3">
+                    <FormLabel>Choose Exam Mode</FormLabel>
+                    <FormControl>
+                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center gap-4">
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="offline" /></FormControl>
+                            <FormLabel className="font-normal">Offline (Fee: ₹{settings?.offlineScholarshipFee || 60})</FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="online" /></FormControl>
+                            <FormLabel className="font-normal">Online (Fee: ₹{settings?.onlineScholarshipFee || 30})</FormLabel>
+                        </FormItem>
+                        </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )} />
+              )}
               
-              {currentStep === 3 && examMode === 'offline' && (
+              {currentStep === 4 && watchExamMode === 'offline' && (
                  <>
                     <FormField name="center1" control={methods.control} render={({ field }) => (
                       <FormItem><FormLabel>Center Choice 1</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select first choice" /></SelectTrigger></FormControl><SelectContent>{centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}, {c.city}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
@@ -298,13 +347,13 @@ export default function ScholarshipApplyPage() {
                  </>
               )}
                
-               {currentStep === 4 && examMode === 'offline' && (
+               {currentStep === 5 && watchExamMode === 'offline' && (
                  <>
                     <FormField name="photo" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Photo</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField name="signature" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Signature</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                  </>
                )}

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -100,7 +101,7 @@ export default function ScholarshipPage() {
                 <Trophy className="h-16 w-16 text-primary" />
             </div>
             <h1 className="text-5xl font-extrabold font-headline tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600">
-                VSP (Vidya Scholarship Program)
+                VSP
             </h1>
             <p className="text-muted-foreground mt-4 text-lg max-w-2xl mx-auto">
                 Unlock your potential. Compete for scholarships and get a chance to fulfill your academic dreams with our support.
