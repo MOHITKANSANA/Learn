@@ -7,7 +7,7 @@ import { performSearch, State } from '@/app/vidya-search/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle } from 'lucide-react';
+import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, Youtube, Info, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 
 function SubmitButton() {
@@ -26,7 +26,7 @@ function SubmitButton() {
 
 function ResultIcon({ type }: { type: State['results'][0]['type'] }) {
     switch (type) {
-        case 'ai': return <Bot className="h-6 w-6 text-primary" />;
+        case 'ai': return <Bot className="h-6 w-6 text-purple-400" />;
         case 'link': return <LinkIcon className="h-6 w-6 text-blue-500" />;
         case 'order': return <Package className="h-6 w-6 text-orange-500" />;
         case 'enrollment': return <CheckCircle className="h-6 w-6 text-green-500" />;
@@ -65,11 +65,19 @@ export default function VidyaSearchPage() {
         <SubmitButton />
       </form>
        
-      <div className="flex justify-center gap-4 text-sm">
-        <Link href="https://chat.openai.com" target="_blank" className="text-blue-400 hover:underline">ChatGPT</Link>
-        <Link href="https://youtube.com" target="_blank" className="text-red-500 hover:underline">YouTube</Link>
-        <Link href="https://web.whatsapp.com" target="_blank" className="text-green-500 hover:underline">WhatsApp</Link>
-        <Link href="https://gemini.google.com/" target="_blank" className="text-purple-400 hover:underline">Gemini</Link>
+      <div className="flex justify-center flex-wrap gap-4 text-sm">
+        <Link href="https://chat.openai.com" target="_blank" className="flex items-center gap-1.5 text-blue-400 hover:underline">
+            <Info className="h-4 w-4"/> ChatGPT
+        </Link>
+        <Link href="https://youtube.com" target="_blank" className="flex items-center gap-1.5 text-red-500 hover:underline">
+            <Youtube className="h-4 w-4" /> YouTube
+        </Link>
+        <Link href="https://gemini.google.com/" target="_blank" className="flex items-center gap-1.5 text-purple-400 hover:underline">
+            <Bot className="h-4 w-4" /> Gemini
+        </Link>
+         <Link href="https://google.com" target="_blank" className="flex items-center gap-1.5 text-green-500 hover:underline">
+            <Search className="h-4 w-4" /> Google
+        </Link>
       </div>
 
 
@@ -77,7 +85,7 @@ export default function VidyaSearchPage() {
         <div className="space-y-4">
             <h2 className="text-xl font-semibold">Search Results for "{state.query}"</h2>
             {state.results.map((result, index) => (
-                <Card key={index}>
+                <Card key={index} className="bg-card/70">
                     <CardHeader className="flex flex-row items-center gap-4">
                         <ResultIcon type={result.type}/>
                         <div>

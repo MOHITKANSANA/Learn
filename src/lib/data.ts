@@ -57,9 +57,9 @@ export const dashboardItems: DashboardItem[] = [
     icon: PlaySquare,
   },
   {
-    title: 'Previous Papers',
-    href: '/previous-papers',
-    icon: Newspaper,
+    title: 'Scholarship',
+    href: '/scholarship',
+    icon: Trophy,
   },
   {
     title: 'Book Shala',

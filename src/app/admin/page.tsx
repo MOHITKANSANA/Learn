@@ -38,7 +38,9 @@ import {
   PlaySquare,
   Library,
   Bot,
-  Rss
+  Rss,
+  Trophy,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +85,8 @@ const adminNavItems = [
   { value: 'add-book', icon: BookCopy, label: 'Add Book' },
   { value: 'book-orders', icon: ShoppingBag, label: 'Book Orders' },
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
+  { value: 'scholarship-management', icon: Trophy, label: 'Scholarship' },
+  { value: 'center-management', icon: MapPin, label: 'Center Management' },
   { value: 'manage-content', icon: List, label: 'Manage Content' },
   { value: 'app-settings', icon: Settings, label: 'App Settings' },
   { value: 'vidya-search-admin', icon: Bot, label: 'Vidya Search Admin' },
@@ -1351,6 +1355,7 @@ const testSeriesSchema = z.object({
   courseId: z.string().optional(),
   imageUrl: z.any().refine(files => files?.length == 1, 'Image is required.'),
   questions: z.string().optional(),
+  isScholarshipTest: z.boolean().default(false),
 }).refine(data => data.isStandalone || (!data.isStandalone && data.courseId), {
   message: "A course must be selected for non-standalone test series.",
   path: ["courseId"],
@@ -1375,6 +1380,7 @@ function AddTestSeriesForm() {
       isStandalone: true,
       courseId: '',
       questions: '',
+      isScholarshipTest: false,
     },
   });
 
@@ -1419,6 +1425,7 @@ function AddTestSeriesForm() {
       imageUrl,
       isStandalone: values.isStandalone,
       courseId: values.isStandalone ? null : values.courseId,
+      isScholarshipTest: values.isScholarshipTest,
       createdAt: serverTimestamp(),
       questions: questionsArray
     };
@@ -1454,12 +1461,20 @@ function AddTestSeriesForm() {
         <FormField control={form.control} name="description" render={({ field }) => (
           <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the test series" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
-        <FormField control={form.control} name="isStandalone" render={({ field }) => (
-          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-            <div className="space-y-1 leading-none"><FormLabel>Standalone (Purchasable Separately)</FormLabel></div>
-          </FormItem>
-        )} />
+        <div className="flex space-x-4">
+            <FormField control={form.control} name="isStandalone" render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <div className="space-y-1 leading-none"><FormLabel>Standalone</FormLabel></div>
+            </FormItem>
+            )} />
+             <FormField control={form.control} name="isScholarshipTest" render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                <div className="space-y-1 leading-none"><FormLabel>Scholarship Test</FormLabel></div>
+            </FormItem>
+            )} />
+        </div>
 
         {isStandalone ? (
           <>
@@ -1608,6 +1623,7 @@ const settingsSchema = z.object({
   qrCodeImage: z.any().optional(),
   mobileNumber: z.string().optional(),
   upiId: z.string().optional(),
+  scholarshipFee: z.coerce.number().min(0).optional(),
 });
 
 function AppSettingsForm() {
@@ -1622,6 +1638,7 @@ function AppSettingsForm() {
     defaultValues: {
       mobileNumber: '',
       upiId: '',
+      scholarshipFee: 60,
     }
   });
   
@@ -1630,6 +1647,7 @@ function AppSettingsForm() {
       form.reset({
         mobileNumber: settings.mobileNumber || '',
         upiId: settings.upiId || '',
+        scholarshipFee: settings.scholarshipFee || 60,
       });
     }
   }, [settings, form]);
@@ -1650,9 +1668,10 @@ function AppSettingsForm() {
     }
 
     try {
-      const settingsData: { mobileNumber?: string, qrCodeImageUrl?: string, upiId?: string } = {
+      const settingsData: { mobileNumber?: string; qrCodeImageUrl?: string; upiId?: string; scholarshipFee?: number } = {
         mobileNumber: values.mobileNumber,
         upiId: values.upiId,
+        scholarshipFee: values.scholarshipFee,
       };
 
       if (values.qrCodeImage && values.qrCodeImage.length > 0) {
@@ -1712,6 +1731,17 @@ function AppSettingsForm() {
                 <Image src={settings.qrCodeImageUrl} alt="Current QR Code" width={150} height={150} className="rounded-md border"/>
             </div>
         )}
+        <FormField
+          control={form.control}
+          name="scholarshipFee"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Scholarship Admit Card Fee (₹)</FormLabel>
+              <FormControl><Input type="number" placeholder="e.g., 60" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Settings
@@ -1738,6 +1768,14 @@ function VidyaSearchAdmin() {
       </Card>
     </div>
   )
+}
+
+function ScholarshipManagement() {
+    return <Card><CardHeader><CardTitle>Scholarship Management</CardTitle></CardHeader><CardContent><p>Feature under development.</p></CardContent></Card>
+}
+
+function CenterManagement() {
+    return <Card><CardHeader><CardTitle>Center Management</CardTitle></CardHeader><CardContent><p>Feature under development.</p></CardContent></Card>
 }
 
 export default function AdminDashboardPage() {
@@ -1769,6 +1807,10 @@ export default function AdminDashboardPage() {
         return <Card><CardHeader><CardTitle>Manage Book Orders</CardTitle></CardHeader><CardContent className="pt-6"><ManageBookOrders /></CardContent></Card>;
       case 'add-coupon':
         return <Card><CardHeader><CardTitle>Create a New Coupon</CardTitle></CardHeader><CardContent className="pt-6"><AddCouponForm /></CardContent></Card>;
+      case 'scholarship-management':
+        return <ScholarshipManagement />;
+      case 'center-management':
+        return <CenterManagement />;
       case 'manage-content':
         return <ManageContent />;
       case 'app-settings':

@@ -92,7 +92,7 @@ export async function performSearch(prevState: State, formData: FormData): Promi
             results.push({
                 type: 'enrollment',
                 title: `एनरोलमेंट विवरण: ${enrollment.itemName}`,
-                description: `स्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+                description: `आईडी: ${enrollment.id}\nस्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
                 data: enrollment,
             });
         }
@@ -103,11 +103,10 @@ export async function performSearch(prevState: State, formData: FormData): Promi
             results.push({
                 type: 'order',
                 title: `पुस्तक ऑर्डर विवरण: ${bookOrder.bookTitle}`,
-                description: `स्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+                description: `आईडी: ${bookOrder.id}\nस्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
                 data: bookOrder,
             });
         }
-        
     }
 
 
