@@ -2,8 +2,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useActionState } from 'react-dom';
+import { useState, useMemo, useActionState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink } from 'lucide-react';
@@ -43,6 +42,19 @@ const quickLinks = [
 
 export default function VidyaSearchPage() {
   const [state, formAction] = useActionState(performSearch, { results: [] });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredResults = useMemo(() => {
+    if (!searchTerm) {
+      return state.results || [];
+    }
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return state.results?.filter(result => 
+        result.title.toLowerCase().includes(lowercasedTerm) ||
+        result.description.toLowerCase().includes(lowercasedTerm)
+    ) || [];
+  }, [searchTerm, state.results]);
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -61,18 +73,28 @@ export default function VidyaSearchPage() {
         </p>
       </div>
 
-      <form action={formAction} className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          name="query"
-          placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
-          className="text-base h-12 pl-10"
-        />
+      <form action={formAction}>
+          <div className="relative">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+             <Input
+                name="query"
+                placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
+                className="text-base h-12 pl-10 pr-24"
+             />
+             <Button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2">Search</Button>
+          </div>
       </form>
       
        <div className="space-y-4">
            {state.results && state.results.length > 0 ? (
-                state.results.map((result, index) => (
+                <>
+                <Input 
+                    placeholder="Filter results..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="mb-4"
+                />
+                {filteredResults.map((result, index) => (
                     <Card key={result.data?.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
                          <div className="p-4 flex gap-4">
                             {result.imageUrl ? (
@@ -95,7 +117,9 @@ export default function VidyaSearchPage() {
                             </div>
                         </div>
                     </Card>
-                ))
+                ))}
+                {filteredResults.length === 0 && <p className="text-center text-muted-foreground">No results match your filter.</p>}
+                </>
             ) : state.error ? (
                 <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
                     <div className="p-4 text-center">{state.error}</div>
