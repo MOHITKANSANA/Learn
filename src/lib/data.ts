@@ -22,7 +22,8 @@ import {
   Swords,
   ShoppingBag,
   BadgePercent,
-  HelpCircle
+  HelpCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -64,19 +65,19 @@ export const dashboardItems: DashboardItem[] = [
     icon: Library,
   },
    {
-    title: 'Doubt Forum',
+    title: 'Learn with Munendra',
     href: '/doubts',
-    icon: HelpCircle,
-  },
-   {
-    title: 'Battle Quiz',
-    href: '/battle-quiz',
-    icon: Swords,
+    icon: MessageCircle,
   },
   {
     title: 'Vidya Search',
     href: '/vidya-search',
     icon: Bot,
+  },
+  {
+    title: 'News',
+    href: '#',
+    icon: Newspaper,
   },
 ];
 
@@ -108,19 +109,14 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     icon: Rss,
   },
    {
-    title: 'Doubt Forum',
+    title: 'Learn with Munendra',
     href: '/doubts',
-    icon: HelpCircle,
+    icon: MessageCircle,
   },
   {
     title: 'Book Shala',
     href: '/book-shala',
     icon: Book,
-  },
-  {
-    title: 'Battle Quiz',
-    href: '/battle-quiz',
-    icon: Swords,
   },
   {
     title: 'Motivation',

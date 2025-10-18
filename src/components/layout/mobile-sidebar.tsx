@@ -42,14 +42,16 @@ export function MobileSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-0 bg-background">
+      <SidebarContent className="p-0 bg-background animated-gradient bg-gradient-to-br from-background via-card to-background">
         <SidebarMenu className="gap-0">
-          {sidebarNavItems.map((item) => (
+          {sidebarNavItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
             <SidebarMenuItem key={item.title} className="p-0">
               <SidebarMenuButton
                 asChild
-                className={`h-auto rounded-none p-4 justify-start ${pathname === item.href ? 'bg-primary/20 text-primary font-bold' : 'font-normal'}`}
-                isActive={pathname === item.href}
+                className={`h-auto rounded-none p-4 justify-start ${isActive ? 'bg-primary/20 text-primary font-bold' : 'font-normal'}`}
+                isActive={isActive}
                 onClick={handleLinkClick}
               >
                 <Link href={item.href}>
@@ -58,7 +60,7 @@ export function MobileSidebar() {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          ))}
+          )})}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="p-4">

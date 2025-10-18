@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, setDoc, serverTimestamp, updateDoc, query, where, getDocs, deleteDoc, addDoc, orderBy } from 'firebase/firestore';
-import { Loader2, MessageSquarePlus, User, CornerDownRight, CheckCircle } from 'lucide-react';
+import { Loader2, MessageSquarePlus, User, CornerDownRight, CheckCircle, ThumbsUp, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,6 +44,8 @@ function AskDoubtDialog({ forceRefresh }: { forceRefresh: () => void }) {
         authorImage: user.photoURL,
         text: doubtText,
         createdAt: serverTimestamp(),
+        likes: [],
+        commentCount: 0,
       });
       toast({ title: 'Doubt Posted!', description: 'Your doubt has been posted on the forum.' });
       setDoubtText('');
@@ -131,6 +133,16 @@ export default function DoubtsPage() {
                         </div>
                         <p className="mt-3 text-lg font-semibold">{doubt.text}</p>
                     </CardContent>
+                    <CardFooter className="text-sm text-muted-foreground flex gap-4 pt-0 p-4">
+                        <div className="flex items-center gap-1">
+                            <ThumbsUp className="h-4 w-4" />
+                            <span>{doubt.likes?.length || 0} Likes</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <MessageSquare className="h-4 w-4" />
+                            <span>{doubt.commentCount || 0} Replies</span>
+                        </div>
+                    </CardFooter>
                 </Card>
              </Link>
           ))

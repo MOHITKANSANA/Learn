@@ -72,7 +72,7 @@ export default function VidyaSearchPage() {
       <form action={formAction} className="flex items-center gap-2">
         <Input
           name="query"
-          placeholder="Search for anything or enter your Order/Enrollment ID..."
+          placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
           className="text-base h-12 flex-grow"
           required
         />
@@ -136,7 +136,7 @@ export default function VidyaSearchPage() {
                              <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
                         ) : (
                              <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
-                                <ResultIcon type={result.type}/>
+                                <ResultIcon type={'vidya'}/>
                             </div>
                         )}
                         <div className="flex-grow">
@@ -171,6 +171,3 @@ export default function VidyaSearchPage() {
     </div>
   );
 }
-
-
-    

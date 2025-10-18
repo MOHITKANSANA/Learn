@@ -173,8 +173,8 @@ export default function MyOrdersPage() {
                         <CardHeader className="flex flex-row justify-between items-start">
                             <div>
                                 <CardTitle className="flex items-center gap-2">
-                                  <span>Order #{order.id.substring(0, 6)}</span>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(order.id)}>
+                                  <span>Order #{String(order.id).substring(0, 5)}</span>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(String(order.id).substring(0, 5))}>
                                     <Copy className="h-4 w-4" />
                                   </Button>
                                 </CardTitle>
@@ -226,8 +226,8 @@ export default function MyOrdersPage() {
                         <CardHeader className="flex flex-row justify-between items-start">
                            <div>
                                 <CardTitle className="flex items-center gap-2">
-                                    <span>Enrollment #{enrollment.id.substring(0, 6)}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(enrollment.id)}>
+                                    <span>Enrollment #{String(enrollment.id).substring(0, 5)}</span>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(String(enrollment.id).substring(0, 5))}>
                                         <Copy className="h-4 w-4" />
                                     </Button>
                                 </CardTitle>
@@ -244,9 +244,9 @@ export default function MyOrdersPage() {
                             <p><strong>Item:</strong> {enrollment.itemName}</p>
                              {enrollment.isApproved ? (
                                 <Button asChild size="sm" className="mt-4">
-                                    <Link href={`/courses/content/${enrollment.itemId}`}>
+                                    <Link href={`/my-library`}>
                                         <BookOpen className="mr-2 h-4 w-4" />
-                                        Go to Content
+                                        Go to Library
                                     </Link>
                                 </Button>
                              ) : (

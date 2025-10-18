@@ -55,7 +55,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, errorEmitter, useUser, useDoc } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, where, query, getDocs, arrayUnion, deleteDoc, orderBy, writeBatch } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -1792,9 +1792,20 @@ function AppSettingsForm() {
 const vidyaSearchAdminSchema = z.object({
   title: z.string().min(3, "Title is required."),
   description: z.string().min(10, "Description is required."),
-  link: z.string().url("Must be a valid URL."),
+  link: z.string().url("Must be a valid URL.").optional().or(z.literal('')),
   image: z.any().optional(),
 });
+
+const bulkAddSchema = z.object({
+    jsonData: z.string().refine((data) => {
+        try {
+            const parsed = JSON.parse(data);
+            return Array.isArray(parsed);
+        } catch (e) {
+            return false;
+        }
+    }, {message: "Must be a valid JSON array."})
+})
 
 function VidyaSearchAdmin() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1805,6 +1816,11 @@ function VidyaSearchAdmin() {
     resolver: zodResolver(vidyaSearchAdminSchema),
     defaultValues: { title: "", description: "", link: "" },
   });
+  
+  const bulkForm = useForm<z.infer<typeof bulkAddSchema>>({
+    resolver: zodResolver(bulkAddSchema),
+    defaultValues: { jsonData: "" },
+  })
 
   const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1847,6 +1863,34 @@ function VidyaSearchAdmin() {
     }
   }
 
+  async function onBulkSubmit(values: z.infer<typeof bulkAddSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+        setIsSubmitting(false);
+        return;
+    }
+
+    const dataToUpload = JSON.parse(values.jsonData);
+    const batch = writeBatch(firestore);
+
+    dataToUpload.forEach((item: any) => {
+        const docRef = doc(collection(firestore, 'vidya_search_data'));
+        batch.set(docRef, { ...item, id: docRef.id, createdAt: serverTimestamp() });
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: "Success!", description: `${dataToUpload.length} items added to Vidya Search.`});
+        bulkForm.reset();
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to upload bulk data.' });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -1854,26 +1898,57 @@ function VidyaSearchAdmin() {
         <CardDescription>Add custom links and data that will appear first in Vidya Search results.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="title" render={({ field }) => (
-              <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Title of the search result" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description for the search result" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="link" render={({ field }) => (
-              <FormItem><FormLabel>Link URL</FormLabel><FormControl><Input type="url" placeholder="https://example.com" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="image" render={({ field }) => (
-              <FormItem><FormLabel>Image (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Search Data
-            </Button>
-          </form>
-        </Form>
+       <Tabs defaultValue="single">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="single">Add Single Item</TabsTrigger>
+                <TabsTrigger value="bulk">Bulk Add from JSON</TabsTrigger>
+            </TabsList>
+            <TabsContent value="single" className="pt-4">
+                <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField control={form.control} name="title" render={({ field }) => (
+                    <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Title of the search result" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description for the search result" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="link" render={({ field }) => (
+                    <FormItem><FormLabel>Link URL (Optional)</FormLabel><FormControl><Input type="url" placeholder="https://example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="image" render={({ field }) => (
+                    <FormItem><FormLabel>Image (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Add Search Data
+                    </Button>
+                </form>
+                </Form>
+            </TabsContent>
+             <TabsContent value="bulk" className="pt-4">
+                 <Form {...bulkForm}>
+                    <form onSubmit={bulkForm.handleSubmit(onBulkSubmit)} className="space-y-4">
+                        <FormField control={bulkForm.control} name="jsonData" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>JSON Array Data</FormLabel>
+                                <FormControl>
+                                    <Textarea
+                                        placeholder='[{"title": "Sainik School", "description": "Info about Sainik School...", "link": "https://example.com"}, ...]'
+                                        rows={15}
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Upload JSON
+                        </Button>
+                    </form>
+                </Form>
+            </TabsContent>
+       </Tabs>
       </CardContent>
     </Card>
   );

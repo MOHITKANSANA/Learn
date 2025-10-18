@@ -2,7 +2,7 @@
 'use client';
 
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, query, where, deleteDoc, doc } from 'firebase/firestore';
 import { Loader2, BookOpen, PlayCircle, FileText, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -41,14 +41,15 @@ export default function MyLibraryPage() {
     try {
       await deleteDoc(doc(firestore, 'enrollments', enrollmentId));
       toast({ title: 'Success', description: 'You have been un-enrolled.' });
+      forceRefresh(); // Refresh the data after deletion
     } catch (e) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to un-enroll.' });
     }
   };
   
   // Memoize to prevent re-computation on every render
-  const { courses, ebooks, papers } = useMemo(() => {
-    const uniqueEnrollments = new Map();
+  const { courses, pdfs, testSeries } = useMemo(() => {
+    const uniqueEnrollments = new Map<string, any>();
     enrollments?.forEach(e => {
         // Use itemId as the key to filter out duplicate enrollments for the same course/item
         if (!uniqueEnrollments.has(e.itemId)) {
@@ -60,8 +61,8 @@ export default function MyLibraryPage() {
 
     return {
       courses: uniqueEnrolledItems?.filter(e => e.itemType === 'course') || [],
-      ebooks: uniqueEnrolledItems?.filter(e => e.itemType === 'ebook') || [],
-      papers: uniqueEnrolledItems?.filter(e => e.itemType === 'previous-year-paper') || [],
+      pdfs: uniqueEnrolledItems?.filter(e => e.itemType === 'ebook' || e.itemType === 'previous-year-paper') || [],
+      testSeries: uniqueEnrolledItems?.filter(e => e.itemType === 'testSeries') || [],
     };
   }, [enrollments]);
 
@@ -84,8 +85,8 @@ export default function MyLibraryPage() {
       <Tabs defaultValue="courses" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="courses">Courses ({courses.length})</TabsTrigger>
-          <TabsTrigger value="ebooks">E-books ({ebooks.length})</TabsTrigger>
-          <TabsTrigger value="papers">Papers ({papers.length})</TabsTrigger>
+          <TabsTrigger value="pdfs">PDFs ({pdfs.length})</TabsTrigger>
+          <TabsTrigger value="test-series">Test Series ({testSeries.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="courses">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
@@ -128,9 +129,9 @@ export default function MyLibraryPage() {
             )) : <p className="col-span-full text-center text-muted-foreground py-10">You have not enrolled in any courses yet.</p>}
           </div>
         </TabsContent>
-        <TabsContent value="ebooks">
+        <TabsContent value="pdfs">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
-                 {ebooks.length > 0 ? ebooks.map(item => (
+                 {pdfs.length > 0 ? pdfs.map(item => (
                      <Card key={item.id} className="overflow-hidden flex flex-col">
                         <Image src={item.itemImage} alt={item.itemName} width={300} height={400} className="w-full h-60 object-cover" />
                         <CardHeader className="flex-grow">
@@ -150,7 +151,7 @@ export default function MyLibraryPage() {
                                 <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>This will permanently remove the e-book from your library.</AlertDialogDescription>
+                                    <AlertDialogDescription>This will permanently remove the item from your library.</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -160,42 +161,27 @@ export default function MyLibraryPage() {
                             </AlertDialog>
                         </CardFooter>
                     </Card>
-                 )) : <p className="col-span-full text-center text-muted-foreground py-10">You have not acquired any e-books yet.</p>}
+                 )) : <p className="col-span-full text-center text-muted-foreground py-10">You have not acquired any PDFs yet.</p>}
             </div>
         </TabsContent>
-         <TabsContent value="papers">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
-                 {papers.length > 0 ? papers.map(item => (
+         <TabsContent value="test-series">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                 {testSeries.length > 0 ? testSeries.map(item => (
                      <Card key={item.id} className="overflow-hidden flex flex-col">
-                        <Image src={item.itemImage} alt={item.itemName} width={300} height={400} className="w-full h-60 object-cover" />
+                        <Image src={item.itemImage} alt={item.itemName} width={400} height={225} className="w-full h-48 object-cover" />
                         <CardHeader className="flex-grow">
-                            <CardTitle className="text-lg">{item.itemName}</CardTitle>
+                            <CardTitle>{item.itemName}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Button asChild className="w-full">
-                                <Link href={item.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <Link href={`/test-series/${item.itemId}`}>
                                     <FileText className="mr-2 h-4 w-4" />
-                                    Download
+                                    Start Test
                                 </Link>
                             </Button>
                         </CardContent>
-                        <CardFooter>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild><Button variant="destructive" className="w-full"><Trash2 className="mr-2 h-4 w-4" /> Remove</Button></AlertDialogTrigger>
-                                <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>This will permanently remove the paper from your library.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleUnenroll(item.id)}>Continue</AlertDialogAction>
-                                </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </CardFooter>
                     </Card>
-                 )) : <p className="col-span-full text-center text-muted-foreground py-10">You have not acquired any papers yet.</p>}
+                 )) : <p className="col-span-full text-center text-muted-foreground py-10">You have not enrolled in any test series yet.</p>}
             </div>
         </TabsContent>
       </Tabs>

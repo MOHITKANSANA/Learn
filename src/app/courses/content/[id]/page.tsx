@@ -194,7 +194,7 @@ export default function CourseContentPage() {
                         <Card key={index}>
                             <CardContent className="p-4 flex items-center justify-between">
                                 <p className="font-semibold">{test.title}</p>
-                                <Button disabled>Start Test</Button>
+                                <Button asChild><Link href={`/test-series/${test.id}`}>Start Test</Link></Button>
                             </CardContent>
                         </Card>
                     )) : (
