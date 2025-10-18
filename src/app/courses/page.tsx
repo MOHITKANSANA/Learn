@@ -69,7 +69,7 @@ export default function CoursesPage() {
   };
 
   return (
-    <div>
+    <div className="w-full">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold font-headline">All Paid Courses</h1>
         <p className="text-muted-foreground mt-2">Find your next learning adventure.</p>
@@ -81,7 +81,7 @@ export default function CoursesPage() {
             const isClickable = status === 'approved';
 
             return (
-              <Card key={course.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300">
+              <Card key={course.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300 h-full">
                 <Link href={isClickable ? `/courses/content/${course.id}` : '#'} className={`flex flex-col flex-grow ${!isClickable ? 'cursor-default' : ''}`}>
                   <CardHeader className="p-0">
                     <Image
@@ -93,8 +93,8 @@ export default function CoursesPage() {
                     />
                   </CardHeader>
                   <CardContent className="flex-grow p-4">
-                    <CardTitle className="text-lg font-headline mb-1">{course.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
+                    <CardTitle className="text-lg font-headline mb-1 h-12 line-clamp-2">{course.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground line-clamp-3 h-[60px]">{course.description}</p>
                   </CardContent>
                 </Link>
                 <CardFooter className="p-4 mt-auto">
@@ -113,3 +113,5 @@ export default function CoursesPage() {
     </div>
   );
 }
+
+    

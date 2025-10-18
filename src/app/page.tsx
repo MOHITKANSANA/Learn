@@ -37,7 +37,7 @@ export default function Home() {
   const educatorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'educators') : null, [firestore]);
   const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
   
-  const promotionsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'promotions') : null, [firestore]);
+  const promotionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'promotions')) : null, [firestore]);
   const { data: promotions, isLoading: isLoadingPromotions } = useCollection(promotionsQuery);
 
   const freeCoursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), where('isFree', '==', true)) : null, [firestore]);
@@ -214,16 +214,18 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : freeCourses && freeCourses.length > 0 ? (
-          <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
+          <Carousel opts={{ align: "start", loop: false }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
             <CarouselContent>
                 {freeCourses.map(course => {
                     const isEnrolled = enrollmentStatus.get(course.id) === 'approved';
                     return (
                         <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
-                                <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className={`flex flex-col flex-grow ${!isEnrolled ? 'cursor-pointer' : ''}`}>
+                                <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className="flex flex-col flex-grow">
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
-                                    <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
+                                    <CardHeader className="p-3 flex-grow">
+                                        <CardTitle className="text-sm font-semibold h-10 line-clamp-2">{course.title}</CardTitle>
+                                    </CardHeader>
                                 </Link>
                                 <CardFooter className="p-3 mt-auto">
                                     {renderFreeCourseButton(course)}
@@ -246,16 +248,18 @@ export default function Home() {
              <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : paidCourses && paidCourses.length > 0 ? (
-           <Carousel opts={{ align: "start", loop: true }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
+           <Carousel opts={{ align: "start", loop: false }} plugins={[Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: false })]} className="w-full group">
             <CarouselContent>
                 {paidCourses.map(course => {
                     const isEnrolled = enrollmentStatus.get(course.id) === 'approved';
                     return (
                         <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
-                                <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className={`flex flex-col flex-grow ${!isEnrolled ? 'cursor-pointer' : ''}`}>
+                                <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className="flex flex-col flex-grow">
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
-                                    <CardHeader className="p-3 flex-grow"><CardTitle className="text-sm font-semibold truncate">{course.title}</CardTitle></CardHeader>
+                                    <CardHeader className="p-3 flex-grow">
+                                        <CardTitle className="text-sm font-semibold h-10 line-clamp-2">{course.title}</CardTitle>
+                                    </CardHeader>
                                 </Link>
                                 <CardFooter className="p-3 mt-auto flex justify-between items-center">
                                     <p className="font-bold text-primary">₹{course.price}</p>

@@ -79,7 +79,7 @@ export default function FreeCoursesPage() {
   }
 
   return (
-    <div>
+    <div className="w-full">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold font-headline">All Free Courses</h1>
         <p className="text-muted-foreground mt-2">Start learning for free today.</p>
@@ -89,7 +89,7 @@ export default function FreeCoursesPage() {
           courses.map((course) => {
             const isEnrolled = enrolledCourseIds.has(course.id);
             return (
-              <Card key={course.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300">
+              <Card key={course.id} className="flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-300 h-full">
                 <Link href={isEnrolled ? `/courses/content/${course.id}` : `/checkout/${course.id}?type=course`} className="flex flex-col flex-grow">
                   <CardHeader className="p-0">
                     <Image
@@ -101,8 +101,8 @@ export default function FreeCoursesPage() {
                     />
                   </CardHeader>
                   <CardContent className="flex-grow p-4">
-                    <CardTitle className="text-lg font-headline mb-1">{course.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{course.description}</p>
+                    <CardTitle className="text-lg font-headline mb-1 h-12 line-clamp-2">{course.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground line-clamp-3 h-[60px]">{course.description}</p>
                   </CardContent>
                 </Link>
                 <CardFooter className="p-4 mt-auto">
@@ -127,3 +127,5 @@ export default function FreeCoursesPage() {
     </div>
   );
 }
+
+    
