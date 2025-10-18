@@ -222,7 +222,7 @@ export default function Home() {
                         <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
                                 <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className="flex flex-col flex-grow">
-                                    <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
+                                    <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full aspect-[16/9] object-cover" />
                                     <CardHeader className="p-3 flex-grow">
                                         <CardTitle className="text-sm font-semibold h-10 line-clamp-2">{course.title}</CardTitle>
                                     </CardHeader>
@@ -256,7 +256,7 @@ export default function Home() {
                         <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
                                 <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className="flex flex-col flex-grow">
-                                    <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full h-32 object-cover" />
+                                    <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full aspect-[16/9] object-cover" />
                                     <CardHeader className="p-3 flex-grow">
                                         <CardTitle className="text-sm font-semibold h-10 line-clamp-2">{course.title}</CardTitle>
                                     </CardHeader>
@@ -316,5 +316,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

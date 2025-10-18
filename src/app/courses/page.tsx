@@ -89,7 +89,7 @@ export default function CoursesPage() {
                       alt={course.title}
                       width={300}
                       height={170}
-                      className="object-cover w-full h-40"
+                      className="w-full aspect-[16/9] object-cover"
                     />
                   </CardHeader>
                   <CardContent className="flex-grow p-4">
@@ -113,5 +113,3 @@ export default function CoursesPage() {
     </div>
   );
 }
-
-    

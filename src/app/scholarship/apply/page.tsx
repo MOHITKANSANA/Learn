@@ -31,27 +31,23 @@ const baseSchema = z.object({
   examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
 });
 
-const offlineFields = z.object({
+const onlineSchema = baseSchema.extend({
+  paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
+  photo: z.any().optional(),
+  signature: z.any().optional(),
+});
+
+const offlineSchema = baseSchema.extend({
   center1: z.string().min(1, 'Please select a center.'),
   center2: z.string().min(1, 'Please select a center.'),
   center3: z.string().min(1, 'Please select a center.'),
   photo: z.any().optional(),
   signature: z.any().optional(),
-});
-const offlineSchema = baseSchema.merge(offlineFields).refine(data => {
+}).refine(data => {
     return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
 }, { message: "Please select three different centers.", path: ["center1"] });
 
-
-const onlineFields = z.object({
-  paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
-  photo: z.any().optional(),
-  signature: z.any().optional(),
-});
-const onlineSchema = baseSchema.merge(onlineFields);
-
 const finalSchema = z.union([onlineSchema, offlineSchema]);
-
 
 const fileToDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -104,9 +100,9 @@ export default function ScholarshipApplyPage() {
   const personalInfoSchema = baseSchema.pick({ fullName: true, fatherName: true, dob: true, gender: true, mobile: true, email: true });
   const academicInfoSchema = baseSchema.pick({ currentClass: true, school: true, previousMarks: true });
   const examModeSchema = baseSchema.pick({ examMode: true });
-  const centerChoiceSchema = offlineFields.pick({center1: true, center2: true, center3: true});
-  const uploadSchema = offlineFields.pick({photo: true, signature: true});
-  const paymentSchema = onlineFields.pick({paymentMobileNumber: true});
+  const centerChoiceSchema = offlineSchema.pick({center1: true, center2: true, center3: true});
+  const uploadSchema = offlineSchema.pick({photo: true, signature: true});
+  const paymentSchema = onlineSchema.pick({paymentMobileNumber: true});
 
   const steps = [
     { id: 1, title: 'Personal Information', schema: personalInfoSchema, fields: Object.keys(personalInfoSchema.shape) },
@@ -123,7 +119,7 @@ export default function ScholarshipApplyPage() {
   ];
 
   const nextStep = async () => {
-    const currentFields = steps[currentStep - 1].fields as (keyof z.infer<typeof onlineSchema & typeof offlineSchema>)[];
+    const currentFields = steps[currentStep - 1].fields as (keyof z.infer<typeof finalSchema>)[];
     const result = await methods.trigger(currentFields);
     
     if (result) {
@@ -210,14 +206,16 @@ export default function ScholarshipApplyPage() {
         createdAt: serverTimestamp(),
       };
       
-      if(watchExamMode === 'offline' && (data.photo || data.signature)) {
-        if (data.photo?.[0]) {
-            applicationData.photoUrl = await fileToDataUrl(data.photo[0]);
-        }
-        if (data.signature?.[0]) {
-            applicationData.signatureUrl = await fileToDataUrl(data.signature[0]);
-        }
+      const photoFile = (data.photo as FileList)?.[0];
+      if (photoFile) {
+        applicationData.photoUrl = await fileToDataUrl(photoFile);
       }
+
+      const signatureFile = (data.signature as FileList)?.[0];
+      if (signatureFile) {
+        applicationData.signatureUrl = await fileToDataUrl(signatureFile);
+      }
+
       delete applicationData.photo;
       delete applicationData.signature;
 
@@ -365,7 +363,7 @@ export default function ScholarshipApplyPage() {
                  </>
               )}
                
-               {steps.find(s => s.id === currentStep)?.title === 'Upload Documents (Optional)' && watchExamMode === 'offline' && (
+               {steps.find(s => s.id === currentStep)?.title === 'Upload Documents (Optional)' && (
                  <>
                     <FormField name="photo" control={methods.control} render={({ field: { onChange, ...rest } }) => (
                         <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
@@ -443,5 +441,3 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
-
-    
