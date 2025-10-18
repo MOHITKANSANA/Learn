@@ -80,14 +80,14 @@ export const dashboardItems: DashboardItem[] = [
     icon: Newspaper,
   },
   {
-    title: 'AI Test',
-    href: '/ai-test',
-    icon: BrainCircuit,
+    title: 'My Library',
+    href: '/my-library',
+    icon: Library,
   },
   {
-    title: 'AI Tutor',
-    href: '/ai-tutor',
-    icon: Bot,
+    title: 'My Orders',
+    href: '/my-orders',
+    icon: ShoppingBag,
   },
   {
     title: 'Motivation',
@@ -142,16 +142,6 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'Motivation',
     href: '/motivation',
     icon: Heart,
-  },
-  {
-    title: 'AI Tutor',
-    href: '/ai-tutor',
-    icon: Bot,
-  },
-  {
-    title: 'AI Test',
-    href: '/ai-test',
-    icon: BrainCircuit,
   },
   {
     title: 'E-Books',
