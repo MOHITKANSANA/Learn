@@ -18,58 +18,49 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-
-// Define individual schemas for each step
-const personalInfoSchema = z.object({
+// A single, comprehensive schema for the entire form
+const finalSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
   fatherName: z.string().min(2, "Father's name is required."),
   dob: z.string().min(1, "Date of birth is required."),
   gender: z.string().min(1, "Please select a gender."),
   mobile: z.string().length(10, "A valid 10-digit mobile number is required."),
   email: z.string().email("Please enter a valid email address."),
-});
-
-const academicInfoSchema = z.object({
   currentClass: z.string().min(1, "Please select your current class."),
   school: z.string().min(2, "School name is required."),
   previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
-});
-
-const examModeSchema = z.object({
   examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
-});
-
-const centerChoiceSchema = z.object({
-    center1: z.string().min(1, 'Please select a center.'),
-    center2: z.string().min(1, 'Please select a center.'),
-    center3: z.string().min(1, 'Please select a center.'),
-}).superRefine((data, ctx) => {
-    if (data.center1 === data.center2 || data.center1 === data.center3 || data.center2 === data.center3) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Please select three different centers.",
-            path: ["center1"],
-        });
-    }
-});
-
-const uploadSchema = z.object({
+  center1: z.string().optional(),
+  center2: z.string().optional(),
+  center3: z.string().optional(),
   photo: z.any().optional(),
   signature: z.any().optional(),
+  paymentMobileNumber: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.examMode === 'offline') {
+        if (!data.center1) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a center.', path: ['center1'] });
+        if (!data.center2) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a center.', path: ['center2'] });
+        if (!data.center3) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a center.', path: ['center3'] });
+
+        const centers = [data.center1, data.center2, data.center3];
+        if (centers.some(c => c) && new Set(centers.filter(Boolean)).size !== centers.filter(Boolean).length) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Please select three different centers.",
+                path: ["center1"],
+            });
+        }
+    }
+    if (data.examMode === 'online') {
+        if (!data.paymentMobileNumber || data.paymentMobileNumber.length !== 10) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Please enter a valid 10-digit mobile number.',
+                path: ['paymentMobileNumber'],
+            });
+        }
+    }
 });
-
-const paymentSchema = z.object({
-    paymentMobileNumber: z.string().length(10, 'Please enter a valid 10-digit mobile number.'),
-});
-
-
-// Combine schemas for the final form type
-const finalSchema = personalInfoSchema
-    .merge(academicInfoSchema)
-    .merge(examModeSchema)
-    .merge(centerChoiceSchema.partial()) // Make centers optional initially
-    .merge(uploadSchema)
-    .merge(paymentSchema.partial()); // Make payment optional
 
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -97,15 +88,7 @@ export default function ScholarshipApplyPage() {
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
   const methods = useForm<z.infer<typeof finalSchema>>({
-    resolver: async (data, context, options) => {
-        let currentSchema;
-        if (data.examMode === 'offline') {
-            currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(centerChoiceSchema).merge(uploadSchema.partial());
-        } else {
-            currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(paymentSchema).merge(uploadSchema.partial());
-        }
-        return zodResolver(currentSchema)(data, context, options);
-    },
+    resolver: zodResolver(finalSchema),
     mode: 'onChange',
     defaultValues: {
       fullName: user?.displayName || '',
@@ -124,27 +107,36 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
   
+  // Schemas for each step derived from the main schema
+  const personalInfoSchema = finalSchema.pick({ fullName: true, fatherName: true, dob: true, gender: true, mobile: true, email: true });
+  const academicInfoSchema = finalSchema.pick({ currentClass: true, school: true, previousMarks: true });
+  const examModeSchema = finalSchema.pick({ examMode: true });
+  const centerChoiceSchema = finalSchema.pick({center1: true, center2: true, center3: true});
+  const uploadSchema = finalSchema.pick({photo: true, signature: true});
+  const paymentSchema = finalSchema.pick({paymentMobileNumber: true});
+
   const steps = [
-    { id: 1, title: 'Personal Information', schema: personalInfoSchema, fields: Object.keys(personalInfoSchema.shape) },
-    { id: 2, title: 'Academic Information', schema: academicInfoSchema, fields: Object.keys(academicInfoSchema.shape) },
-    { id: 3, title: 'Choose Exam Mode', schema: examModeSchema, fields: Object.keys(examModeSchema.shape) },
+    { id: 1, title: 'Personal Information', schema: personalInfoSchema },
+    { id: 2, title: 'Academic Information', schema: academicInfoSchema },
+    { id: 3, title: 'Choose Exam Mode', schema: examModeSchema },
     ...(watchExamMode === 'offline' ? [
-        { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema, fields: Object.keys(centerChoiceSchema.shape) },
-        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema, fields: Object.keys(uploadSchema.shape) },
-        { id: 6, title: 'Review & Submit', schema: z.object({}), fields: [] },
+        { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema },
+        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema },
+        { id: 6, title: 'Review & Submit', schema: z.object({}) },
     ] : [
-        { id: 4, title: 'Upload Documents (Optional)', schema: uploadSchema, fields: Object.keys(uploadSchema.shape) },
-        { id: 5, title: 'Payment', schema: paymentSchema, fields: Object.keys(paymentSchema.shape) },
-        { id: 6, title: 'Review & Submit', schema: z.object({}), fields: [] },
+        { id: 4, title: 'Upload Documents (Optional)', schema: uploadSchema },
+        { id: 5, title: 'Payment', schema: paymentSchema },
+        { id: 6, title: 'Review & Submit', schema: z.object({}) },
     ]),
   ];
 
   const nextStep = async () => {
     const currentStepConfig = steps[currentStep - 1];
     if (!currentStepConfig) return;
-
-    const currentFields = currentStepConfig.fields as (keyof z.infer<typeof finalSchema>)[];
-    const result = await methods.trigger(currentFields);
+    
+    // @ts-ignore
+    const currentFields = Object.keys(currentStepConfig.schema.shape || {});
+    const result = await methods.trigger(currentFields as (keyof z.infer<typeof finalSchema>)[]);
     
     if (result) {
       if (currentStep < steps.length) {
@@ -156,7 +148,7 @@ export default function ScholarshipApplyPage() {
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(currentStep + 1);
     }
   };
 
@@ -223,9 +215,9 @@ export default function ScholarshipApplyPage() {
         school: data.school,
         previousMarks: data.previousMarks,
         examMode: data.examMode,
-        center1: data.center1,
-        center2: data.center2,
-        center3: data.center3,
+        center1: data.center1 || null,
+        center2: data.center2 || null,
+        center3: data.center3 || null,
         status: data.examMode === 'offline' ? 'approved' : 'submitted', // Auto-approve offline for now
         createdAt: serverTimestamp(),
       };
@@ -469,3 +461,5 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
+
+    
