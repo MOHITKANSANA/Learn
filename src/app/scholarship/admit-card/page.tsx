@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function AdmitCardPage() {
     const { user } = useUser();
@@ -88,7 +89,7 @@ export default function AdmitCardPage() {
 
     if (!application) {
          return (
-            <div className="max-w-md mx-auto">
+            <div className="max-w-md mx-auto space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>Download Admit Card</CardTitle>
@@ -106,6 +107,11 @@ export default function AdmitCardPage() {
                         </Button>
                     </CardContent>
                 </Card>
+                <div className="text-center">
+                    <Button variant="link" asChild>
+                        <Link href="/scholarship/find-id">Forgot Application ID?</Link>
+                    </Button>
+                </div>
             </div>
          )
     }

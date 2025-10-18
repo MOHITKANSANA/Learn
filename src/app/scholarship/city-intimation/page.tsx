@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, MapPin, School } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function CityIntimationPage() {
     const firestore = useFirestore();
@@ -78,7 +79,7 @@ export default function CityIntimationPage() {
     };
 
     return (
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-xl mx-auto space-y-4">
             <Card>
                 <CardHeader>
                     <CardTitle>Check Your Exam City</CardTitle>
@@ -110,6 +111,11 @@ export default function CityIntimationPage() {
                     )}
                 </CardContent>
             </Card>
+            <div className="text-center">
+                <Button variant="link" asChild>
+                    <Link href="/scholarship/find-id">Forgot Application ID?</Link>
+                </Button>
+            </div>
         </div>
     );
 }

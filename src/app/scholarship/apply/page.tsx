@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -46,7 +45,7 @@ const uploadSchema = z.object({
 });
 
 const paymentSchema = z.object({
-    paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10),
+    paymentMobileNumber: z.string().optional(),
 });
 
 const examModeSchema = z.object({
@@ -106,7 +105,6 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
 
-
   const steps = [
     { id: 1, title: 'Personal Information', schema: personalInfoSchema },
     { id: 2, title: 'Academic Information', schema: academicInfoSchema },
@@ -118,8 +116,13 @@ export default function ScholarshipApplyPage() {
         },
         { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema }
     ] : []),
-    { id: watchExamMode === 'offline' ? 6 : 4, title: 'Payment', schema: paymentSchema },
-    { id: watchExamMode === 'offline' ? 7 : 5, title: 'Review & Submit', schema: z.object({}) },
+    ...(watchExamMode === 'online' ? [
+        { id: (watchExamMode === 'offline' ? 6 : 4), title: 'Payment', schema: paymentSchema.refine(data => !!data.paymentMobileNumber && data.paymentMobileNumber.length === 10, {
+            message: "Please enter a valid 10-digit mobile number.",
+            path: ["paymentMobileNumber"],
+        })},
+    ] : []),
+    { id: (watchExamMode === 'offline' ? 6 : 5), title: 'Review & Submit', schema: z.object({}) },
   ];
 
   const nextStep = async () => {
@@ -143,7 +146,7 @@ export default function ScholarshipApplyPage() {
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep + 1);
+      setCurrentStep(currentStep - 1);
     }
   };
 
@@ -169,33 +172,37 @@ export default function ScholarshipApplyPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
     }
-
-    if (fee === undefined) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Fee is not defined. Cannot proceed with payment.' });
-      return;
-    }
     
     setIsSubmitting(true);
     try {
-      // 1. Create Payment Document
-      const paymentRef = doc(collection(firestore, 'scholarshipPayments'));
-      const paymentData = {
-          id: paymentRef.id,
-          userId: user.uid,
-          examMode: data.examMode,
-          amount: fee,
-          paymentMobileNumber: data.paymentMobileNumber,
-          status: 'pending', // Admin will approve this
-          createdAt: serverTimestamp(),
-      };
-      await setDoc(paymentRef, paymentData);
+      let paymentId: string | null = null;
+      // 1. Create Payment Document only for online mode
+      if (data.examMode === 'online') {
+          if (fee === undefined) {
+              toast({ variant: 'destructive', title: 'Error', description: 'Fee is not defined. Cannot proceed with payment.' });
+              setIsSubmitting(false);
+              return;
+            }
+          const paymentRef = doc(collection(firestore, 'scholarshipPayments'));
+          const paymentData = {
+              id: paymentRef.id,
+              userId: user.uid,
+              examMode: data.examMode,
+              amount: fee,
+              paymentMobileNumber: data.paymentMobileNumber,
+              status: 'pending', // Admin will approve this
+              createdAt: serverTimestamp(),
+          };
+          await setDoc(paymentRef, paymentData);
+          paymentId = paymentRef.id;
+      }
       
       // 2. Create Application Document
       const newAppId = await generateUniqueAppId();
       const applicationData: any = {
         id: String(newAppId),
         userId: user.uid,
-        paymentId: paymentRef.id,
+        paymentId: paymentId, // will be null for offline
         fullName: data.fullName,
         fatherName: data.fatherName,
         dob: data.dob,
@@ -209,7 +216,7 @@ export default function ScholarshipApplyPage() {
         center1: data.center1,
         center2: data.center2,
         center3: data.center3,
-        status: 'submitted',
+        status: data.examMode === 'online' ? 'submitted' : 'approved', // Auto-approve offline
         createdAt: serverTimestamp(),
       };
       
@@ -226,8 +233,9 @@ export default function ScholarshipApplyPage() {
 
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
       
-      // 3. Update payment with application ID
-      await updateDoc(paymentRef, { applicationId: String(newAppId) });
+      if (paymentId) {
+        await updateDoc(doc(firestore, 'scholarshipPayments', paymentId), { applicationId: String(newAppId) });
+      }
 
       setSubmittedAppId(String(newAppId));
     } catch (error) {
@@ -336,7 +344,7 @@ export default function ScholarshipApplyPage() {
                         <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center gap-4">
                         <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl><RadioGroupItem value="offline" /></FormControl>
-                            <FormLabel className="font-normal">Offline (Fee: ₹{settings?.offlineScholarshipFee || 60})</FormLabel>
+                            <FormLabel className="font-normal">Offline (Free Application)</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl><RadioGroupItem value="online" /></FormControl>
@@ -378,7 +386,7 @@ export default function ScholarshipApplyPage() {
                  </>
                )}
                
-               {currentStep === (watchExamMode === 'offline' ? 6 : 4) && (
+               {currentStep === (watchExamMode === 'online' ? 4 : -1) && (
                  <div className="space-y-6">
                     <div className="text-sm font-semibold text-center bg-primary/20 p-3 rounded-md border border-primary/30">
                         <p>You need to pay ₹{fee || '...'} as application fee.</p>
