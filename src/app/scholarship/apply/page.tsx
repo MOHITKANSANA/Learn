@@ -18,15 +18,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const fileToDataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-    reader.readAsDataURL(file);
-  });
-};
-
 const finalSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
   fatherName: z.string().min(2, "Father's name is required."),
@@ -58,7 +49,7 @@ const finalSchema = z.object({
         }
     }
     if (data.examMode === 'online') {
-        if (!data.paymentMobileNumber || data.paymentMobileNumber.length !== 10) {
+        if (!data.paymentMobileNumber || !/^\d{10}$/.test(data.paymentMobileNumber)) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Please enter a valid 10-digit UPI mobile number.',
@@ -440,5 +431,3 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
-
-    
