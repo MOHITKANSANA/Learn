@@ -3,27 +3,8 @@
 'use server';
 
 import { z } from 'zod';
-import admin from 'firebase-admin';
-
-// Helper function to initialize Firebase Admin SDK
-function initializeFirebaseAdmin() {
-  if (admin.apps.length > 0) {
-    return admin.app();
-  }
-
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-    : undefined;
-
-  if (!serviceAccount) {
-    throw new Error('Firebase service account key is not available.');
-  }
-
-  return admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
-
+import { ai } from '@/ai/genkit';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const SearchSchema = z.object({
   query: z.string().min(1, 'Search query cannot be empty.'),
@@ -46,47 +27,93 @@ export type State = {
   query?: string;
 };
 
-async function searchByIds(firestore: admin.firestore.Firestore, id: string) {
-    const results: SearchResultItem[] = [];
+// This Genkit flow will run on the server and has access to the admin environment
+const searchFlow = ai.defineFlow(
+    {
+        name: 'vidyaSearchInternal',
+        inputSchema: z.string(),
+        outputSchema: z.array(z.any()), // Keep it flexible for internal use
+    },
+    async (searchQuery) => {
+        const firestore = getFirestore();
+        let results: SearchResultItem[] = [];
 
-    try {
-        // Since we are searching for a substring, we cannot do a direct query.
-        // We will fetch all and filter in memory. This is not ideal for large datasets.
-        // A more scalable solution would involve a dedicated search service like Algolia or Elasticsearch.
-        
-        const enrollmentSnapshot = await firestore.collection('enrollments').get();
-        enrollmentSnapshot.forEach(doc => {
-            if (doc.id.startsWith(id)) {
-                 const enrollment = doc.data();
-                 results.push({
-                    type: 'enrollment',
-                    title: `Enrollment Details: ${enrollment.itemName}`,
-                    description: `ID: ${String(enrollment.id).substring(0,5)}\nStatus: ${enrollment.isApproved ? 'Approved' : 'Pending'}\nRequested On: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
-                    data: enrollment,
-                    score: 100 // High score for direct ID match
-                });
+        try {
+            // 1. Search for 5-digit IDs (Orders/Enrollments)
+            const isFiveDigitId = /^\d{5}$/.test(searchQuery);
+            if (isFiveDigitId) {
+                const enrollmentRef = firestore.collection('enrollments').doc(searchQuery);
+                const orderRef = firestore.collection('bookOrders').doc(searchQuery);
+
+                const [enrollmentDoc, orderDoc] = await Promise.all([
+                    enrollmentRef.get(),
+                    orderRef.get(),
+                ]);
+
+                if (enrollmentDoc.exists) {
+                    const enrollment = enrollmentDoc.data();
+                    if (enrollment) {
+                        results.push({
+                            type: 'enrollment',
+                            title: `Enrollment Details: ${enrollment.itemName}`,
+                            description: `ID: ${enrollment.id}\nStatus: ${enrollment.isApproved ? 'Approved' : 'Pending'}\nRequested On: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+                            data: enrollment,
+                            score: 100
+                        });
+                    }
+                }
+                if (orderDoc.exists) {
+                    const bookOrder = orderDoc.data();
+                     if (bookOrder) {
+                        results.push({
+                            type: 'order',
+                            title: `Book Order Details: ${bookOrder.bookTitle}`,
+                            description: `ID: ${bookOrder.id}\nStatus: ${bookOrder.status}\nOrdered On: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+                            data: bookOrder,
+                            score: 100
+                        });
+                    }
+                }
             }
-        });
-
-        const orderSnapshot = await firestore.collection('bookOrders').get();
-        orderSnapshot.forEach(doc => {
-            if (doc.id.startsWith(id)) {
-                 const bookOrder = doc.data();
-                 results.push({
-                    type: 'order',
-                    title: `Book Order Details: ${bookOrder.bookTitle}`,
-                    description: `ID: ${String(bookOrder.id).substring(0,5)}\nStatus: ${bookOrder.status}\nOrdered On: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
-                    data: bookOrder,
-                    score: 100 // High score for direct ID match
+            
+            // 2. Perform text search on vidya_search_data
+            const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
+            const vidyaSearchSnapshot = await firestore.collection('vidya_search_data').get();
+            
+            vidyaSearchSnapshot.forEach(doc => {
+                const data = doc.data();
+                const title = data.title?.toLowerCase() || '';
+                const description = data.description?.toLowerCase() || '';
+                
+                let score = 0;
+                searchTerms.forEach(term => {
+                    if (title.includes(term)) score += 2;
+                    if (description.includes(term)) score += 1;
                 });
-            }
-        });
 
-    } catch (error) {
-        console.error(`Error searching by ID ${id}:`, error);
+                if (score > 0) {
+                     if (!results.some(r => r.data?.id === data.id)) {
+                        results.push({
+                            type: 'vidya',
+                            title: data.title,
+                            description: data.description,
+                            link: data.link,
+                            imageUrl: data.imageUrl,
+                            score: score,
+                            data: data,
+                        });
+                    }
+                }
+            });
+
+            return results;
+        } catch (error) {
+            console.error('Internal Search Flow Error:', error);
+            // In a real app, you might want more specific error handling
+            throw new Error('Failed to execute search in the database.');
+        }
     }
-    return results;
-}
+);
 
 
 export async function performSearch(prevState: State, formData: FormData): Promise<State> {
@@ -100,60 +127,10 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     };
   }
   
-  let firestore;
-  try {
-    const adminApp = initializeFirebaseAdmin();
-    firestore = adminApp.firestore();
-  } catch (e: any) {
-    console.error("Firebase Admin initialization failed:", e);
-    return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query: validatedFields.data.query };
-  }
-
   const searchQuery = validatedFields.data.query.trim();
-  let results: SearchResultItem[] = [];
 
   try {
-    const isFiveDigitId = /^\d{5}$/.test(searchQuery);
-
-    if (isFiveDigitId) {
-        const idResults = await searchByIds(firestore, searchQuery);
-        results.push(...idResults);
-    }
-
-    // Always perform text search, and merge results.
-    const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
-    const vidyaSearchSnapshot = await firestore.collection('vidya_search_data').get();
-    
-    vidyaSearchSnapshot.forEach(doc => {
-        const data = doc.data();
-        const title = data.title?.toLowerCase() || '';
-        const description = data.description?.toLowerCase() || '';
-        
-        let score = 0;
-        searchTerms.forEach(term => {
-            if (title.includes(term)) {
-                score += 2; // Higher weight for title matches
-            }
-            if (description.includes(term)) {
-                score += 1;
-            }
-        });
-
-        if (score > 0) {
-            // Avoid adding duplicates if already found by ID
-            if (!results.some(r => r.data?.id === data.id)) {
-                 results.push({
-                    type: 'vidya',
-                    title: data.title,
-                    description: data.description,
-                    link: data.link,
-                    imageUrl: data.imageUrl,
-                    score: score,
-                    data: data, // include original data if needed
-                });
-            }
-        }
-    });
+    const results = await searchFlow(searchQuery);
 
     if (results.length === 0) {
       return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला।', query: searchQuery };
@@ -162,18 +139,18 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     // Sort results by score (descending)
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    // Remove duplicates based on title and description to clean up results
+    // Remove duplicates
     const uniqueResults = results.filter((item, index, self) => 
         index === self.findIndex(t => (
-            t.title === item.title && t.description === item.description
+            t.data?.id === item.data?.id
         ))
     );
-
 
     return { results: uniqueResults, query: searchQuery };
 
   } catch (error) {
     console.error('Search failed:', error);
-    return { error: 'खोज के दौरान एक अप्रत्याशित त्रुटि हुई।' };
+    // This is the user-facing error.
+    return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query: searchQuery };
   }
 }
