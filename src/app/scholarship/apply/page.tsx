@@ -18,36 +18,58 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const baseSchema = z.object({
+
+// Define individual schemas for each step for clarity and to avoid Zod method issues
+const personalInfoSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
   fatherName: z.string().min(2, "Father's name is required."),
   dob: z.string().min(1, "Date of birth is required."),
   gender: z.string().min(1, "Please select a gender."),
-  mobile: z.string().min(10, "A valid 10-digit mobile number is required.").max(10),
+  mobile: z.string().length(10, "A valid 10-digit mobile number is required."),
   email: z.string().email("Please enter a valid email address."),
+});
+
+const academicInfoSchema = z.object({
   currentClass: z.string().min(1, "Please select your current class."),
   school: z.string().min(2, "School name is required."),
   previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
+});
+
+const examModeSchema = z.object({
   examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
 });
 
-const onlineSchema = baseSchema.extend({
-  paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
+const centerChoiceSchema = z.object({
+    center1: z.string().min(1, 'Please select a center.'),
+    center2: z.string().min(1, 'Please select a center.'),
+    center3: z.string().min(1, 'Please select a center.'),
+}).refine(data => data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3, {
+    message: "Please select three different centers.",
+    path: ["center1"], // You can attach the error to any of the fields
+});
+
+const uploadSchema = z.object({
   photo: z.any().optional(),
   signature: z.any().optional(),
 });
 
-const offlineSchema = baseSchema.extend({
-  center1: z.string().min(1, 'Please select a center.'),
-  center2: z.string().min(1, 'Please select a center.'),
-  center3: z.string().min(1, 'Please select a center.'),
-  photo: z.any().optional(),
-  signature: z.any().optional(),
-}).refine(data => {
-    return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
-}, { message: "Please select three different centers.", path: ["center1"] });
+const paymentSchema = z.object({
+    paymentMobileNumber: z.string().length(10, 'Please enter a valid 10-digit mobile number.'),
+});
 
-const finalSchema = z.union([onlineSchema, offlineSchema]);
+
+// Combine schemas for the final form type
+const finalSchema = personalInfoSchema
+    .merge(academicInfoSchema)
+    .merge(examModeSchema)
+    .merge(z.object({
+        center1: z.string().optional(),
+        center2: z.string().optional(),
+        center3: z.string().optional(),
+    }))
+    .merge(uploadSchema)
+    .merge(paymentSchema.partial());
+
 
 const fileToDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -75,8 +97,13 @@ export default function ScholarshipApplyPage() {
   
   const methods = useForm<z.infer<typeof finalSchema>>({
     resolver: async (data, context, options) => {
-        const schema = data.examMode === 'online' ? onlineSchema : offlineSchema;
-        return zodResolver(schema)(data, context, options);
+        let currentSchema;
+        if (data.examMode === 'offline') {
+            currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(centerChoiceSchema).merge(uploadSchema);
+        } else {
+             currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(paymentSchema).merge(uploadSchema);
+        }
+        return zodResolver(currentSchema)(data, context, options);
     },
     mode: 'onChange',
     defaultValues: {
@@ -97,29 +124,26 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
   
-  const personalInfoSchema = baseSchema.pick({ fullName: true, fatherName: true, dob: true, gender: true, mobile: true, email: true });
-  const academicInfoSchema = baseSchema.pick({ currentClass: true, school: true, previousMarks: true });
-  const examModeSchema = baseSchema.pick({ examMode: true });
-  const centerChoiceSchema = offlineSchema.pick({center1: true, center2: true, center3: true});
-  const uploadSchema = offlineSchema.pick({photo: true, signature: true});
-  const paymentSchema = onlineSchema.pick({paymentMobileNumber: true});
-
   const steps = [
     { id: 1, title: 'Personal Information', schema: personalInfoSchema, fields: Object.keys(personalInfoSchema.shape) },
     { id: 2, title: 'Academic Information', schema: academicInfoSchema, fields: Object.keys(academicInfoSchema.shape) },
     { id: 3, title: 'Choose Exam Mode', schema: examModeSchema, fields: Object.keys(examModeSchema.shape) },
     ...(watchExamMode === 'offline' ? [
         { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema, fields: Object.keys(centerChoiceSchema.shape) },
-        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema, fields: Object.keys(uploadSchema.shape) }
-    ] : []),
-     ...(watchExamMode === 'online' ? [
-        { id: (watchExamMode === 'offline' ? 6 : 4), title: 'Payment', schema: paymentSchema, fields: Object.keys(paymentSchema.shape) },
-    ] : []),
-    { id: (watchExamMode === 'offline' ? 6 : 5), title: 'Review & Submit', schema: z.object({}), fields: [] },
+        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema, fields: Object.keys(uploadSchema.shape) },
+        { id: 6, title: 'Review & Submit', schema: z.object({}), fields: [] },
+    ] : [
+        { id: 4, title: 'Upload Documents (Optional)', schema: uploadSchema, fields: Object.keys(uploadSchema.shape) },
+        { id: 5, title: 'Payment', schema: paymentSchema, fields: Object.keys(paymentSchema.shape) },
+        { id: 6, title: 'Review & Submit', schema: z.object({}), fields: [] },
+    ]),
   ];
 
   const nextStep = async () => {
-    const currentFields = steps[currentStep - 1].fields as (keyof z.infer<typeof finalSchema>)[];
+    const currentStepConfig = steps[currentStep - 1];
+    if (!currentStepConfig) return;
+
+    const currentFields = currentStepConfig.fields as (keyof z.infer<typeof finalSchema>)[];
     const result = await methods.trigger(currentFields);
     
     if (result) {
