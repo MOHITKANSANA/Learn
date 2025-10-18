@@ -3,8 +3,26 @@
 'use server';
 
 import { z } from 'zod';
-import { initializeFirebase } from '@/firebase';
-import { collection, query as firestoreQuery, where, getDocs, or } from 'firebase/firestore';
+import admin from 'firebase-admin';
+
+// Helper function to initialize Firebase Admin SDK
+function initializeFirebaseAdmin() {
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
+
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+    : undefined;
+
+  if (!serviceAccount) {
+    throw new Error('Firebase service account key is not available.');
+  }
+
+  return admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 
 
 const SearchSchema = z.object({
@@ -28,18 +46,18 @@ export type State = {
   query?: string;
 };
 
-async function searchByIds(id: string) {
-    const { firestore } = initializeFirebase();
+async function searchByIds(firestore: admin.firestore.Firestore, id: string) {
     const results: SearchResultItem[] = [];
 
     try {
-        const enrollmentRef = collection(firestore, 'enrollments');
-        const qEnrollment = firestoreQuery(enrollmentRef, where('id', '>=', id), where('id', '<=', id + '\uf8ff'));
-        const enrollmentSnapshot = await getDocs(qEnrollment);
-
+        // Since we are searching for a substring, we cannot do a direct query.
+        // We will fetch all and filter in memory. This is not ideal for large datasets.
+        // A more scalable solution would involve a dedicated search service like Algolia or Elasticsearch.
+        
+        const enrollmentSnapshot = await firestore.collection('enrollments').get();
         enrollmentSnapshot.forEach(doc => {
-            const enrollment = doc.data();
-            if (String(enrollment.id).substring(0, 5) === id) {
+            if (doc.id.startsWith(id)) {
+                 const enrollment = doc.data();
                  results.push({
                     type: 'enrollment',
                     title: `Enrollment Details: ${enrollment.itemName}`,
@@ -50,13 +68,10 @@ async function searchByIds(id: string) {
             }
         });
 
-        const orderRef = collection(firestore, 'bookOrders');
-        const qOrder = firestoreQuery(orderRef, where('id', '>=', id), where('id', '<=', id + '\uf8ff'));
-        const orderSnapshot = await getDocs(qOrder);
-        
+        const orderSnapshot = await firestore.collection('bookOrders').get();
         orderSnapshot.forEach(doc => {
-            const bookOrder = doc.data();
-            if(String(bookOrder.id).substring(0, 5) === id) {
+            if (doc.id.startsWith(id)) {
+                 const bookOrder = doc.data();
                  results.push({
                     type: 'order',
                     title: `Book Order Details: ${bookOrder.bookTitle}`,
@@ -84,27 +99,30 @@ export async function performSearch(prevState: State, formData: FormData): Promi
       error: validatedFields.error.flatten().fieldErrors.query?.join(', '),
     };
   }
+  
+  let firestore;
+  try {
+    const adminApp = initializeFirebaseAdmin();
+    firestore = adminApp.firestore();
+  } catch (e: any) {
+    console.error("Firebase Admin initialization failed:", e);
+    return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query: validatedFields.data.query };
+  }
 
-  const { firestore } = initializeFirebase();
   const searchQuery = validatedFields.data.query.trim();
   let results: SearchResultItem[] = [];
 
   try {
-    if (!firestore) {
-       return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query: searchQuery };
-    }
-
     const isFiveDigitId = /^\d{5}$/.test(searchQuery);
 
     if (isFiveDigitId) {
-        const idResults = await searchByIds(searchQuery);
+        const idResults = await searchByIds(firestore, searchQuery);
         results.push(...idResults);
     }
 
     // Always perform text search, and merge results.
     const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
-    const vidyaSearchRef = collection(firestore, 'vidya_search_data');
-    const vidyaSearchSnapshot = await getDocs(vidyaSearchRef);
+    const vidyaSearchSnapshot = await firestore.collection('vidya_search_data').get();
     
     vidyaSearchSnapshot.forEach(doc => {
         const data = doc.data();
