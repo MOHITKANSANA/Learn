@@ -45,6 +45,8 @@ type SearchResultItem = {
     link?: string;
     imageUrl?: string | null;
     data?: any;
+    // Add a score for relevance ranking
+    score?: number;
 }
 
 export type State = {
@@ -53,28 +55,45 @@ export type State = {
   query?: string;
 };
 
-async function searchInCollectionById(db: firestore.Firestore | null, collectionName: string, id: string): Promise<firestore.DocumentData | null> {
-    if (!db) return null;
-    try {
-        const docRef = db.collection(collectionName).doc(id);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-            return { id: docSnap.id, ...docSnap.data() };
-        }
+async function searchInCollectionById(db: firestore.Firestore | null, id: string): Promise<SearchResultItem[]> {
+    if (!db) return [];
+    const results: SearchResultItem[] = [];
 
-        // Fallback for 5-digit IDs by checking startsWith
-        const querySnapshot = await db.collection(collectionName).where('id', '>=', id).where('id', '<', id + '\uf8ff').limit(1).get();
-        if(!querySnapshot.empty) {
-            const doc = querySnapshot.docs[0];
-            if (doc.id.startsWith(id)) {
-                 return { id: doc.id, ...doc.data() };
+    try {
+        // Search for Enrollment ID
+        const enrollmentRef = db.collection('enrollments').doc(id);
+        const enrollmentDoc = await enrollmentRef.get();
+        if (enrollmentDoc.exists) {
+            const enrollment = enrollmentDoc.data();
+            if (enrollment) {
+                 results.push({
+                    type: 'enrollment',
+                    title: `Enrollment Details: ${enrollment.itemName}`,
+                    description: `ID: ${String(enrollment.id).substring(0,5)}\nStatus: ${enrollment.isApproved ? 'Approved' : 'Pending'}\nRequested On: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+                    data: enrollment,
+                });
             }
         }
-        return null;
+        
+        // Search for Book Order ID
+        const bookOrderRef = db.collection('bookOrders').doc(id);
+        const bookOrderDoc = await bookOrderRef.get();
+        if (bookOrderDoc.exists) {
+             const bookOrder = bookOrderDoc.data();
+             if (bookOrder) {
+                results.push({
+                    type: 'order',
+                    title: `Book Order Details: ${bookOrder.bookTitle}`,
+                    description: `ID: ${String(bookOrder.id).substring(0,5)}\nStatus: ${bookOrder.status}\nOrdered On: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+                    data: bookOrder,
+                });
+             }
+        }
+
     } catch (error) {
-        console.error(`Error searching in ${collectionName}:`, error);
-        return null;
+        console.error(`Error searching by ID ${id}:`, error);
     }
+    return results;
 }
 
 
@@ -102,61 +121,61 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     const isFiveDigitId = /^\d{5}$/.test(query);
 
     if (isFiveDigitId) {
-        // Search for Enrollment ID
-        const enrollment = await searchInCollectionById(db, 'enrollments', query);
-        if (enrollment) {
-            results.push({
-                type: 'enrollment',
-                title: `एनरोलमेंट विवरण: ${enrollment.itemName}`,
-                description: `आईडी: ${String(enrollment.id).substring(0,5)}\nस्थिति: ${enrollment.isApproved ? 'स्वीकृत' : 'लंबित'}\nअनुरोध तिथि: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
-                data: enrollment,
-            });
-        }
-
-        // Search for Book Order ID
-        const bookOrder = await searchInCollectionById(db, 'bookOrders', query);
-        if (bookOrder) {
-            results.push({
-                type: 'order',
-                title: `पुस्तक ऑर्डर विवरण: ${bookOrder.bookTitle}`,
-                description: `आईडी: ${String(bookOrder.id).substring(0,5)}\nस्थिति: ${bookOrder.status}\nऑर्डर तिथि: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
-                data: bookOrder,
-            });
-        }
+        const idResults = await searchInCollectionById(db, query);
+        results.push(...idResults);
     }
 
+    // Always perform text search, and merge results.
+    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+    const vidyaSearchSnapshot = await db.collection('vidya_search_data').get();
+    
+    vidyaSearchSnapshot.forEach(doc => {
+        const data = doc.data();
+        const title = data.title?.toLowerCase() || '';
+        const description = data.description?.toLowerCase() || '';
+        
+        let score = 0;
+        searchTerms.forEach(term => {
+            if (title.includes(term)) {
+                score += 2; // Higher weight for title matches
+            }
+            if (description.includes(term)) {
+                score += 1;
+            }
+        });
 
-    // General text search
-    if (results.length === 0) {
-        const vidyaSearchSnapshot = await db.collection('vidya_search_data').get();
-        vidyaSearchSnapshot.forEach(doc => {
-            const data = doc.data();
-            const titleMatch = data.title && data.title.toLowerCase().includes(query.toLowerCase());
-            const descriptionMatch = data.description && data.description.toLowerCase().includes(query.toLowerCase());
-
-            if (titleMatch || descriptionMatch) {
-                results.push({
+        if (score > 0) {
+            // Avoid adding duplicates if already found by ID
+            if (!results.some(r => r.data?.id === data.id)) {
+                 results.push({
                     type: 'vidya',
                     title: data.title,
                     description: data.description,
                     link: data.link,
-                    imageUrl: data.imageUrl
+                    imageUrl: data.imageUrl,
+                    score: score,
+                    data: data, // include original data if needed
                 });
             }
-        });
-    }
+        }
+    });
 
     if (results.length === 0) {
       return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला।', query };
     }
 
-    results.sort((a, b) => {
-        if (a.type === 'vidya' && b.type !== 'vidya') return -1;
-        if (a.type !== 'vidya' && b.type === 'vidya') return 1;
-        return 0;
-    });
+    // Sort results by score (descending)
+    results.sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    // Remove duplicates based on title and description to clean up results
+    const uniqueResults = results.filter((item, index, self) => 
+        index === self.findIndex(t => (
+            t.title === item.title && t.description === item.description
+        ))
+    );
 
-    return { results, query };
+
+    return { results: uniqueResults, query };
 
   } catch (error) {
     console.error('Search failed:', error);
