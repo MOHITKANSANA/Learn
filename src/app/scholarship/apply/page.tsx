@@ -19,7 +19,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 
-// Define individual schemas for each step for clarity and to avoid Zod method issues
+// Define individual schemas for each step
 const personalInfoSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
   fatherName: z.string().min(2, "Father's name is required."),
@@ -43,9 +43,14 @@ const centerChoiceSchema = z.object({
     center1: z.string().min(1, 'Please select a center.'),
     center2: z.string().min(1, 'Please select a center.'),
     center3: z.string().min(1, 'Please select a center.'),
-}).refine(data => data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3, {
-    message: "Please select three different centers.",
-    path: ["center1"], // You can attach the error to any of the fields
+}).superRefine((data, ctx) => {
+    if (data.center1 === data.center2 || data.center1 === data.center3 || data.center2 === data.center3) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select three different centers.",
+            path: ["center1"],
+        });
+    }
 });
 
 const uploadSchema = z.object({
@@ -62,13 +67,9 @@ const paymentSchema = z.object({
 const finalSchema = personalInfoSchema
     .merge(academicInfoSchema)
     .merge(examModeSchema)
-    .merge(z.object({
-        center1: z.string().optional(),
-        center2: z.string().optional(),
-        center3: z.string().optional(),
-    }))
+    .merge(centerChoiceSchema.partial()) // Make centers optional initially
     .merge(uploadSchema)
-    .merge(paymentSchema.partial());
+    .merge(paymentSchema.partial()); // Make payment optional
 
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -99,9 +100,9 @@ export default function ScholarshipApplyPage() {
     resolver: async (data, context, options) => {
         let currentSchema;
         if (data.examMode === 'offline') {
-            currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(centerChoiceSchema).merge(uploadSchema);
+            currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(centerChoiceSchema).merge(uploadSchema.partial());
         } else {
-             currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(paymentSchema).merge(uploadSchema);
+            currentSchema = personalInfoSchema.merge(academicInfoSchema).merge(examModeSchema).merge(paymentSchema).merge(uploadSchema.partial());
         }
         return zodResolver(currentSchema)(data, context, options);
     },
@@ -117,7 +118,6 @@ export default function ScholarshipApplyPage() {
       school: '',
       previousMarks: 0,
       examMode: 'offline',
-      paymentMobileNumber: '',
     }
   });
 
@@ -226,7 +226,7 @@ export default function ScholarshipApplyPage() {
         center1: data.center1,
         center2: data.center2,
         center3: data.center3,
-        status: data.examMode === 'online' ? 'submitted' : 'approved', // Auto-approve offline
+        status: data.examMode === 'offline' ? 'approved' : 'submitted', // Auto-approve offline for now
         createdAt: serverTimestamp(),
       };
       
@@ -242,6 +242,10 @@ export default function ScholarshipApplyPage() {
 
       delete applicationData.photo;
       delete applicationData.signature;
+      if (data.examMode === 'offline') {
+          delete applicationData.paymentMobileNumber;
+      }
+
 
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
       
