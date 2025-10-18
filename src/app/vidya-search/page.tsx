@@ -10,6 +10,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
 
 type SearchResultItem = {
     type: 'enrollment' | 'order' | 'link' | 'ai' | 'vidya';
