@@ -23,7 +23,6 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 45 93% 47%;
-    --radius: 0.5rem;
   }
  
   .dark {
@@ -67,9 +66,10 @@
             background-position: -200% center;
         }
     }
-    .animated-gradient {
+    .animated-sidebar-gradient {
+        background-image: linear-gradient(to right, #000000, #1f0000, #2b0b0b, #341414, #2b0b0b, #1f0000, #000000);
         background-size: 200%;
-        animation: background-pan 10s linear infinite;
+        animation: background-pan 15s linear infinite;
     }
 }
     

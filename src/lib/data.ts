@@ -19,7 +19,6 @@ import {
   Rss,
   Shield,
   Bot,
-  Swords,
   ShoppingBag,
   BadgePercent,
   HelpCircle,
@@ -75,8 +74,8 @@ export const dashboardItems: DashboardItem[] = [
     icon: Bot,
   },
   {
-    title: 'News',
-    href: '#',
+    title: 'Previous Papers',
+    href: '/previous-papers',
     icon: Newspaper,
   },
 ];

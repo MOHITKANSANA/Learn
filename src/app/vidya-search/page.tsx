@@ -2,34 +2,26 @@
 
 'use client';
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { performSearch, State } from '@/app/vidya-search/actions';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, Youtube, Info, GraduationCap, FileText } from 'lucide-react';
+import { Card, CardTitle } from '@/components/ui/card';
+import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} size="lg">
-      {pending ? (
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-      ) : (
-        <Search className="mr-2 h-5 w-5" />
-      )}
-      Search
-    </Button>
-  );
+type SearchResultItem = {
+    type: 'enrollment' | 'order' | 'link' | 'ai' | 'vidya';
+    title: string;
+    description: string;
+    link?: string;
+    imageUrl?: string | null;
+    data?: any;
+    score?: number;
 }
 
-function ResultIcon({ type }: { type: State['results'][0]['type'] }) {
+function ResultIcon({ type }: { type: SearchResultItem['type'] }) {
     switch (type) {
         case 'ai': return <Bot className="h-6 w-6 text-purple-400" />;
         case 'vidya':
@@ -42,15 +34,51 @@ function ResultIcon({ type }: { type: State['results'][0]['type'] }) {
 
 
 export default function VidyaSearchPage() {
-  const [state, formAction] = useActionState(performSearch, {});
+  const [searchQuery, setSearchQuery] = useState('');
   const firestore = useFirestore();
 
-  const defaultResultsQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'vidya_search_data'), orderBy('createdAt', 'desc'), limit(5)) : null,
+  const allSearchDataQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'vidya_search_data'), orderBy('createdAt', 'desc')) : null,
     [firestore]
   );
-  const { data: defaultResults, isLoading } = useCollection(defaultResultsQuery);
+  const { data: allData, isLoading } = useCollection(allSearchDataQuery);
 
+  const filteredResults = useMemo(() => {
+    if (!searchQuery) {
+        return allData;
+    }
+    if (!allData) {
+        return [];
+    }
+
+    const lowercasedQuery = searchQuery.toLowerCase();
+    
+    return allData
+        .map(item => {
+            const title = item.title?.toLowerCase() || '';
+            const description = item.description?.toLowerCase() || '';
+            let score = 0;
+
+            if (title.includes(lowercasedQuery)) score += 5;
+            if (description.includes(lowercasedQuery)) score += 2;
+            
+            const queryTerms = lowercasedQuery.split(' ').filter(t => t.length > 2);
+            queryTerms.forEach(term => {
+                if (title.includes(term)) score += 2;
+                if (description.includes(term)) score += 1;
+            });
+            
+            // Special check for 5-digit IDs
+            if (/^\d{5}$/.test(searchQuery) && item.id.startsWith(searchQuery)) {
+                score += 100;
+            }
+
+            return { ...item, score };
+        })
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+  }, [searchQuery, allData]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -69,105 +97,49 @@ export default function VidyaSearchPage() {
         </p>
       </div>
 
-      <form action={formAction} className="flex items-center gap-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           name="query"
           placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
-          className="text-base h-12 flex-grow"
-          required
+          className="text-base h-12 pl-10"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <SubmitButton />
-      </form>
-       
-      <div className="flex justify-center flex-wrap gap-4 text-sm">
-        <Link href="https://chat.openai.com" target="_blank" className="flex items-center gap-1.5 text-blue-400 hover:underline">
-            <Bot className="h-4 w-4"/> ChatGPT
-        </Link>
-        <Link href="https://youtube.com" target="_blank" className="flex items-center gap-1.5 text-red-500 hover:underline">
-            <Youtube className="h-4 w-4" /> YouTube
-        </Link>
-        <Link href="https://gemini.google.com/" target="_blank" className="flex items-center gap-1.5 text-purple-400 hover:underline">
-            <GraduationCap className="h-4 w-4" /> Gemini
-        </Link>
-         <Link href="https://google.com" target="_blank" className="flex items-center gap-1.5 text-green-500 hover:underline">
-            <Search className="h-4 w-4" /> Google
-        </Link>
       </div>
-
-
-       {state.results && (
+       
+      {isLoading ? <Loader2 className="mx-auto animate-spin" /> :
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Search Results for "{state.query}"</h2>
-            {state.results.map((result, index) => (
-                <Card key={index} className="bg-card/70 hover:bg-card/90 transition-colors">
-                     <div className="p-4 flex gap-4">
-                        {result.imageUrl ? (
-                             <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
-                        ) : (
-                             <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
-                                <ResultIcon type={result.type}/>
-                            </div>
-                        )}
-                        <div className="flex-grow">
-                            <CardTitle className="text-lg mb-1">{result.title}</CardTitle>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{result.description}</p>
-                            {result.link && (
-                                <Button asChild variant="link" className="px-0 h-auto pt-1">
-                                    <Link href={result.link} target="_blank" rel="noopener noreferrer">
-                                        Visit Link <LinkIcon className="ml-2 h-4 w-4"/>
-                                    </Link>
-                                </Button>
+            {filteredResults && filteredResults.length > 0 ? (
+                filteredResults.map((result, index) => (
+                    <Card key={result.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
+                         <div className="p-4 flex gap-4">
+                            {result.imageUrl ? (
+                                 <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
+                            ) : (
+                                 <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
+                                    <ResultIcon type={'vidya'}/>
+                                </div>
                             )}
+                            <div className="flex-grow">
+                                <CardTitle className="text-lg mb-1">{result.title}</CardTitle>
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{result.description}</p>
+                                {result.link && (
+                                    <Button asChild variant="link" className="px-0 h-auto pt-1">
+                                        <Link href={result.link} target="_blank" rel="noopener noreferrer">
+                                            Visit Link <LinkIcon className="ml-2 h-4 w-4"/>
+                                        </Link>
+                                    </Button>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </Card>
-            ))}
+                    </Card>
+                ))
+            ) : (
+                <p className="text-center text-muted-foreground py-10">No results found.</p>
+            )}
         </div>
-      )}
-
-      {!state.results && !state.error && (isLoading ? <Loader2 className="mx-auto animate-spin" /> : 
-        defaultResults && defaultResults.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Trending Topics</h2>
-             {defaultResults.map((result, index) => (
-                <Card key={index} className="bg-card/70 hover:bg-card/90 transition-colors">
-                     <div className="p-4 flex gap-4">
-                        {result.imageUrl ? (
-                             <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
-                        ) : (
-                             <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
-                                <ResultIcon type={'vidya'}/>
-                            </div>
-                        )}
-                        <div className="flex-grow">
-                            <CardTitle className="text-lg mb-1">{result.title}</CardTitle>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{result.description}</p>
-                            {result.link && (
-                                <Button asChild variant="link" className="px-0 h-auto pt-1">
-                                    <Link href={result.link} target="_blank" rel="noopener noreferrer">
-                                        Visit Link <LinkIcon className="ml-2 h-4 w-4"/>
-                                    </Link>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </Card>
-            ))}
-          </div>
-        )
-      )}
-
-      {state.error && (
-         <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
-           <CardHeader>
-             <CardTitle>Search Error</CardTitle>
-           </CardHeader>
-           <CardContent>
-            <p>{state.error}</p>
-           </CardContent>
-        </Card>
-      )}
-
+      }
     </div>
   );
 }
