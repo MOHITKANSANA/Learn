@@ -143,7 +143,7 @@ export default function ScholarshipApplyPage() {
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(currentStep + 1);
     }
   };
 
@@ -167,6 +167,11 @@ export default function ScholarshipApplyPage() {
   const onSubmit = async (data: z.infer<typeof combinedSchema>) => {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
+      return;
+    }
+
+    if (fee === undefined) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Fee is not defined. Cannot proceed with payment.' });
       return;
     }
     
