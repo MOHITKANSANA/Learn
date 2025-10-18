@@ -114,6 +114,11 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     icon: MessageCircle,
   },
   {
+    title: 'Vidya Search',
+    href: '/vidya-search',
+    icon: Bot,
+  },
+  {
     title: 'Book Shala',
     href: '/book-shala',
     icon: Book,
@@ -152,16 +157,6 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'Previous Papers',
     href: '/previous-papers',
     icon: Newspaper,
-  },
-  {
-    title: 'News',
-    href: '#',
-    icon: Newspaper,
-  },
-  {
-    title: 'GoLingua',
-    href: '#',
-    icon: Languages,
   },
   {
       title: 'Admin',

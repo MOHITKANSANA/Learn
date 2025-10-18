@@ -42,7 +42,7 @@ export function MobileSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-0 bg-background animated-gradient bg-gradient-to-br from-background via-card to-background">
+      <SidebarContent className="p-0 animated-gradient bg-gradient-to-br from-red-500 via-green-500 to-red-500">
         <SidebarMenu className="gap-0">
           {sidebarNavItems.map((item) => {
             const isActive = pathname === item.href;
@@ -50,7 +50,7 @@ export function MobileSidebar() {
             <SidebarMenuItem key={item.title} className="p-0">
               <SidebarMenuButton
                 asChild
-                className={`h-auto rounded-none p-4 justify-start ${isActive ? 'bg-primary/20 text-primary font-bold' : 'font-normal'}`}
+                className={`h-auto rounded-none p-4 justify-start ${isActive ? 'bg-primary/80 text-primary-foreground font-bold' : 'font-normal text-white'}`}
                 isActive={isActive}
                 onClick={handleLinkClick}
               >

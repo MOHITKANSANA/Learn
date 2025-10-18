@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ai } from '@/ai/genkit';
 import { getFirestore as getFirestoreAdmin } from 'firebase-admin/firestore';
 import { initializeApp as initializeAdminApp, getApps as getAdminApps, type App as AdminApp } from 'firebase-admin/app';
+import { credential } from 'firebase-admin';
 
 
 const SearchSchema = z.object({
@@ -29,24 +30,21 @@ export type State = {
 };
 
 
-// Define a tool for Genkit to get the Firestore instance
-const getFirestore = ai.defineTool(
-    {
-        name: 'getFirestore',
-        description: 'Get the Firestore database instance to perform queries.',
-        inputSchema: z.object({}),
-        outputSchema: z.any(),
-    },
-    async () => {
-        let adminApp: AdminApp;
-        if (!getAdminApps().length) {
-             adminApp = initializeAdminApp();
-        } else {
-            adminApp = getAdminApps()[0];
-        }
-        return getFirestoreAdmin(adminApp);
+// Initialize Firebase Admin SDK
+function getAdmin() {
+    if (getAdminApps().length > 0) {
+        return getAdminApps()[0];
     }
-);
+
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountKey) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not set in the environment variables.');
+    }
+
+    return initializeAdminApp({
+        credential: credential.cert(JSON.parse(serviceAccountKey)),
+    });
+}
 
 
 const searchFlow = ai.defineFlow(
@@ -59,46 +57,19 @@ const searchFlow = ai.defineFlow(
         }
     },
     async (searchQuery) => {
-        const firestore = await getFirestore({});
+        const adminApp = getAdmin();
+        if (!adminApp) {
+            throw new Error("Admin SDK not initialized");
+        }
+        const firestore = getFirestoreAdmin(adminApp);
         let results: SearchResultItem[] = [];
 
         try {
             const isFiveDigitId = /^\d{5}$/.test(searchQuery);
             if (isFiveDigitId) {
-                const enrollmentRef = firestore.collection('enrollments').doc(searchQuery);
-                const orderRef = firestore.collection('bookOrders').doc(searchQuery);
-                const appRef = firestore.collection('scholarshipApplications').doc(searchQuery);
+                 const appRef = firestore.collection('scholarshipApplications').doc(searchQuery);
+                 const [appDoc] = await Promise.all([appRef.get()]);
 
-                const [enrollmentDoc, orderDoc, appDoc] = await Promise.all([
-                    enrollmentRef.get(),
-                    orderRef.get(),
-                    appRef.get()
-                ]);
-
-                if (enrollmentDoc.exists) {
-                    const enrollment = enrollmentDoc.data();
-                    if (enrollment) {
-                        results.push({
-                            type: 'enrollment',
-                            title: `Enrollment Details: ${enrollment.itemName}`,
-                            description: `ID: ${enrollment.id}\nStatus: ${enrollment.isApproved ? 'Approved' : 'Pending'}\nRequested On: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
-                            data: enrollment,
-                            score: 100
-                        });
-                    }
-                }
-                if (orderDoc.exists) {
-                    const bookOrder = orderDoc.data();
-                     if (bookOrder) {
-                        results.push({
-                            type: 'order',
-                            title: `Book Order Details: ${bookOrder.bookTitle}`,
-                            description: `ID: ${bookOrder.id}\nStatus: ${bookOrder.status}\nOrdered On: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
-                            data: bookOrder,
-                            score: 100
-                        });
-                    }
-                }
                  if (appDoc.exists) {
                     const appData = appDoc.data();
                      if (appData) {
@@ -110,37 +81,66 @@ const searchFlow = ai.defineFlow(
                             score: 100
                         });
                     }
+                } else {
+                     const enrollmentRef = firestore.collection('enrollments').where('id', '>=', searchQuery).where('id', '<', searchQuery + 'z').limit(1);
+                     const orderRef = firestore.collection('bookOrders').where('id', '>=', searchQuery).where('id', '<', searchQuery + 'z').limit(1);
+
+                     const [enrollmentSnapshot, orderSnapshot] = await Promise.all([enrollmentRef.get(), orderRef.get()]);
+
+                     if (!enrollmentSnapshot.empty) {
+                        const enrollment = enrollmentSnapshot.docs[0].data();
+                        results.push({
+                            type: 'enrollment',
+                            title: `Enrollment Details: ${enrollment.itemName}`,
+                            description: `ID: ${enrollment.id.substring(0,5)}\nStatus: ${enrollment.isApproved ? 'Approved' : 'Pending'}\nRequested On: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
+                            data: enrollment,
+                            score: 100
+                        });
+                     }
+                      if (!orderSnapshot.empty) {
+                        const bookOrder = orderSnapshot.docs[0].data();
+                        results.push({
+                            type: 'order',
+                            title: `Book Order Details: ${bookOrder.bookTitle}`,
+                            description: `ID: ${bookOrder.id.substring(0,5)}\nStatus: ${bookOrder.status}\nOrdered On: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
+                            data: bookOrder,
+                            score: 100
+                        });
+                     }
                 }
             }
             
-            const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
-            const vidyaSearchSnapshot = await firestore.collection('vidya_search_data').get();
-            
-            vidyaSearchSnapshot.forEach(doc => {
-                const data = doc.data();
-                const title = data.title?.toLowerCase() || '';
-                const description = data.description?.toLowerCase() || '';
+            const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 2);
+            if(searchTerms.length > 0) {
+                const vidyaSearchSnapshot = await firestore.collection('vidya_search_data').get();
                 
-                let score = 0;
-                 searchTerms.forEach(term => {
-                    if (title.includes(term)) score += 2; // Higher weight for title match
-                    if (description.includes(term)) score += 1;
-                });
+                vidyaSearchSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const title = data.title?.toLowerCase() || '';
+                    const description = data.description?.toLowerCase() || '';
+                    
+                    let score = 0;
+                     searchTerms.forEach(term => {
+                        if (title.includes(term)) score += 2; // Higher weight for title match
+                        if (description.includes(term)) score += 1;
+                    });
 
-                if (score > 0) {
-                     if (!results.some(r => r.data?.id === data.id)) {
-                        results.push({
-                            type: 'vidya',
-                            title: data.title,
-                            description: data.description,
-                            link: data.link,
-                            imageUrl: data.imageUrl,
-                            score: score,
-                            data: data,
-                        });
+                    if (score > 0) {
+                         if (!results.some(r => r.data?.id === data.id)) {
+                            results.push({
+                                type: 'vidya',
+                                title: data.title,
+                                description: data.description,
+                                link: data.link,
+                                imageUrl: data.imageUrl,
+                                score: score,
+                                data: data,
+                            });
+                        }
                     }
-                }
-            });
+                });
+            }
+
 
             return results;
         } catch (error) {
@@ -175,7 +175,7 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     
     const uniqueResults = results.filter((item, index, self) => 
         index === self.findIndex(t => (
-            t.data?.id === item.data?.id
+            (t.data?.id && t.data?.id === item.data?.id) || t.title === item.title
         ))
     );
 
