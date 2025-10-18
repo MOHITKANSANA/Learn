@@ -4,7 +4,9 @@
 
 import { z } from 'zod';
 import { ai } from '@/ai/genkit';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore as getFirestoreAdmin } from 'firebase-admin/firestore';
+import { initializeApp as initializeAdminApp, getApps as getAdminApps, type App as AdminApp } from 'firebase-admin/app';
+
 
 const SearchSchema = z.object({
   query: z.string().min(1, 'Search query cannot be empty.'),
@@ -17,7 +19,6 @@ type SearchResultItem = {
     link?: string;
     imageUrl?: string | null;
     data?: any;
-    // Add a score for relevance ranking
     score?: number;
 }
 
@@ -27,27 +28,48 @@ export type State = {
   query?: string;
 };
 
-// This Genkit flow will run on the server and has access to the admin environment
+// Define a tool for Genkit to get the Firestore instance
+const getFirestore = ai.defineTool(
+    {
+        name: 'getFirestore',
+        description: 'Get the Firestore database instance to perform queries.',
+        inputSchema: z.object({}),
+        outputSchema: z.any(),
+    },
+    async () => {
+        let adminApp: AdminApp;
+        if (!getAdminApps().length) {
+            // This will use the default credentials on the server environment.
+            adminApp = initializeAdminApp();
+        } else {
+            adminApp = getAdminApps()[0];
+        }
+        return getFirestoreAdmin(adminApp);
+    }
+);
+
+
 const searchFlow = ai.defineFlow(
     {
         name: 'vidyaSearchInternal',
         inputSchema: z.string(),
-        outputSchema: z.array(z.any()), // Keep it flexible for internal use
+        outputSchema: z.array(z.any()),
     },
     async (searchQuery) => {
-        const firestore = getFirestore();
+        const firestore = await getFirestore({});
         let results: SearchResultItem[] = [];
 
         try {
-            // 1. Search for 5-digit IDs (Orders/Enrollments)
             const isFiveDigitId = /^\d{5}$/.test(searchQuery);
             if (isFiveDigitId) {
                 const enrollmentRef = firestore.collection('enrollments').doc(searchQuery);
                 const orderRef = firestore.collection('bookOrders').doc(searchQuery);
+                const appRef = firestore.collection('scholarshipApplications').doc(searchQuery);
 
-                const [enrollmentDoc, orderDoc] = await Promise.all([
+                const [enrollmentDoc, orderDoc, appDoc] = await Promise.all([
                     enrollmentRef.get(),
                     orderRef.get(),
+                    appRef.get()
                 ]);
 
                 if (enrollmentDoc.exists) {
@@ -74,9 +96,20 @@ const searchFlow = ai.defineFlow(
                         });
                     }
                 }
+                 if (appDoc.exists) {
+                    const appData = appDoc.data();
+                     if (appData) {
+                        results.push({
+                            type: 'order', // Using 'order' type for display purposes
+                            title: `Scholarship Application: ${appData.fullName}`,
+                            description: `ID: ${appData.id}\nStatus: ${appData.status}\nMode: ${appData.examMode}`,
+                            data: appData,
+                            score: 100
+                        });
+                    }
+                }
             }
             
-            // 2. Perform text search on vidya_search_data
             const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
             const vidyaSearchSnapshot = await firestore.collection('vidya_search_data').get();
             
@@ -86,8 +119,8 @@ const searchFlow = ai.defineFlow(
                 const description = data.description?.toLowerCase() || '';
                 
                 let score = 0;
-                searchTerms.forEach(term => {
-                    if (title.includes(term)) score += 2;
+                 searchTerms.forEach(term => {
+                    if (title.includes(term)) score += 2; // Higher weight for title match
                     if (description.includes(term)) score += 1;
                 });
 
@@ -109,7 +142,6 @@ const searchFlow = ai.defineFlow(
             return results;
         } catch (error) {
             console.error('Internal Search Flow Error:', error);
-            // In a real app, you might want more specific error handling
             throw new Error('Failed to execute search in the database.');
         }
     }
@@ -136,10 +168,8 @@ export async function performSearch(prevState: State, formData: FormData): Promi
       return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला।', query: searchQuery };
     }
 
-    // Sort results by score (descending)
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
     
-    // Remove duplicates
     const uniqueResults = results.filter((item, index, self) => 
         index === self.findIndex(t => (
             t.data?.id === item.data?.id
@@ -150,7 +180,6 @@ export async function performSearch(prevState: State, formData: FormData): Promi
 
   } catch (error) {
     console.error('Search failed:', error);
-    // This is the user-facing error.
     return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query: searchQuery };
   }
 }
