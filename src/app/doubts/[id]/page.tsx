@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -207,21 +205,18 @@ export default function DoubtRoomPage() {
                             <Image src={doubt.imageUrl} alt="Doubt image" width={400} height={300} className="rounded-md object-contain" />
                         </div>
                     )}
-                    <CardDescription className="pt-4 flex gap-6">
+                    <CardDescription className="pt-4 flex items-center gap-6">
                        <Button variant="ghost" size="sm" onClick={handleLikeDoubt} className={`h-auto p-1 text-sm ${isLiked ? 'text-primary' : 'text-muted-foreground'}`}>
                             <ThumbsUp className={`mr-2 h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                             {doubt.likes?.length || 0} Likes
                         </Button>
-                        <div className="flex items-center gap-2 text-muted-foreground">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
                              <MessageSquare className="h-4 w-4"/> {doubt.commentCount || 0} Replies
                         </div>
-                    </CardDescription>
-                    <div className="mt-4">
-                        <Button onClick={handleReDoubt} variant="destructive" size="sm" className="bg-green-600 hover:bg-green-700">
+                         <Button onClick={handleReDoubt} variant="outline" size="sm" className="ml-auto">
                             Re-Doubt on WhatsApp
                         </Button>
-                    </div>
-
+                    </CardDescription>
                 </CardHeader>
                 <CommentSection doubtId={doubtId} />
             </Card>

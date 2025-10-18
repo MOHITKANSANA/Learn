@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -28,12 +27,12 @@ export function MobileSidebar() {
     setOpenMobile(false);
   }
 
-  const referLink = `https://wa.me/?text=${encodeURIComponent('Check out this awesome learning app! [Your App Link Here]')}`;
+  const referLink = `/refer`;
 
   return (
     <Sidebar side="left" collapsible="offcanvas">
-      <SidebarContent className="p-0 flex flex-col bg-card">
-         <div className='p-4'>
+       <SidebarContent className="p-0 flex flex-col bg-slate-900 text-white">
+         <div className='p-4 bg-gradient-to-br from-red-500/30 to-green-500/30'>
             <div className="flex items-center gap-4">
             <Avatar className="h-12 w-12">
                 <AvatarImage src={user?.photoURL || "https://picsum.photos/seed/user/100/100"} />
@@ -68,7 +67,7 @@ export function MobileSidebar() {
         </div>
         <SidebarFooter className="p-4 mt-auto">
             <Button asChild className="w-full bg-yellow-500 hover:bg-yellow-600 text-black justify-center">
-                <Link href={referLink} target="_blank">
+                <Link href={referLink}>
                     <Gift className="mr-2 h-4 w-4" /> Refer & Earn
                 </Link>
             </Button>

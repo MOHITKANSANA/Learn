@@ -1,15 +1,15 @@
 
-
 'use client';
 
-import { useState, useMemo, useActionState } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink } from 'lucide-react';
+import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink, Brain, FileQuestion } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { performSearch, State as SearchState } from './actions';
 import { Button } from '@/components/ui/button';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 type SearchResultItem = {
     type: 'enrollment' | 'order' | 'link' | 'ai' | 'vidya';
@@ -33,27 +33,44 @@ function ResultIcon({ type }: { type: SearchResultItem['type'] }) {
 }
 
 const quickLinks = [
-    { name: 'ChatGPT', url: 'https://chat.openai.com' },
-    { name: 'YouTube', url: 'https://youtube.com' },
-    { name: 'Gemini', url: 'https://gemini.google.com' },
-    { name: 'Google', url: 'https://google.com' },
-    { name: 'Quora', url: 'https://quora.com' },
+    { name: 'Brainly', url: 'https://brainly.in', icon: Brain },
+    { name: 'Quora', url: 'https://quora.com', icon: FileQuestion },
+    { name: 'YouTube', url: 'https://youtube.com', icon: Bot },
+    { name: 'Google', url: 'https://google.com', icon: Search },
+    { name: 'Doubtnut', url: 'https://www.doubtnut.com/', icon: HelpCircle },
+    { name: 'Physics Wallah', url: 'https://www.pw.live/', icon: GraduationCap },
 ];
 
+// Function to shuffle an array
+const shuffleArray = (array: any[]) => {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+    return array;
+};
+
 export default function VidyaSearchPage() {
-  const [state, formAction] = useActionState(performSearch, { results: [] });
   const [searchTerm, setSearchTerm] = useState('');
+  const firestore = useFirestore();
+  const searchDataQuery = useMemoFirebase(() => firestore ? collection(firestore, 'vidya_search_data') : null, [firestore]);
+  const { data: allSearchData, isLoading } = useCollection(searchDataQuery);
+
+  const displayedQuickLinks = useMemo(() => shuffleArray([...quickLinks]).slice(0, 6), []);
 
   const filteredResults = useMemo(() => {
+    if (!allSearchData) return [];
     if (!searchTerm) {
-      return state.results || [];
+      return allSearchData;
     }
     const lowercasedTerm = searchTerm.toLowerCase();
-    return state.results?.filter(result => 
+    return allSearchData.filter(result => 
         result.title.toLowerCase().includes(lowercasedTerm) ||
         result.description.toLowerCase().includes(lowercasedTerm)
-    ) || [];
-  }, [searchTerm, state.results]);
+    );
+  }, [searchTerm, allSearchData]);
 
 
   return (
@@ -73,29 +90,25 @@ export default function VidyaSearchPage() {
         </p>
       </div>
 
-      <form action={formAction}>
-          <div className="relative">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-             <Input
-                name="query"
-                placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
-                className="text-base h-12 pl-10 pr-24"
-             />
-             <Button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2">Search</Button>
-          </div>
-      </form>
+      <div className="relative">
+         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+         <Input
+            name="query"
+            placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
+            className="text-base h-12 pl-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+         />
+      </div>
       
        <div className="space-y-4">
-           {state.results && state.results.length > 0 ? (
-                <>
-                <Input 
-                    placeholder="Filter results..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="mb-4"
-                />
-                {filteredResults.map((result, index) => (
-                    <Card key={result.data?.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
+           {isLoading ? (
+                <div className="flex justify-center p-10">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+           ) : filteredResults.length > 0 ? (
+                filteredResults.map((result, index) => (
+                    <Card key={result.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
                          <div className="p-4 flex gap-4">
                             {result.imageUrl ? (
                                  <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
@@ -117,22 +130,24 @@ export default function VidyaSearchPage() {
                             </div>
                         </div>
                     </Card>
-                ))}
-                {filteredResults.length === 0 && <p className="text-center text-muted-foreground">No results match your filter.</p>}
-                </>
-            ) : state.error ? (
-                <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
-                    <div className="p-4 text-center">{state.error}</div>
+                ))
+            ) : searchTerm ? (
+                 <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
+                    <div className="p-4 text-center">आपकी खोज के लिए कोई परिणाम नहीं मिला।</div>
                 </Card>
             ) : (
                  <div className="space-y-4">
                     <h3 className="text-center font-semibold text-muted-foreground">Quick Links</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
-                        {quickLinks.map(link => (
-                            <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer" className="block p-4 bg-card rounded-lg hover:bg-muted transition-colors">
-                                <p className="font-semibold">{link.name}</p>
-                            </a>
-                        ))}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
+                        {displayedQuickLinks.map(link => {
+                             const Icon = link.icon;
+                             return (
+                                <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer" className="block p-4 bg-card rounded-lg hover:bg-muted transition-colors">
+                                    <Icon className="h-8 w-8 mx-auto mb-2 text-primary" />
+                                    <p className="font-semibold">{link.name}</p>
+                                </a>
+                            )
+                        })}
                     </div>
                 </div>
             )}

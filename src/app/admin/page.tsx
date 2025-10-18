@@ -1,8 +1,6 @@
-
-
 'use client';
 
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,6 +42,9 @@ import {
   Check,
   X,
   CheckCircle,
+  Edit,
+  DollarSign,
+  Tag,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,15 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetClose
-} from "@/components/ui/sheet"
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 
 const adminNavItems = [
@@ -101,6 +110,7 @@ const adminNavItems = [
   { value: 'scholarship-management', icon: Trophy, label: 'Scholarship' },
   { value: 'add-center', icon: MapPin, label: 'Add Scholarship Center' },
   { value: 'manage-content', icon: List, label: 'Manage Content' },
+  { value: 'manage-users', icon: Users, label: 'Manage Users' },
   { value: 'app-settings', icon: Settings, label: 'App Settings' },
   { value: 'vidya-search-admin', icon: Bot, label: 'Vidya Search Admin' },
 ];
@@ -1546,6 +1556,8 @@ function AddTestSeriesForm() {
 function ManageContent() {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const [editingItem, setEditingItem] = useState<any>(null);
+    const [newPrice, setNewPrice] = useState(0);
 
     const collections = [
         { name: 'Courses', path: 'courses' },
@@ -1570,19 +1582,42 @@ function ManageContent() {
     };
 
     const handleDelete = async (collectionPath: string, docId: string, refreshFunc: () => void) => {
-        if (!firestore) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
-            return;
-        }
+        if (!firestore) return;
         try {
             await deleteDoc(doc(firestore, collectionPath, docId));
             toast({ title: 'Success', description: 'Item deleted successfully.' });
             refreshFunc();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete item.' });
-            console.error("Delete error: ", error);
         }
     };
+    
+    const handlePriceUpdate = async () => {
+        if (!firestore || !editingItem) return;
+        try {
+            const itemRef = doc(firestore, editingItem.path, editingItem.id);
+            await updateDoc(itemRef, { price: newPrice, isFree: newPrice === 0 });
+            toast({ title: 'Success', description: 'Price updated.' });
+            dataMap[editingItem.path as keyof typeof dataMap].refresh();
+            setEditingItem(null);
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update price.' });
+        }
+    };
+    
+    const handleFreeToggle = async (collectionPath: string, item: any, refreshFunc: () => void) => {
+        if (!firestore) return;
+        try {
+            const itemRef = doc(firestore, collectionPath, item.id);
+            const newIsFree = !item.isFree;
+            await updateDoc(itemRef, { isFree: newIsFree, price: newIsFree ? 0 : item.price || 0 });
+            toast({ title: 'Success', description: `Item is now ${newIsFree ? 'Free' : 'Paid'}.` });
+            refreshFunc();
+        } catch(error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
+        }
+    }
+
 
     return (
         <Tabs defaultValue="courses" className="w-full">
@@ -1596,33 +1631,47 @@ function ManageContent() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Manage {c.name}</CardTitle>
-                                <CardDescription>View and delete items from the '{c.path}' collection.</CardDescription>
+                                <CardDescription>View, edit, and delete items from the '{c.path}' collection.</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-2">
                                 {loading ? <Loader2 className="mx-auto animate-spin" /> :
                                     data && data.length > 0 ? (
-                                        data.map(item => (
-                                            <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                                                <span className="font-medium">{item.title}</span>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                            <AlertDialogDescription>This action cannot be undone. This will permanently delete the item.</AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction onClick={() => handleDelete(c.path, item.id, refresh)}>Delete</AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                            </div>
-                                        ))
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Title</TableHead>
+                                                    <TableHead>Price</TableHead>
+                                                    <TableHead>Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {data.map(item => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="font-medium">{item.title}</TableCell>
+                                                        <TableCell>
+                                                            {item.isFree ? <Badge variant="secondary">Free</Badge> : `₹${item.price}`}
+                                                        </TableCell>
+                                                        <TableCell className="flex gap-2">
+                                                            <Button variant="ghost" size="icon" onClick={() => handleFreeToggle(c.path, item, refresh)}>
+                                                                <Tag className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" onClick={() => { setEditingItem({...item, path: c.path}); setNewPrice(item.price); }}>
+                                                                <DollarSign className="h-4 w-4" />
+                                                            </Button>
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the item.</AlertDialogDescription></AlertDialogHeader>
+                                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(c.path, item.id, refresh)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
                                     ) : (
-                                        <p className="text-center text-muted-foreground py-4">No items found in this collection.</p>
+                                        <p className="text-center text-muted-foreground py-4">No items found.</p>
                                     )
                                 }
                             </CardContent>
@@ -1630,12 +1679,35 @@ function ManageContent() {
                     </TabsContent>
                 );
             })}
+             <AlertDialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Edit Price for "{editingItem?.title}"</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Enter the new price for this item. Set to 0 to make it free.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="flex items-center space-x-2">
+                        <DollarSign className="h-4 w-4" />
+                        <Input 
+                            type="number" 
+                            value={newPrice}
+                            onChange={(e) => setNewPrice(Number(e.target.value))}
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handlePriceUpdate}>Save Price</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Tabs>
     );
 }
 
 const settingsSchema = z.object({
   qrCodeImage: z.any().optional(),
+  logo: z.any().optional(),
   mobileNumber: z.string().optional(),
   upiId: z.string().optional(),
   onlineScholarshipFee: z.coerce.number().min(0).optional(),
@@ -1689,6 +1761,7 @@ function AppSettingsForm() {
       const settingsData: { 
           mobileNumber?: string; 
           qrCodeImageUrl?: string; 
+          logoUrl?: string;
           upiId?: string; 
           onlineScholarshipFee?: number,
           offlineScholarshipFee?: number,
@@ -1701,6 +1774,9 @@ function AppSettingsForm() {
 
       if (values.qrCodeImage && values.qrCodeImage.length > 0) {
         settingsData.qrCodeImageUrl = await fileToDataUrl(values.qrCodeImage[0]);
+      }
+      if (values.logo && values.logo.length > 0) {
+        settingsData.logoUrl = await fileToDataUrl(values.logo[0]);
       }
       
       const docRef = doc(firestore, 'settings', 'payment');
@@ -1717,6 +1793,23 @@ function AppSettingsForm() {
     <Form {...form}>
       {isLoading ? <Loader2 className="animate-spin" /> :
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+         <FormField
+          control={form.control}
+          name="logo"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>App Logo (for Splash Screen)</FormLabel>
+              <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {settings?.logoUrl && (
+            <div>
+                <p className="text-sm font-medium mb-2">Current Logo:</p>
+                <Image src={settings.logoUrl} alt="Current App Logo" width={100} height={100} className="rounded-md border bg-white p-2"/>
+            </div>
+        )}
         <FormField
           control={form.control}
           name="mobileNumber"
@@ -2166,7 +2259,7 @@ function AddCenterForm() {
                         <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
-                 <h3 className="font-semibold pt-4 border-t">Result & Admit Card Schedule</h3>
+                 <h3 className="font-semibold pt-4 border-t">Result &amp; Admit Card Schedule</h3>
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="admitCardDate" render={({ field }) => (
                         <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
@@ -2184,6 +2277,50 @@ function AddCenterForm() {
     );
 }
 
+function ManageUsers() {
+    const firestore = useFirestore();
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), orderBy('name')) : null, [firestore]);
+    const { data: users, isLoading } = useCollection(usersQuery);
+
+    if (isLoading) {
+        return <div className="flex justify-center items-center"><Loader2 className="animate-spin" /></div>;
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>View all registered users.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Last Sign In</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {users && users.length > 0 ? users.map(user => (
+                            <TableRow key={user.id}>
+                                <TableCell className="font-medium">{user.name}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                 <TableCell>{user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime).toLocaleString() : 'N/A'}</TableCell>
+                            </TableRow>
+                        )) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center">No users found.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
+
 const componentMap: { [key: string]: React.FC } = {
   'add-course': CreateCourseForm,
   'add-content': AddContentForm,
@@ -2200,6 +2337,7 @@ const componentMap: { [key: string]: React.FC } = {
   'scholarship-management': ScholarshipManagement,
   'add-center': AddCenterForm,
   'manage-content': ManageContent,
+  'manage-users': ManageUsers,
   'app-settings': AppSettingsForm,
   'vidya-search-admin': VidyaSearchAdmin,
 };

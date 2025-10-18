@@ -1,5 +1,4 @@
 
-
 import type { LucideIcon } from 'lucide-react';
 import { 
   BookOpenCheck,
@@ -35,7 +34,7 @@ type DashboardItem = {
 
 export const dashboardItems: DashboardItem[] = [
   {
-    title: 'Paid Courses',
+    title: 'Courses',
     href: '/courses',
     icon: BookOpenCheck,
   },
@@ -65,7 +64,7 @@ export const dashboardItems: DashboardItem[] = [
     icon: Library,
   },
    {
-    title: 'Learn with Munendra',
+    title: 'Doubt Forum',
     href: '/doubts',
     icon: MessageCircle,
   },

@@ -18,7 +18,6 @@ import { getAuth } from 'firebase/auth';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
-  profileImage: z.any().optional(),
 });
 
 export default function ProfilePage() {
@@ -27,7 +26,6 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [theme, setTheme] = useState('dark');
-  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -50,25 +48,6 @@ export default function ProfilePage() {
     document.documentElement.className = newTheme;
   }
 
-  const fileToDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-        form.setValue('profileImage', event.target.files);
-        const previewUrl = await fileToDataUrl(file);
-        setNewImagePreview(previewUrl);
-    }
-  }
-
-
   async function onSubmit(values: z.infer<typeof profileSchema>) {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to update your profile.' });
@@ -81,30 +60,17 @@ export default function ProfilePage() {
       const auth = getAuth();
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("User not found");
-
-      let imageUrl = user.photoURL;
-
-      // Upload and update image if a new one is selected
-      if (values.profileImage && values.profileImage.length > 0) {
-        imageUrl = await fileToDataUrl(values.profileImage[0]);
-      }
       
-      // Update profile in Firebase Auth
       await updateProfile(currentUser, {
         displayName: values.name,
-        photoURL: imageUrl,
       });
 
-      // Update user document in Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
       await updateDoc(userDocRef, {
         name: values.name,
-        profileImageUrl: imageUrl,
       });
 
       toast({ title: 'Success!', description: 'Your profile has been updated.' });
-       // Reset preview after successful submission
-      setNewImagePreview(null);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Update Failed', description: error.message || 'An unexpected error occurred.' });
     } finally {
@@ -137,21 +103,9 @@ export default function ProfilePage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="flex flex-col items-center space-y-4">
                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={newImagePreview || user.photoURL || ''} alt={user.displayName || 'User'} />
+                    <AvatarImage src={user.photoURL || ''} alt={user.displayName || 'User'} />
                     <AvatarFallback><UserIcon className="h-12 w-12" /></AvatarFallback>
                 </Avatar>
-                 <FormField
-                    control={form.control}
-                    name="profileImage"
-                    render={({ field }) => (
-                        <FormItem>
-                         <FormControl>
-                            <Input type="file" accept="image/*" className="text-xs" onChange={handleImageChange} />
-                         </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
               </div>
 
               <FormField
