@@ -85,9 +85,9 @@ export const dashboardItems: DashboardItem[] = [
     icon: Library,
   },
   {
-    title: 'My Orders',
-    href: '/my-orders',
-    icon: ShoppingBag,
+    title: 'E-books',
+    href: '/ebooks',
+    icon: Book,
   },
   {
     title: 'Motivation',
