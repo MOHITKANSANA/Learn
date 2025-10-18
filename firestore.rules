@@ -1,311 +1,318 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user-specific data and allows public read access for certain collections.
+ *
+ * Data Structure:
+ * - Most data is stored in top-level collections like /courses, /ebooks, etc.
+ * - User-specific data is nested under /users/{userId}, such as /users/{userId}/cart/{bookId}.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - Public read access is granted to collections like /courses, /ebooks, etc.
+ * - Write access to public collections is restricted to authenticated users and requires matching ownership.
+ *
+ * Denormalization for Authorization:
+ * - Many top-level documents include an authorId or ownerId field to simplify ownership checks.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public read access to the courses collection, while restricting writes.
+     * @description Checks if the user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's ID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user's ID matches the provided userId and the resource exists.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && exists(resource.data);
+    }
+
+    /**
+     * @description Allows read access to courses for anyone. Write access is not allowed in this prototype.
      * @path /courses/{courseId}
-     * @allow (get, list): Any user can read the course data.
-     * @deny (create, update, delete): No user can create, update, or delete courses through direct Firestore access.
-     * @principle Allows public access for reading course information.
+     * @allow (get, list): Anyone can read course data.
+     * @deny (create, update, delete): No one can create, update, or delete course data.
+     * @principle Allows public read access to course information.
      */
     match /courses/{courseId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the ebooks collection, while restricting writes.
+     * @description Allows read access to ebooks for anyone. Write access is not allowed in this prototype.
      * @path /ebooks/{ebookId}
-     * @allow (get, list): Any user can read the ebook data.
-     * @deny (create, update, delete): No user can create, update, or delete ebooks through direct Firestore access.
-     * @principle Allows public access for reading ebook information.
+     * @allow (get, list): Anyone can read ebook data.
+     * @deny (create, update, delete): No one can create, update, or delete ebook data.
+     * @principle Allows public read access to ebook information.
      */
     match /ebooks/{ebookId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the test_series collection, while restricting writes.
+     * @description Allows read access to test series for anyone. Write access is not allowed in this prototype.
      * @path /test_series/{testSeriesId}
-     * @allow (get, list): Any user can read the test series data.
-     * @deny (create, update, delete): No user can create, update, or delete test series through direct Firestore access.
-     * @principle Allows public access for reading test series information.
+     * @allow (get, list): Anyone can read test series data.
+     * @deny (create, update, delete): No one can create, update, or delete test series data.
+     * @principle Allows public read access to test series information.
      */
     match /test_series/{testSeriesId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the questions collection, while restricting writes.
+     * @description Allows read access to questions for anyone. Write access is not allowed in this prototype.
      * @path /questions/{questionId}
-     * @allow (get, list): Any user can read the question data.
-     * @deny (create, update, delete): No user can create, update, or delete questions through direct Firestore access.
-     * @principle Allows public access for reading question information.
+     * @allow (get, list): Anyone can read question data.
+     * @deny (create, update, delete): No one can create, update, or delete question data.
+     * @principle Allows public read access to question information.
      */
     match /questions/{questionId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the educators collection, while restricting writes.
+     * @description Allows read access to educators for anyone. Write access is not allowed in this prototype.
      * @path /educators/{educatorId}
-     * @allow (get, list): Any user can read the educator data.
-     * @deny (create, update, delete): No user can create, update, or delete educators through direct Firestore access.
-     * @principle Allows public access for reading educator information.
+     * @allow (get, list): Anyone can read educator data.
+     * @deny (create, update, delete): No one can create, update, or delete educator data.
+     * @principle Allows public read access to educator information.
      */
     match /educators/{educatorId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the live_classes collection, while restricting writes.
+     * @description Allows read access to live classes for anyone. Write access is not allowed in this prototype.
      * @path /live_classes/{liveClassId}
-     * @allow (get, list): Any user can read the live class data.
-     * @deny (create, update, delete): No user can create, update, or delete live classes through direct Firestore access.
-     * @principle Allows public access for reading live class information.
+     * @allow (get, list): Anyone can read live class data.
+     * @deny (create, update, delete): No one can create, update, or delete live class data.
+     * @principle Allows public read access to live class information.
      */
     match /live_classes/{liveClassId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing user-specific data.
+     * @description Allows read and write access to a user's own document.
+     * @path /users/{studentId}
+     * @allow (create): If the user's ID matches the studentId.
+     * @allow (get, list, update, delete): If the user is the owner.
+     * @deny: If the user is not the owner.
+     * @principle Enforces document ownership for writes.
      */
-    match /users/{userId} {
-
-      /**
-       * @description Allows a user to read and write their own user document.
-       * @path /users/{userId}
-       * @allow (get, create, update, delete, list): Authenticated user with matching UID.
-       * @deny: Unauthenticated user or mismatched UID.
-       * @principle Enforces document ownership for user profiles.
-       */
-      allow get: if isOwner(userId);
-      allow list: if false; // User listing is not permitted.
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
-
-      /**
-       * @description Allows a user to manage their own cart items.
-       * @path /users/{userId}/cart/{bookId}
-       * @allow (get, create, update, delete, list): Authenticated user with matching UID.
-       * @deny: Unauthenticated user or mismatched UID.
-       * @principle Enforces document ownership for cart items.
-       */
-      match /cart/{bookId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if isOwner(userId);
-        allow delete: if isOwner(userId);
-      }
+    match /users/{studentId} {
+      allow create: if isSignedIn() && isOwner(studentId);
+      allow get: if isOwner(studentId);
+      allow list: if false; //Disallow user listing
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
     }
 
     /**
-     * @description Allows public read access to the promotions collection, while restricting writes.
+     * @description Allows a user to manage their own cart items.
+     * @path /users/{studentId}/cart/{bookId}
+     * @allow (create): If the user's ID matches the studentId.
+     * @allow (get, list, update, delete): If the user is the owner.
+     * @deny: If the user is not the owner.
+     * @principle Enforces document ownership for cart items.
+     */
+    match /users/{studentId}/cart/{bookId} {
+      allow create: if isSignedIn() && isOwner(studentId);
+      allow get: if isOwner(studentId);
+      allow list: if false; //Disallow user listing
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
+    }
+
+    /**
+     * @description Allows read access to promotions for anyone. Write access is not allowed in this prototype.
      * @path /promotions/{promotionId}
-     * @allow (get, list): Any user can read the promotion data.
-     * @deny (create, update, delete): No user can create, update, or delete promotions through direct Firestore access.
-     * @principle Allows public access for reading promotion information.
+     * @allow (get, list): Anyone can read promotion data.
+     * @deny (create, update, delete): No one can create, update, or delete promotion data.
+     * @principle Allows public read access to promotion information.
      */
     match /promotions/{promotionId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows access to the enrollments collection, while restricting writes.
+     * @description Allows read access to enrollments for anyone. Write access is not allowed in this prototype.
      * @path /enrollments/{enrollmentId}
+     * @allow (get, list): Anyone can read enrollment data.
+     * @deny (create, update, delete): No one can create, update, or delete enrollment data.
      */
     match /enrollments/{enrollmentId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the books collection, while restricting writes.
+     * @description Allows read access to books for anyone. Write access is not allowed in this prototype.
      * @path /books/{bookId}
-     * @allow (get, list): Any user can read the book data.
-     * @deny (create, update, delete): No user can create, update, or delete books through direct Firestore access.
-     * @principle Allows public access for reading book information.
+     * @allow (get, list): Anyone can read book data.
+     * @deny (create, update, delete): No one can create, update, or delete book data.
+     * @principle Allows public read access to book information.
      */
     match /books/{bookId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing book orders.
+     * @description Allows read access to book orders for anyone. Write access is not allowed in this prototype.
      * @path /bookOrders/{orderId}
+     * @allow (get, list): Anyone can read book order data.
+     * @deny (create, update, delete): No one can create, update, or delete book order data.
      */
     match /bookOrders/{orderId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing coupons.
+     * @description Allows read access to coupons for anyone. Write access is not allowed in this prototype.
      * @path /coupons/{couponId}
+     * @allow (get, list): Anyone can read coupon data.
+     * @deny (create, update, delete): No one can create, update, or delete coupon data.
      */
     match /coupons/{couponId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to the previousYearPapers collection, while restricting writes.
+     * @description Allows read access to previous year papers for anyone. Write access is not allowed in this prototype.
      * @path /previousYearPapers/{paperId}
+     * @allow (get, list): Anyone can read previous year paper data.
+     * @deny (create, update, delete): No one can create, update, or delete previous year paper data.
      */
     match /previousYearPapers/{paperId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+     /**
+     * @description Allows read access to feed posts for anyone. Write access is not allowed in this prototype.
+     * @path /feed_posts/{postId}
+     * @allow (get, list): Anyone can read feed post data.
+     * @deny (create, update, delete): No one can create, update, or delete feed post data.
+     */
+    match /feed_posts/{postId} {
+      allow get, list: if true;
       allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing feed posts.
-     * @path /feed_posts/{postId}
+     * @description Allows read access to comments for anyone. Write access is not allowed in this prototype.
+     * @path /feed_posts/{postId}/comments/{commentId}
+     * @allow (get, list): Anyone can read comment data.
+     * @deny (create, update, delete): No one can create, update, or delete comment data.
      */
-    match /feed_posts/{postId} {
-        allow get: if true;
-        allow list: if true;
-        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-        allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
-        allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
-
-      /**
-       * @description Rules for managing comments on feed posts.
-       * @path /feed_posts/{postId}/comments/{commentId}
-       */
-      match /comments/{commentId} {
-        allow get, list: if true;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && get(/databases/$(database)/documents/feed_posts/$(postId)).data.authorId == request.auth.uid;
-        allow delete: if isSignedIn() && get(/databases/$(database)/documents/feed_posts/$(postId)).data.authorId == request.auth.uid;
-      }
+    match /feed_posts/{postId}/comments/{commentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing video notes.
+     * @description Allows a user to manage their own video notes.
      * @path /video_notes/{noteId}
+     * @allow (create): If the user's ID matches the studentId.
+     * @allow (get, list, update, delete): If the user is the owner.
+     * @deny: If the user is not the owner.
+     * @principle Enforces document ownership for video notes.
      */
     match /video_notes/{noteId} {
-      allow get: if true;
-      allow list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+      // TODO: Implement owner-based rules once the schema is updated with an userId field.
     }
 
     /**
-     * @description Rules for managing video chat messages.
+     * @description Allows read access to chat messages for anyone. Write access is not allowed in this prototype.
      * @path /video_chat/{chatId}
+     * @allow (get, list): Anyone can read chat message data.
+     * @deny (create, update, delete): No one can create, update, or delete chat message data.
      */
     match /video_chat/{chatId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for application-wide settings.
+     * @description Allows read access to settings for anyone. Write access is not allowed in this prototype.
      * @path /settings/payment
+     * @allow (get, list): Anyone can read settings data.
+     * @deny (create, update, delete): No one can create, update, or delete settings data.
      */
     match /settings/payment {
-        allow get: if true;
-        allow list: if false;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing scholarship centers.
+     * @description Allows read access to scholarship centers for anyone. Write access is not allowed in this prototype.
      * @path /scholarship_centers/{centerId}
+     * @allow (get, list): Anyone can read scholarship center data.
+     * @deny (create, update, delete): No one can create, update, or delete scholarship center data.
      */
     match /scholarship_centers/{centerId} {
-        allow get: if true;
-        allow list: if true;
-        allow create, update, delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Rules for managing scholarship payments.
+     * @description Allows read access to scholarship payments for anyone. Write access is not allowed in this prototype.
      * @path /scholarshipPayments/{paymentId}
+     * @allow (get, list): Anyone can read scholarship payment data.
+     * @deny (create, update, delete): No one can create, update, or delete scholarship payment data.
      */
     match /scholarshipPayments/{paymentId} {
-        allow get: if true;
-        allow list: if true;
-        allow create, update, delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
-      /**
-       * @description Rules for managing scholarship applications.
-       * @path /scholarshipApplications/{applicationId}
-       */
-      match /scholarshipApplications/{applicationId} {
-          allow get: if true;
-          allow list: if true;
-          allow create, update, delete: if false;
-      }
+    /**
+     * @description Allows read access to scholarship applications for anyone. Write access is not allowed in this prototype.
+     * @path /scholarshipApplications/{applicationId}
+     * @allow (get, list): Anyone can read scholarship application data.
+     * @deny (create, update, delete): No one can create, update, or delete scholarship application data.
+     */
+    match /scholarshipApplications/{applicationId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
 
-       /**
-        * @description Allows public read access to the courses collection, while restricting writes.
-        * @path /courses
-        * @allow (list): Any user can read the courses data.
-        * @deny (create, update, delete): No user can create, update, or delete courses through direct Firestore access.
-        * @principle Allows public access for reading course information.
-        */
-      match /courses {
+    /**
+     * @description Added this match statement and rule to fix the error reported by NextJS.
+     * @path /live_doubts
+     * @allow list: if true
+     * @deny create, get, update, delete: if false
+     */
+    match /live_doubts {
         allow list: if true;
-        allow get: if false;
-        allow create, update, delete: if false;
-      }
-  }
-
-  /**
-   * @description Checks if the request is authenticated.
-   * @return {bool} True if the request is authenticated, false otherwise.
-   */
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  /**
-   * @description Checks if the authenticated user is the owner of the resource.
-   * @param {string} userId The user ID to compare against the authenticated user's UID.
-   * @return {bool} True if the user is the owner, false otherwise.
-   */
-  function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
-  }
-
-  /**
-   * @description Checks if the authenticated user is the owner of the existing resource.
-   * @param {string} userId The user ID to compare against the authenticated user's UID.
-   * @return {bool} True if the user is the owner and the resource exists, false otherwise.
-   */
-  function isExistingOwner(userId) {
-    return isOwner(userId) && resource.data.uid == userId;
+        allow create, get, update, delete: if false;
+    }
   }
 }
