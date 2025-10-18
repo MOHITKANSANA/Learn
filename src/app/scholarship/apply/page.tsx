@@ -18,39 +18,38 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const personalInfoSchema = z.object({
+const baseSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
   fatherName: z.string().min(2, "Father's name is required."),
   dob: z.string().min(1, "Date of birth is required."),
   gender: z.string().min(1, "Please select a gender."),
   mobile: z.string().min(10, "A valid 10-digit mobile number is required.").max(10),
   email: z.string().email("Please enter a valid email address."),
-});
-
-const academicInfoSchema = z.object({
   currentClass: z.string().min(1, "Please select your current class."),
   school: z.string().min(2, "School name is required."),
   previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
+  examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
 });
 
-const centerChoiceSchema = z.object({
+const offlineSchema = baseSchema.extend({
+  center1: z.string().min(1, 'Please select a center.'),
+  center2: z.string().min(1, 'Please select a center.'),
+  center3: z.string().min(1, 'Please select a center.'),
+  photo: z.any().optional(),
+  signature: z.any().optional(),
+  paymentMobileNumber: z.string().optional(), // Make optional for offline
+}).refine(data => {
+    return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
+}, { message: "Please select three different centers.", path: ["center1"] });
+
+const onlineSchema = baseSchema.extend({
+  paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
   center1: z.string().optional(),
   center2: z.string().optional(),
   center3: z.string().optional(),
-});
-
-const uploadSchema = z.object({
   photo: z.any().optional(),
   signature: z.any().optional(),
 });
-
-const paymentSchema = z.object({
-    paymentMobileNumber: z.string().optional(),
-});
-
-const examModeSchema = z.object({
-    examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
-})
 
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -77,22 +76,6 @@ export default function ScholarshipApplyPage() {
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
-  const offlineSchema = personalInfoSchema
-    .merge(academicInfoSchema)
-    .merge(examModeSchema)
-    .merge(centerChoiceSchema.refine(data => {
-             return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
-            }, { message: "Please select three different centers.", path: ["center1"] }))
-    .merge(uploadSchema)
-    
-  const onlineSchema = personalInfoSchema
-    .merge(academicInfoSchema)
-    .merge(examModeSchema)
-    .merge(paymentSchema.refine(data => !!data.paymentMobileNumber && data.paymentMobileNumber.length === 10, {
-            message: "Please enter a valid 10-digit mobile number.",
-            path: ["paymentMobileNumber"],
-    }));
-
   const methods = useForm<z.infer<typeof onlineSchema & typeof offlineSchema>>({
     resolver: async (data, context, options) => {
         const schema = data.examMode === 'online' ? onlineSchema : offlineSchema;
@@ -117,6 +100,13 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
   
+  const personalInfoSchema = baseSchema.pick({ fullName: true, fatherName: true, dob: true, gender: true, mobile: true, email: true });
+  const academicInfoSchema = baseSchema.pick({ currentClass: true, school: true, previousMarks: true });
+  const examModeSchema = baseSchema.pick({ examMode: true });
+  const centerChoiceSchema = offlineSchema.pick({center1: true, center2: true, center3: true});
+  const uploadSchema = offlineSchema.pick({photo: true, signature: true});
+  const paymentSchema = onlineSchema.pick({paymentMobileNumber: true});
+
   const steps = [
     { id: 1, title: 'Personal Information', schema: personalInfoSchema, fields: Object.keys(personalInfoSchema.shape) },
     { id: 2, title: 'Academic Information', schema: academicInfoSchema, fields: Object.keys(academicInfoSchema.shape) },
@@ -252,9 +242,9 @@ export default function ScholarshipApplyPage() {
   if (submittedAppId) {
     return (
         <div className="max-w-md mx-auto text-center">
-            <Card>
+            <Card className="bg-gradient-to-br from-green-500/10 via-teal-500/10 to-blue-500/10">
                 <CardHeader>
-                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                    <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
                     <CardTitle className="text-2xl">Application Submitted!</CardTitle>
                     <CardDescription>Your application has been received successfully.</CardDescription>
                 </CardHeader>
@@ -287,7 +277,7 @@ export default function ScholarshipApplyPage() {
             <h1 className="text-3xl font-bold font-headline">Scholarship Application</h1>
          </div>
 
-      <Card>
+      <Card className="bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10">
         <CardHeader>
           <CardTitle>Step {currentStep}: {steps.find(s => s.id === currentStep)?.title}</CardTitle>
           <CardDescription>Please fill out the details carefully.</CardDescription>
@@ -343,7 +333,7 @@ export default function ScholarshipApplyPage() {
                         <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center gap-4">
                         <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl><RadioGroupItem value="offline" /></FormControl>
-                            <FormLabel className="font-normal">Offline (Free Application)</FormLabel>
+                            <FormLabel className="font-normal">Offline</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-3 space-y-0">
                             <FormControl><RadioGroupItem value="online" /></FormControl>
