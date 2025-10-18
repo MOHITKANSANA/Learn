@@ -28,6 +28,7 @@ export type State = {
   query?: string;
 };
 
+
 // Define a tool for Genkit to get the Firestore instance
 const getFirestore = ai.defineTool(
     {
@@ -39,8 +40,7 @@ const getFirestore = ai.defineTool(
     async () => {
         let adminApp: AdminApp;
         if (!getAdminApps().length) {
-            // This will use the default credentials on the server environment.
-            adminApp = initializeAdminApp();
+             adminApp = initializeAdminApp();
         } else {
             adminApp = getAdminApps()[0];
         }
@@ -54,6 +54,9 @@ const searchFlow = ai.defineFlow(
         name: 'vidyaSearchInternal',
         inputSchema: z.string(),
         outputSchema: z.array(z.any()),
+        auth: (auth, input) => {
+            // All users can run this flow.
+        }
     },
     async (searchQuery) => {
         const firestore = await getFirestore({});
