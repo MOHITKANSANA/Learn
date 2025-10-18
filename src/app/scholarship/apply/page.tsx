@@ -31,25 +31,26 @@ const baseSchema = z.object({
   examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
 });
 
-const offlineSchema = baseSchema.extend({
+const offlineFields = z.object({
   center1: z.string().min(1, 'Please select a center.'),
   center2: z.string().min(1, 'Please select a center.'),
   center3: z.string().min(1, 'Please select a center.'),
   photo: z.any().optional(),
   signature: z.any().optional(),
-  paymentMobileNumber: z.string().optional(), // Make optional for offline
-}).refine(data => {
+});
+const offlineSchema = baseSchema.merge(offlineFields).refine(data => {
     return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
 }, { message: "Please select three different centers.", path: ["center1"] });
 
-const onlineSchema = baseSchema.extend({
+
+const onlineFields = z.object({
   paymentMobileNumber: z.string().min(10, 'Please enter a valid 10-digit mobile number.').max(10, 'Mobile number must be 10 digits.'),
-  center1: z.string().optional(),
-  center2: z.string().optional(),
-  center3: z.string().optional(),
   photo: z.any().optional(),
   signature: z.any().optional(),
 });
+const onlineSchema = baseSchema.merge(onlineFields);
+
+const finalSchema = z.union([onlineSchema, offlineSchema]);
 
 
 const fileToDataUrl = (file: File): Promise<string> => {
@@ -76,7 +77,7 @@ export default function ScholarshipApplyPage() {
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
-  const methods = useForm<z.infer<typeof onlineSchema & typeof offlineSchema>>({
+  const methods = useForm<z.infer<typeof finalSchema>>({
     resolver: async (data, context, options) => {
         const schema = data.examMode === 'online' ? onlineSchema : offlineSchema;
         return zodResolver(schema)(data, context, options);
@@ -103,9 +104,9 @@ export default function ScholarshipApplyPage() {
   const personalInfoSchema = baseSchema.pick({ fullName: true, fatherName: true, dob: true, gender: true, mobile: true, email: true });
   const academicInfoSchema = baseSchema.pick({ currentClass: true, school: true, previousMarks: true });
   const examModeSchema = baseSchema.pick({ examMode: true });
-  const centerChoiceSchema = offlineSchema.pick({center1: true, center2: true, center3: true});
-  const uploadSchema = offlineSchema.pick({photo: true, signature: true});
-  const paymentSchema = onlineSchema.pick({paymentMobileNumber: true});
+  const centerChoiceSchema = offlineFields.pick({center1: true, center2: true, center3: true});
+  const uploadSchema = offlineFields.pick({photo: true, signature: true});
+  const paymentSchema = onlineFields.pick({paymentMobileNumber: true});
 
   const steps = [
     { id: 1, title: 'Personal Information', schema: personalInfoSchema, fields: Object.keys(personalInfoSchema.shape) },
@@ -156,7 +157,7 @@ export default function ScholarshipApplyPage() {
         return newId;
     }
 
-  const onSubmit = async (data: z.infer<typeof onlineSchema & typeof offlineSchema>) => {
+  const onSubmit = async (data: z.infer<typeof finalSchema>) => {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
@@ -277,7 +278,7 @@ export default function ScholarshipApplyPage() {
             <h1 className="text-3xl font-bold font-headline">Scholarship Application</h1>
          </div>
 
-      <Card className="bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10">
+      <Card className="bg-gradient-to-br from-background to-card">
         <CardHeader>
           <CardTitle>Step {currentStep}: {steps.find(s => s.id === currentStep)?.title}</CardTitle>
           <CardDescription>Please fill out the details carefully.</CardDescription>
@@ -442,3 +443,5 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
+
+    
