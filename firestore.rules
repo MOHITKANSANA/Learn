@@ -1,439 +1,311 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a public-read, owner-write model for most top-level collections.
- *   User-specific data is stored under /users/{userId} and is only accessible to the owning user.
- *
- * @dataStructure
- * - /courses/{courseId}: Publicly readable courses.
- * - /ebooks/{ebookId}: Publicly readable ebooks.
- * - /test_series/{testSeriesId}: Publicly readable test series.
- * - /questions/{questionId}: Publicly readable questions.
- * - /educators/{educatorId}: Publicly readable educators.
- * - /live_classes/{liveClassId}: Publicly readable live classes.
- * - /users/{studentId}: User profiles, only accessible to the owning user.
- * - /users/{studentId}/cart/{bookId}: Cart items for each user, only accessible to the owning user.
- * - /promotions/{promotionId}: Publicly readable promotions.
- * - /enrollments/{enrollmentId}: Publicly readable enrollments.
- * - /books/{bookId}: Publicly readable books.
- * - /bookOrders/{orderId}: Publicly readable book orders.
- * - /coupons/{couponId}: Publicly readable coupons.
- * - /previousYearPapers/{paperId}: Publicly readable previous year papers.
- * - /feed_posts/{postId}: Publicly readable feed posts.
- * - /feed_posts/{postId}/comments/{commentId}: Publicly readable comments.
- * - /video_notes/{noteId}: Publicly readable video notes.
- * - /video_chat/{chatId}: Publicly readable video chats.
- * - /settings/payment: Publicly readable settings.
- * - /scholarship_centers/{centerId}: Publicly readable scholarship centers.
- * - /scholarshipPayments/{paymentId}: Publicly readable scholarship payments.
- * - /scholarshipApplications/{applicationId}: Publicly readable scholarship applications.
- *
- * @keySecurityDecisions
- * - **Public Read**: Most top-level collections allow public reads (`get`, `list`). This is suitable for content intended for all users.
- * - **Owner-Only Writes**: Write access (`create`, `update`, `delete`) to top-level collections is restricted to authenticated users who "own" the resource, verified by matching `request.auth.uid` against an `authorId` or similar field on the document.
- * - **User Data Isolation**: Data under `/users/{userId}` is strictly limited to the owning user.
- * - **No User Listing**: Listing all users is disallowed.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by an authenticated user.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the resource, based on the `userId`.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the existing resource.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Courses are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the courses collection, while restricting writes.
      * @path /courses/{courseId}
-     * @allow (get, list): Any user can read course data.
-     * @allow (create): An authenticated user can create a course if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the course can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a course.
-     * @deny (update): A user cannot modify a course they do not own.
-     * @deny (delete): A user cannot delete a course they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the course data.
+     * @deny (create, update, delete): No user can create, update, or delete courses through direct Firestore access.
+     * @principle Allows public access for reading course information.
      */
     match /courses/{courseId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description EBooks are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the ebooks collection, while restricting writes.
      * @path /ebooks/{ebookId}
-     * @allow (get, list): Any user can read ebook data.
-     * @allow (create): An authenticated user can create an ebook if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the ebook can update or delete it.
-     * @deny (create): An unauthenticated user cannot create an ebook.
-     * @deny (update): A user cannot modify an ebook they do not own.
-     * @deny (delete): A user cannot delete an ebook they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the ebook data.
+     * @deny (create, update, delete): No user can create, update, or delete ebooks through direct Firestore access.
+     * @principle Allows public access for reading ebook information.
      */
     match /ebooks/{ebookId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description TestSeries are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the test_series collection, while restricting writes.
      * @path /test_series/{testSeriesId}
-     * @allow (get, list): Any user can read test series data.
-     * @allow (create): An authenticated user can create a test series if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the test series can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a test series.
-     * @deny (update): A user cannot modify a test series they do not own.
-     * @deny (delete): A user cannot delete a test series they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the test series data.
+     * @deny (create, update, delete): No user can create, update, or delete test series through direct Firestore access.
+     * @principle Allows public access for reading test series information.
      */
     match /test_series/{testSeriesId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Questions are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the questions collection, while restricting writes.
      * @path /questions/{questionId}
-     * @allow (get, list): Any user can read question data.
-     * @allow (create): An authenticated user can create a question if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the question can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a question.
-     * @deny (update): A user cannot modify a question they do not own.
-     * @deny (delete): A user cannot delete a question they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the question data.
+     * @deny (create, update, delete): No user can create, update, or delete questions through direct Firestore access.
+     * @principle Allows public access for reading question information.
      */
     match /questions/{questionId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Educators are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the educators collection, while restricting writes.
      * @path /educators/{educatorId}
-     * @allow (get, list): Any user can read educator data.
-     * @allow (create): An authenticated user can create an educator if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the educator can update or delete it.
-     * @deny (create): An unauthenticated user cannot create an educator.
-     * @deny (update): A user cannot modify an educator they do not own.
-     * @deny (delete): A user cannot delete an educator they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the educator data.
+     * @deny (create, update, delete): No user can create, update, or delete educators through direct Firestore access.
+     * @principle Allows public access for reading educator information.
      */
     match /educators/{educatorId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Live classes are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the live_classes collection, while restricting writes.
      * @path /live_classes/{liveClassId}
-     * @allow (get, list): Any user can read live class data.
-     * @allow (create): An authenticated user can create a live class if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the live class can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a live class.
-     * @deny (update): A user cannot modify a live class they do not own.
-     * @deny (delete): A user cannot delete a live class they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the live class data.
+     * @deny (create, update, delete): No user can create, update, or delete live classes through direct Firestore access.
+     * @principle Allows public access for reading live class information.
      */
     match /live_classes/{liveClassId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description User profiles are private and only accessible to the owning user.
-     * @path /users/{studentId}
-     * @allow (get, list): Only the owner can read their own profile.
-     * @allow (create): Only the owner can create their own profile.
-     * @allow (update, delete): Only the owner can update or delete their own profile.
-     * @deny (get, list): Other users cannot read this profile.
-     * @deny (create): Other users cannot create a profile with this ID.
-     * @deny (update, delete): Other users cannot update or delete this profile.
-     * @principle Restricts access to a user's own data tree.
+     * @description Rules for managing user-specific data.
      */
-    match /users/{studentId} {
-      allow get: if isOwner(studentId);
-      allow list: if false;
-      allow create: if isOwner(studentId);
-      allow update: if isExistingOwner(studentId);
-      allow delete: if isExistingOwner(studentId);
-    }
+    match /users/{userId} {
 
-     /**
-      * @description Cart items are private and only accessible to the owning user.
-      * @path /users/{studentId}/cart/{bookId}
-      * @allow (get, list): Only the owner can read their own cart.
-      * @allow (create): Only the owner can create items in their own cart.
-      * @allow (update, delete): Only the owner can update or delete items in their own cart.
-      * @deny (get, list): Other users cannot read this cart.
-      * @deny (create): Other users cannot create items in a cart with this ID.
-      * @deny (update, delete): Other users cannot update or delete items in this cart.
-      * @principle Restricts access to a user's own data tree.
-      */
-    match /users/{studentId}/cart/{bookId} {
-      allow get: if isOwner(studentId);
-      allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId);
-      allow update: if isExistingOwner(studentId);
-      allow delete: if isExistingOwner(studentId);
+      /**
+       * @description Allows a user to read and write their own user document.
+       * @path /users/{userId}
+       * @allow (get, create, update, delete, list): Authenticated user with matching UID.
+       * @deny: Unauthenticated user or mismatched UID.
+       * @principle Enforces document ownership for user profiles.
+       */
+      allow get: if isOwner(userId);
+      allow list: if false; // User listing is not permitted.
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+
+      /**
+       * @description Allows a user to manage their own cart items.
+       * @path /users/{userId}/cart/{bookId}
+       * @allow (get, create, update, delete, list): Authenticated user with matching UID.
+       * @deny: Unauthenticated user or mismatched UID.
+       * @principle Enforces document ownership for cart items.
+       */
+      match /cart/{bookId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
     }
 
     /**
-     * @description Promotions are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the promotions collection, while restricting writes.
      * @path /promotions/{promotionId}
-     * @allow (get, list): Any user can read promotion data.
-     * @allow (create): An authenticated user can create a promotion if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the promotion can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a promotion.
-     * @deny (update): A user cannot modify a promotion they do not own.
-     * @deny (delete): A user cannot delete a promotion they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the promotion data.
+     * @deny (create, update, delete): No user can create, update, or delete promotions through direct Firestore access.
+     * @principle Allows public access for reading promotion information.
      */
     match /promotions/{promotionId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Enrollments are publicly readable, writes require authentication and owner validation.
+     * @description Allows access to the enrollments collection, while restricting writes.
      * @path /enrollments/{enrollmentId}
-     * @allow (get, list): Any user can read enrollment data.
-     * @allow (create): An authenticated user can create an enrollment if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the enrollment can update or delete it.
-     * @deny (create): An unauthenticated user cannot create an enrollment.
-     * @deny (update): A user cannot modify an enrollment they do not own.
-     * @deny (delete): A user cannot delete an enrollment they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /enrollments/{enrollmentId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Books are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the books collection, while restricting writes.
      * @path /books/{bookId}
-     * @allow (get, list): Any user can read book data.
-     * @allow (create): An authenticated user can create a book if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the book can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a book.
-     * @deny (update): A user cannot modify a book they do not own.
-     * @deny (delete): A user cannot delete a book they do not own.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any user can read the book data.
+     * @deny (create, update, delete): No user can create, update, or delete books through direct Firestore access.
+     * @principle Allows public access for reading book information.
      */
     match /books/{bookId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description BookOrders are publicly readable, writes require authentication and owner validation.
+     * @description Rules for managing book orders.
      * @path /bookOrders/{orderId}
-     * @allow (get, list): Any user can read book order data.
-     * @allow (create): An authenticated user can create a book order if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the book order can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a book order.
-     * @deny (update): A user cannot modify a book order they do not own.
-     * @deny (delete): A user cannot delete a book order they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /bookOrders/{orderId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Coupons are publicly readable, writes require authentication and owner validation.
+     * @description Rules for managing coupons.
      * @path /coupons/{couponId}
-     * @allow (get, list): Any user can read coupon data.
-     * @allow (create): An authenticated user can create a coupon if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the coupon can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a coupon.
-     * @deny (update): A user cannot modify a coupon they do not own.
-     * @deny (delete): A user cannot delete a coupon they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /coupons/{couponId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description PreviousYearPapers are publicly readable, writes require authentication and owner validation.
+     * @description Allows public read access to the previousYearPapers collection, while restricting writes.
      * @path /previousYearPapers/{paperId}
-     * @allow (get, list): Any user can read previous year paper data.
-     * @allow (create): An authenticated user can create a previous year paper if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the previous year paper can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a previous year paper.
-     * @deny (update): A user cannot modify a previous year paper they do not own.
-     * @deny (delete): A user cannot delete a previous year paper they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /previousYearPapers/{paperId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow get: if true;
+      allow list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description FeedPosts are publicly readable, writes require authentication and owner validation.
+     * @description Rules for managing feed posts.
      * @path /feed_posts/{postId}
-     * @allow (get, list): Any user can read feed post data.
-     * @allow (create): An authenticated user can create a feed post if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the feed post can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a feed post.
-     * @deny (update): A user cannot modify a feed post they do not own.
-     * @deny (delete): A user cannot delete a feed post they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /feed_posts/{postId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+
+      /**
+       * @description Rules for managing comments on feed posts.
+       * @path /feed_posts/{postId}/comments/{commentId}
+       */
+      match /comments/{commentId} {
+        allow get, list: if true;
+        allow create: if isSignedIn();
+        allow update: if isSignedIn() && get(/databases/$(database)/documents/feed_posts/$(postId)).data.authorId == request.auth.uid;
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/feed_posts/$(postId)).data.authorId == request.auth.uid;
+      }
     }
 
     /**
-     * @description ChatMessages (comments) under FeedPosts are publicly readable, writes require authentication and owner validation.
-     * @path /feed_posts/{postId}/comments/{commentId}
-     * @allow (get, list): Any user can read comment data.
-     * @allow (create): An authenticated user can create a comment if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the comment can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a comment.
-     * @deny (update): A user cannot modify a comment they do not own.
-     * @deny (delete): A user cannot delete a comment they do not own.
-     * @principle Enforces document ownership for writes.
-     */
-    match /feed_posts/{postId}/comments/{commentId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
-
-    /**
-     * @description VideoNotes are publicly readable, writes require authentication and owner validation.
+     * @description Rules for managing video notes.
      * @path /video_notes/{noteId}
-     * @allow (get, list): Any user can read video note data.
-     * @allow (create): An authenticated user can create a video note if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the video note can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a video note.
-     * @deny (update): A user cannot modify a video note they do not own.
-     * @deny (delete): A user cannot delete a video note they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /video_notes/{noteId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description ChatMessages (comments) under VideoChat are publicly readable, writes require authentication and owner validation.
+     * @description Rules for managing video chat messages.
      * @path /video_chat/{chatId}
-     * @allow (get, list): Any user can read chat data.
-     * @allow (create): An authenticated user can create a chat message if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the chat message can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a chat message.
-     * @deny (update): A user cannot modify a chat message they do not own.
-     * @deny (delete): A user cannot delete a chat message they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /video_chat/{chatId} {
-      allow get, list: if true;
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Application-wide settings for payment are publicly readable, writes require authentication and owner validation.
+     * @description Rules for application-wide settings.
      * @path /settings/payment
-     * @allow (get, list): Any user can read setting data.
-     * @allow (create): An authenticated user can create a setting if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the setting can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a setting.
-     * @deny (update): A user cannot modify a setting they do not own.
-     * @deny (delete): A user cannot delete a setting they do not own.
      */
     match /settings/payment {
-        allow get, list: if true;
-        allow create: if false; //Settings should only be created via backend processes.
-        allow update: if false; //Settings should only be created via backend processes.
-        allow delete: if false; //Settings should only be created via backend processes.
+        allow get: if true;
+        allow list: if false;
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
     }
 
     /**
-     * @description ScholarshipCenters are publicly readable, writes require authentication and owner validation.
+     * @description Rules for managing scholarship centers.
      * @path /scholarship_centers/{centerId}
-     * @allow (get, list): Any user can read scholarship center data.
-     * @allow (create): An authenticated user can create a scholarship center if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the scholarship center can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a scholarship center.
-     * @deny (update): A user cannot modify a scholarship center they do not own.
-     * @deny (delete): A user cannot delete a scholarship center they do not own.
-     * @principle Enforces document ownership for writes.
      */
     match /scholarship_centers/{centerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-    }
-
-     /**
-     * @description ScholarshipPayments are publicly readable, writes require authentication and owner validation.
-     * @path /scholarshipPayments/{paymentId}
-     * @allow (get, list): Any user can read scholarship payment data.
-     * @allow (create): An authenticated user can create a scholarship payment if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the scholarship payment can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a scholarship payment.
-     * @deny (update): A user cannot modify a scholarship payment they do not own.
-     * @deny (delete): A user cannot delete a scholarship payment they do not own.
-     * @principle Enforces document ownership for writes.
-     */
-    match /scholarshipPayments/{paymentId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+        allow get: if true;
+        allow list: if true;
+        allow create, update, delete: if false;
     }
 
     /**
-     * @description ScholarshipApplications are publicly readable, writes require authentication and owner validation.
-     * @path /scholarshipApplications/{applicationId}
-     * @allow (get, list): Any user can read scholarship application data.
-     * @allow (create): An authenticated user can create a scholarship application if authorId matches their UID.
-     * @allow (update, delete): Only the user who created the scholarship application can update or delete it.
-     * @deny (create): An unauthenticated user cannot create a scholarship application.
-     * @deny (update): A user cannot modify a scholarship application they do not own.
-     * @deny (delete): A user cannot delete a scholarship application they do not own.
-     * @principle Enforces document ownership for writes.
+     * @description Rules for managing scholarship payments.
+     * @path /scholarshipPayments/{paymentId}
      */
-    match /scholarshipApplications/{applicationId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    match /scholarshipPayments/{paymentId} {
+        allow get: if true;
+        allow list: if true;
+        allow create, update, delete: if false;
     }
+
+      /**
+       * @description Rules for managing scholarship applications.
+       * @path /scholarshipApplications/{applicationId}
+       */
+      match /scholarshipApplications/{applicationId} {
+          allow get: if true;
+          allow list: if true;
+          allow create, update, delete: if false;
+      }
+
+       /**
+        * @description Allows public read access to the courses collection, while restricting writes.
+        * @path /courses
+        * @allow (list): Any user can read the courses data.
+        * @deny (create, update, delete): No user can create, update, or delete courses through direct Firestore access.
+        * @principle Allows public access for reading course information.
+        */
+      match /courses {
+        allow list: if true;
+        allow get: if false;
+        allow create, update, delete: if false;
+      }
+  }
+
+  /**
+   * @description Checks if the request is authenticated.
+   * @return {bool} True if the request is authenticated, false otherwise.
+   */
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  /**
+   * @description Checks if the authenticated user is the owner of the resource.
+   * @param {string} userId The user ID to compare against the authenticated user's UID.
+   * @return {bool} True if the user is the owner, false otherwise.
+   */
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
+  }
+
+  /**
+   * @description Checks if the authenticated user is the owner of the existing resource.
+   * @param {string} userId The user ID to compare against the authenticated user's UID.
+   * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+   */
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource.data.uid == userId;
   }
 }
