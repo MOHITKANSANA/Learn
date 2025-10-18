@@ -224,7 +224,7 @@ export default function CheckoutPage() {
       </div>
 
       <div>
-        <Card className="bg-gradient-to-br from-primary/10 to-background">
+        <Card className="bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10">
           <CardHeader>
             <CardTitle className="font-headline text-2xl text-primary">Shiksha Pay</CardTitle>
             <CardDescription>Complete your purchase to enroll.</CardDescription>

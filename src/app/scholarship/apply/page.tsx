@@ -77,15 +77,27 @@ export default function ScholarshipApplyPage() {
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
   
-  const combinedSchema = personalInfoSchema
+  const offlineSchema = personalInfoSchema
     .merge(academicInfoSchema)
     .merge(examModeSchema)
-    .merge(centerChoiceSchema)
+    .merge(centerChoiceSchema.refine(data => {
+             return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
+            }, { message: "Please select three different centers.", path: ["center1"] }))
     .merge(uploadSchema)
-    .merge(paymentSchema);
+    
+  const onlineSchema = personalInfoSchema
+    .merge(academicInfoSchema)
+    .merge(examModeSchema)
+    .merge(paymentSchema.refine(data => !!data.paymentMobileNumber && data.paymentMobileNumber.length === 10, {
+            message: "Please enter a valid 10-digit mobile number.",
+            path: ["paymentMobileNumber"],
+    }));
 
-  const methods = useForm<z.infer<typeof combinedSchema>>({
-    resolver: zodResolver(combinedSchema),
+  const methods = useForm<z.infer<typeof onlineSchema & typeof offlineSchema>>({
+    resolver: async (data, context, options) => {
+        const schema = data.examMode === 'online' ? onlineSchema : offlineSchema;
+        return zodResolver(schema)(data, context, options);
+    },
     mode: 'onChange',
     defaultValues: {
       fullName: user?.displayName || '',
@@ -104,42 +116,29 @@ export default function ScholarshipApplyPage() {
 
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
-
+  
   const steps = [
-    { id: 1, title: 'Personal Information', schema: personalInfoSchema },
-    { id: 2, title: 'Academic Information', schema: academicInfoSchema },
-    { id: 3, title: 'Choose Exam Mode', schema: examModeSchema },
+    { id: 1, title: 'Personal Information', schema: personalInfoSchema, fields: Object.keys(personalInfoSchema.shape) },
+    { id: 2, title: 'Academic Information', schema: academicInfoSchema, fields: Object.keys(academicInfoSchema.shape) },
+    { id: 3, title: 'Choose Exam Mode', schema: examModeSchema, fields: Object.keys(examModeSchema.shape) },
     ...(watchExamMode === 'offline' ? [
-        { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema.refine(data => {
-             return data.center1 && data.center2 && data.center3 && data.center1 !== data.center2 && data.center1 !== data.center3 && data.center2 !== data.center3;
-            }, { message: "Please select three different centers.", path: ["center1"] }) 
-        },
-        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema }
+        { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema, fields: Object.keys(centerChoiceSchema.shape) },
+        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema, fields: Object.keys(uploadSchema.shape) }
     ] : []),
-    ...(watchExamMode === 'online' ? [
-        { id: (watchExamMode === 'offline' ? 6 : 4), title: 'Payment', schema: paymentSchema.refine(data => !!data.paymentMobileNumber && data.paymentMobileNumber.length === 10, {
-            message: "Please enter a valid 10-digit mobile number.",
-            path: ["paymentMobileNumber"],
-        })},
+     ...(watchExamMode === 'online' ? [
+        { id: (watchExamMode === 'offline' ? 6 : 4), title: 'Payment', schema: paymentSchema, fields: Object.keys(paymentSchema.shape) },
     ] : []),
-    { id: (watchExamMode === 'offline' ? 6 : 5), title: 'Review & Submit', schema: z.object({}) },
+    { id: (watchExamMode === 'offline' ? 6 : 5), title: 'Review & Submit', schema: z.object({}), fields: [] },
   ];
 
   const nextStep = async () => {
-    const currentSchema = steps[currentStep - 1].schema;
-    const allFields = methods.getValues();
-    const result = await currentSchema.safeParseAsync(allFields);
+    const currentFields = steps[currentStep - 1].fields as (keyof z.infer<typeof onlineSchema & typeof offlineSchema>)[];
+    const result = await methods.trigger(currentFields);
     
-    if (result.success) {
+    if (result) {
       if (currentStep < steps.length) {
         setCurrentStep(currentStep + 1);
       }
-    } else {
-        // Manually set errors for the current step's fields
-        Object.keys(result.error.flatten().fieldErrors).forEach(fieldName => {
-            // @ts-ignore
-             methods.setError(fieldName, { type: 'manual', message: result.error.flatten().fieldErrors[fieldName]?.[0] });
-        });
     }
   };
 
@@ -167,7 +166,7 @@ export default function ScholarshipApplyPage() {
         return newId;
     }
 
-  const onSubmit = async (data: z.infer<typeof combinedSchema>) => {
+  const onSubmit = async (data: z.infer<typeof onlineSchema & typeof offlineSchema>) => {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
@@ -290,7 +289,7 @@ export default function ScholarshipApplyPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Step {currentStep}: {steps[currentStep - 1].title}</CardTitle>
+          <CardTitle>Step {currentStep}: {steps.find(s => s.id === currentStep)?.title}</CardTitle>
           <CardDescription>Please fill out the details carefully.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -336,7 +335,7 @@ export default function ScholarshipApplyPage() {
                 </>
               )}
 
-              {currentStep === 3 && (
+              {steps.find(s => s.id === currentStep)?.title === 'Choose Exam Mode' && (
                  <FormField control={methods.control} name="examMode" render={({ field }) => (
                     <FormItem className="space-y-3">
                     <FormLabel>Choose Exam Mode</FormLabel>
@@ -357,7 +356,7 @@ export default function ScholarshipApplyPage() {
                 )} />
               )}
               
-              {currentStep === 4 && watchExamMode === 'offline' && (
+              {steps.find(s => s.id === currentStep)?.title === 'Exam Center Choice' && watchExamMode === 'offline' && (
                  <>
                     {isLoadingCenters ? <Loader2 className="animate-spin" /> :
                     <>
@@ -375,7 +374,7 @@ export default function ScholarshipApplyPage() {
                  </>
               )}
                
-               {currentStep === 5 && watchExamMode === 'offline' && (
+               {steps.find(s => s.id === currentStep)?.title === 'Upload Documents (Optional)' && watchExamMode === 'offline' && (
                  <>
                     <FormField name="photo" control={methods.control} render={({ field: { onChange, ...rest } }) => (
                         <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
@@ -386,7 +385,7 @@ export default function ScholarshipApplyPage() {
                  </>
                )}
                
-               {currentStep === (watchExamMode === 'online' ? 4 : -1) && (
+               {steps.find(s => s.id === currentStep)?.title === 'Payment' && watchExamMode === 'online' && (
                  <div className="space-y-6">
                     <div className="text-sm font-semibold text-center bg-primary/20 p-3 rounded-md border border-primary/30">
                         <p>You need to pay ₹{fee || '...'} as application fee.</p>
@@ -413,7 +412,7 @@ export default function ScholarshipApplyPage() {
                  </div>
                )}
 
-              {currentStep === steps.length && (
+              {steps.find(s => s.id === currentStep)?.title === 'Review & Submit' && (
                  <div className="space-y-4">
                     <h3 className="font-semibold">Review your application details.</h3>
                     <Card>
