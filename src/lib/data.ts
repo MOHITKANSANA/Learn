@@ -104,74 +104,19 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     icon: Home,
   },
   {
-    title: 'My Library',
-    href: '/my-library',
-    icon: Library,
-  },
-  {
     title: 'My Orders',
     href: '/my-orders',
     icon: ShoppingBag,
-  },
-   {
-    title: 'Scholarship',
-    href: '/scholarship',
-    icon: Trophy,
   },
   {
     title: 'Feed',
     href: '/feed',
     icon: Rss,
   },
-   {
-    title: 'Learn with Munendra',
-    href: '/doubts',
-    icon: MessageCircle,
-  },
-  {
-    title: 'Vidya Search',
-    href: '/vidya-search',
-    icon: Bot,
-  },
-  {
-    title: 'Book Shala',
-    href: '/book-shala',
-    icon: Book,
-  },
-  {
-    title: 'Motivation',
-    href: '/motivation',
-    icon: Heart,
-  },
-  {
-    title: 'E-Books',
-    href: '/ebooks',
-    icon: BookOpenCheck,
-  },
   {
     title: 'Profile',
     href: '/profile',
     icon: User,
-  },
-  {
-    title: 'Courses',
-    href: '/courses',
-    icon: BookOpenCheck,
-  },
-  {
-    title: 'Live Classes',
-    href: '/live-classes',
-    icon: PlaySquare,
-  },
-  {
-    title: 'Test Series',
-    href: '/test-series',
-    icon: FileText,
-  },
-  {
-    title: 'Previous Papers',
-    href: '/previous-papers',
-    icon: Newspaper,
   },
   {
       title: 'Admin',
