@@ -22,7 +22,7 @@ import {
   Swords,
   ShoppingBag,
   BadgePercent,
-  MessageSquareQuestion
+  HelpCircle
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -66,7 +66,7 @@ export const dashboardItems: DashboardItem[] = [
    {
     title: 'Doubt Forum',
     href: '/doubts',
-    icon: MessageSquareQuestion,
+    icon: HelpCircle,
   },
    {
     title: 'Battle Quiz',
@@ -110,7 +110,7 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
    {
     title: 'Doubt Forum',
     href: '/doubts',
-    icon: MessageSquareQuestion,
+    icon: HelpCircle,
   },
   {
     title: 'Book Shala',
