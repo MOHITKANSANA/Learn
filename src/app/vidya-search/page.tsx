@@ -3,8 +3,8 @@
 
 import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
-import { Card, CardTitle } from '@/components/ui/card';
-import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink, Brain, FileQuestion } from 'lucide-react';
+import { Card, CardTitle, CardContent } from '@/components/ui/card';
+import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink, Brain, FileQuestion, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -106,10 +106,10 @@ export default function VidyaSearchPage() {
                 <div className="flex justify-center p-10">
                     <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
-           ) : filteredResults.length > 0 ? (
+           ) : filteredResults.length > 0 && searchTerm ? (
                 filteredResults.map((result, index) => (
                     <Card key={result.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
-                         <div className="p-4 flex gap-4">
+                         <CardContent className="p-4 flex gap-4">
                             {result.imageUrl ? (
                                  <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
                             ) : (
@@ -128,12 +128,12 @@ export default function VidyaSearchPage() {
                                     </Button>
                                 )}
                             </div>
-                        </div>
+                        </CardContent>
                     </Card>
                 ))
             ) : searchTerm ? (
                  <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
-                    <div className="p-4 text-center">आपकी खोज के लिए कोई परिणाम नहीं मिला।</div>
+                    <CardContent className="p-4 text-center">आपकी खोज के लिए कोई परिणाम नहीं मिला।</CardContent>
                 </Card>
             ) : (
                  <div className="space-y-4">
