@@ -3,35 +3,8 @@
 'use server';
 
 import { z } from 'zod';
-import { firestore } from 'firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-
-// --- Firebase Admin SDK Singleton ---
-let adminApp: App | null = null;
-
-function getAdminApp() {
-  if (adminApp) {
-    return adminApp;
-  }
-  
-  if (getApps().length > 0) {
-    adminApp = getApps()[0];
-    return adminApp;
-  }
-  
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY!);
-    adminApp = initializeApp({
-      credential: cert(serviceAccount),
-    });
-    return adminApp;
-  } catch (e) {
-    console.error('Firebase Admin initialization failed:', e);
-    return null;
-  }
-}
-// --- End of Singleton ---
+import { initializeFirebase } from '@/firebase';
+import { collection, query as firestoreQuery, where, getDocs, or } from 'firebase/firestore';
 
 
 const SearchSchema = z.object({
@@ -55,40 +28,44 @@ export type State = {
   query?: string;
 };
 
-async function searchInCollectionById(db: firestore.Firestore | null, id: string): Promise<SearchResultItem[]> {
-    if (!db) return [];
+async function searchByIds(id: string) {
+    const { firestore } = initializeFirebase();
     const results: SearchResultItem[] = [];
 
     try {
-        // Search for Enrollment ID
-        const enrollmentRef = db.collection('enrollments').doc(id);
-        const enrollmentDoc = await enrollmentRef.get();
-        if (enrollmentDoc.exists) {
-            const enrollment = enrollmentDoc.data();
-            if (enrollment) {
+        const enrollmentRef = collection(firestore, 'enrollments');
+        const qEnrollment = firestoreQuery(enrollmentRef, where('id', '>=', id), where('id', '<=', id + '\uf8ff'));
+        const enrollmentSnapshot = await getDocs(qEnrollment);
+
+        enrollmentSnapshot.forEach(doc => {
+            const enrollment = doc.data();
+            if (String(enrollment.id).substring(0, 5) === id) {
                  results.push({
                     type: 'enrollment',
                     title: `Enrollment Details: ${enrollment.itemName}`,
                     description: `ID: ${String(enrollment.id).substring(0,5)}\nStatus: ${enrollment.isApproved ? 'Approved' : 'Pending'}\nRequested On: ${enrollment.enrollmentDate.toDate().toLocaleDateString()}`,
                     data: enrollment,
+                    score: 100 // High score for direct ID match
                 });
             }
-        }
+        });
+
+        const orderRef = collection(firestore, 'bookOrders');
+        const qOrder = firestoreQuery(orderRef, where('id', '>=', id), where('id', '<=', id + '\uf8ff'));
+        const orderSnapshot = await getDocs(qOrder);
         
-        // Search for Book Order ID
-        const bookOrderRef = db.collection('bookOrders').doc(id);
-        const bookOrderDoc = await bookOrderRef.get();
-        if (bookOrderDoc.exists) {
-             const bookOrder = bookOrderDoc.data();
-             if (bookOrder) {
-                results.push({
+        orderSnapshot.forEach(doc => {
+            const bookOrder = doc.data();
+            if(String(bookOrder.id).substring(0, 5) === id) {
+                 results.push({
                     type: 'order',
                     title: `Book Order Details: ${bookOrder.bookTitle}`,
                     description: `ID: ${String(bookOrder.id).substring(0,5)}\nStatus: ${bookOrder.status}\nOrdered On: ${bookOrder.orderDate.toDate().toLocaleDateString()}`,
                     data: bookOrder,
+                    score: 100 // High score for direct ID match
                 });
-             }
-        }
+            }
+        });
 
     } catch (error) {
         console.error(`Error searching by ID ${id}:`, error);
@@ -107,27 +84,27 @@ export async function performSearch(prevState: State, formData: FormData): Promi
       error: validatedFields.error.flatten().fieldErrors.query?.join(', '),
     };
   }
-  
-  const app = getAdminApp();
-  const db = app ? getFirestore(app) : null;
-  const query = validatedFields.data.query.trim();
+
+  const { firestore } = initializeFirebase();
+  const searchQuery = validatedFields.data.query.trim();
   let results: SearchResultItem[] = [];
 
   try {
-    if (!db) {
-       return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query };
+    if (!firestore) {
+       return { error: 'डेटाबेस से कनेक्ट नहीं हो सका। कृपया बाद में प्रयास करें।', query: searchQuery };
     }
 
-    const isFiveDigitId = /^\d{5}$/.test(query);
+    const isFiveDigitId = /^\d{5}$/.test(searchQuery);
 
     if (isFiveDigitId) {
-        const idResults = await searchInCollectionById(db, query);
+        const idResults = await searchByIds(searchQuery);
         results.push(...idResults);
     }
 
     // Always perform text search, and merge results.
-    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 0);
-    const vidyaSearchSnapshot = await db.collection('vidya_search_data').get();
+    const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
+    const vidyaSearchRef = collection(firestore, 'vidya_search_data');
+    const vidyaSearchSnapshot = await getDocs(vidyaSearchRef);
     
     vidyaSearchSnapshot.forEach(doc => {
         const data = doc.data();
@@ -161,7 +138,7 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     });
 
     if (results.length === 0) {
-      return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला।', query };
+      return { error: 'आपकी खोज के लिए कोई परिणाम नहीं मिला।', query: searchQuery };
     }
 
     // Sort results by score (descending)
@@ -175,7 +152,7 @@ export async function performSearch(prevState: State, formData: FormData): Promi
     );
 
 
-    return { results: uniqueResults, query };
+    return { results: uniqueResults, query: searchQuery };
 
   } catch (error) {
     console.error('Search failed:', error);
