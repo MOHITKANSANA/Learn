@@ -14,6 +14,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { Label } from '@/components/ui/label';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -198,12 +201,11 @@ export default function DoubtRoomPage() {
                                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                                 disabled={isSending || !!imageFile}
                             />
-                             <Button asChild variant="ghost" size="icon" className="relative">
-                                 <>
-                                <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} disabled={isSending} />
+                            <Label htmlFor="image-upload" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "cursor-pointer")}>
                                 <ImageIcon className="h-5 w-5" />
-                                </>
-                            </Button>
+                            </Label>
+                            <Input id="image-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} disabled={isSending} />
+                            
                             <Button onClick={handleSendMessage} disabled={isSending || (!message.trim() && !imageFile)}>
                                 {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             </Button>
@@ -212,7 +214,7 @@ export default function DoubtRoomPage() {
                         {(isSolver || (isStudent && doubt.status === 'solved')) && (
                             <div className="flex justify-center gap-4 mt-4">
                                {isStudent && doubt.status === 'solved' && (
-                                     <Button variant="outline" size="sm" onClick={handleReDoubt}>
+                                     <Button variant="outline" size="sm" onClick={handleReDoubt} className="bg-green-500 hover:bg-green-600 text-white">
                                         <RefreshCw className="mr-2 h-4 w-4"/> Re-Doubt
                                     </Button>
                                )}
