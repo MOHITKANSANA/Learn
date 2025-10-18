@@ -28,14 +28,6 @@ const featureCards = [
     id: 'apply-now',
   },
   {
-    icon: UserCheck,
-    title: 'My Applications',
-    description: 'Check the status and details of your scholarship applications.',
-    href: '/scholarship/my-applications',
-    color: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300',
-    id: 'my-applications',
-  },
-  {
     icon: Bell,
     title: 'City Intimation',
     description: 'Check your allocated exam city and center details here.',
