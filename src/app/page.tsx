@@ -219,7 +219,7 @@ export default function Home() {
                 {freeCourses.map(course => {
                     const isEnrolled = enrollmentStatus.get(course.id) === 'approved';
                     return (
-                        <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
+                        <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
                                 <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className="flex flex-col flex-grow">
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full aspect-[16/9] object-cover" />
@@ -253,7 +253,7 @@ export default function Home() {
                 {paidCourses.map(course => {
                     const isEnrolled = enrollmentStatus.get(course.id) === 'approved';
                     return (
-                        <CarouselItem key={course.id} className="basis-1/1 md:basis-1/3 lg:basis-1/4">
+                        <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5">
                             <Card className="flex flex-col overflow-hidden h-full hover:shadow-lg transition-shadow duration-300">
                                 <Link href={isEnrolled ? `/courses/content/${course.id}` : '#'} className="flex flex-col flex-grow">
                                     <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full aspect-[16/9] object-cover" />
