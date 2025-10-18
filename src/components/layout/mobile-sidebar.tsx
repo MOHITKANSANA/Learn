@@ -32,7 +32,7 @@ export function MobileSidebar() {
 
   return (
     <Sidebar side="left" collapsible="offcanvas">
-      <SidebarContent className="p-0 flex flex-col animated-sidebar-gradient">
+      <SidebarContent className="p-0 flex flex-col bg-card">
          <div className='p-4'>
             <div className="flex items-center gap-4">
             <Avatar className="h-12 w-12">

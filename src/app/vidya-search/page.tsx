@@ -3,13 +3,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useActionState } from 'react-dom';
 import { Input } from '@/components/ui/input';
 import { Card, CardTitle } from '@/components/ui/card';
-import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText } from 'lucide-react';
+import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { performSearch, State as SearchState } from './actions';
 import { Button } from '@/components/ui/button';
 
 type SearchResultItem = {
@@ -33,53 +33,16 @@ function ResultIcon({ type }: { type: SearchResultItem['type'] }) {
     }
 }
 
+const quickLinks = [
+    { name: 'ChatGPT', url: 'https://chat.openai.com' },
+    { name: 'YouTube', url: 'https://youtube.com' },
+    { name: 'Gemini', url: 'https://gemini.google.com' },
+    { name: 'Google', url: 'https://google.com' },
+    { name: 'Quora', url: 'https://quora.com' },
+];
 
 export default function VidyaSearchPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const firestore = useFirestore();
-
-  const allSearchDataQuery = useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'vidya_search_data'), orderBy('createdAt', 'desc')) : null,
-    [firestore]
-  );
-  const { data: allData, isLoading } = useCollection(allSearchDataQuery);
-
-  const filteredResults = useMemo(() => {
-    if (!searchQuery) {
-        return allData;
-    }
-    if (!allData) {
-        return [];
-    }
-
-    const lowercasedQuery = searchQuery.toLowerCase();
-    
-    return allData
-        .map(item => {
-            const title = item.title?.toLowerCase() || '';
-            const description = item.description?.toLowerCase() || '';
-            let score = 0;
-
-            if (title.includes(lowercasedQuery)) score += 5;
-            if (description.includes(lowercasedQuery)) score += 2;
-            
-            const queryTerms = lowercasedQuery.split(' ').filter(t => t.length > 2);
-            queryTerms.forEach(term => {
-                if (title.includes(term)) score += 2;
-                if (description.includes(term)) score += 1;
-            });
-            
-            // Special check for 5-digit IDs
-            if (/^\d{5}$/.test(searchQuery) && item.id.startsWith(searchQuery)) {
-                score += 100;
-            }
-
-            return { ...item, score };
-        })
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score);
-
-  }, [searchQuery, allData]);
+  const [state, formAction] = useActionState(performSearch, { results: [] });
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -98,28 +61,25 @@ export default function VidyaSearchPage() {
         </p>
       </div>
 
-      <div className="relative">
+      <form action={formAction} className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           name="query"
           placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
           className="text-base h-12 pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
         />
-      </div>
-       
-      {isLoading ? <Loader2 className="mx-auto animate-spin" /> :
-        <div className="space-y-4">
-            {filteredResults && filteredResults.length > 0 ? (
-                filteredResults.map((result, index) => (
-                    <Card key={result.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
+      </form>
+      
+       <div className="space-y-4">
+           {state.results && state.results.length > 0 ? (
+                state.results.map((result, index) => (
+                    <Card key={result.data?.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
                          <div className="p-4 flex gap-4">
                             {result.imageUrl ? (
                                  <Image src={result.imageUrl} alt={result.title} width={80} height={80} className="rounded-md object-cover" />
                             ) : (
                                  <div className="flex-shrink-0 h-16 w-16 flex items-center justify-center bg-muted rounded-md">
-                                    <ResultIcon type={'vidya'}/>
+                                    <ResultIcon type={result.type as any}/>
                                 </div>
                             )}
                             <div className="flex-grow">
@@ -136,11 +96,23 @@ export default function VidyaSearchPage() {
                         </div>
                     </Card>
                 ))
+            ) : state.error ? (
+                <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
+                    <div className="p-4 text-center">{state.error}</div>
+                </Card>
             ) : (
-                <p className="text-center text-muted-foreground py-10">No results found.</p>
+                 <div className="space-y-4">
+                    <h3 className="text-center font-semibold text-muted-foreground">Quick Links</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 text-center">
+                        {quickLinks.map(link => (
+                            <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer" className="block p-4 bg-card rounded-lg hover:bg-muted transition-colors">
+                                <p className="font-semibold">{link.name}</p>
+                            </a>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
-      }
     </div>
   );
 }

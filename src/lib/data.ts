@@ -23,6 +23,7 @@ import {
   BadgePercent,
   HelpCircle,
   MessageCircle,
+  BrainCircuit,
 } from 'lucide-react';
 import { PlaceHolderImages } from './placeholder-images';
 
@@ -78,6 +79,21 @@ export const dashboardItems: DashboardItem[] = [
     href: '/previous-papers',
     icon: Newspaper,
   },
+  {
+    title: 'AI Test',
+    href: '/ai-test',
+    icon: BrainCircuit,
+  },
+  {
+    title: 'AI Tutor',
+    href: '/ai-tutor',
+    icon: Bot,
+  },
+  {
+    title: 'Motivation',
+    href: '/motivation',
+    icon: Heart,
+  },
 ];
 
 
@@ -126,6 +142,16 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     title: 'Motivation',
     href: '/motivation',
     icon: Heart,
+  },
+  {
+    title: 'AI Tutor',
+    href: '/ai-tutor',
+    icon: Bot,
+  },
+  {
+    title: 'AI Test',
+    href: '/ai-test',
+    icon: BrainCircuit,
   },
   {
     title: 'E-Books',
