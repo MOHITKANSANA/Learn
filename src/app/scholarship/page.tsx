@@ -23,7 +23,7 @@ const featureCards = [
     icon: FileText,
     title: 'Apply Now',
     description: 'Complete our simple application to register for the test.',
-    href: '/scholarship/payment',
+    href: '/scholarship/apply',
     color: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
     id: 'apply-now',
   },

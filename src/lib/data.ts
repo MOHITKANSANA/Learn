@@ -44,9 +44,9 @@ export const dashboardItems: DashboardItem[] = [
     icon: Gift,
   },
   {
-    title: 'E-books',
-    href: '/ebooks',
-    icon: Book,
+    title: 'Scholarship',
+    href: '/scholarship',
+    icon: Trophy,
   },
   {
     title: 'Test Series',
@@ -97,6 +97,11 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     href: '/my-orders',
     icon: ShoppingBag,
   },
+   {
+    title: 'Scholarship',
+    href: '/scholarship',
+    icon: Trophy,
+  },
   {
     title: 'Feed',
     href: '/feed',
@@ -129,7 +134,7 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
   },
   {
     title: 'Profile',
-    href: '#',
+    href: '/profile',
     icon: User,
   },
   {

@@ -98,6 +98,8 @@ const adminNavItems = [
   { value: 'add-book', icon: BookCopy, label: 'Add Book' },
   { value: 'book-orders', icon: ShoppingBag, label: 'Book Orders' },
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
+  { value: 'scholarship-management', icon: Trophy, label: 'Scholarship' },
+  { value: 'add-center', icon: MapPin, label: 'Add Scholarship Center' },
   { value: 'manage-content', icon: List, label: 'Manage Content' },
   { value: 'app-settings', icon: Settings, label: 'App Settings' },
   { value: 'vidya-search-admin', icon: Bot, label: 'Vidya Search Admin' },
@@ -1877,6 +1879,236 @@ function VidyaSearchAdmin() {
   );
 }
 
+function ScholarshipManagement() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  
+  const paymentQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarshipPayments'), where('status', '==', 'pending')) : null, [firestore]);
+  const { data: payments, isLoading: isLoadingPayments, forceRefresh: refreshPayments } = useCollection(paymentQuery);
+  
+  const applicationQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarshipApplications'), where('status', '==', 'submitted')) : null, [firestore]);
+  const { data: applications, isLoading: isLoadingApps, forceRefresh: refreshApps } = useCollection(applicationQuery);
+
+  const { data: centers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
+
+  const handlePaymentApproval = async (id: string, approve: boolean) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'scholarshipPayments', id);
+    try {
+      await updateDoc(docRef, { status: approve ? 'approved' : 'rejected' });
+      toast({ title: 'Success', description: `Payment ${approve ? 'approved' : 'rejected'}.` });
+      refreshPayments();
+    } catch(e) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update payment status.' });
+    }
+  };
+
+  const handleApplicationApproval = async (id: string, approve: boolean, centerId?: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'scholarshipApplications', id);
+    try {
+        const updateData: any = { status: approve ? 'approved' : 'rejected' };
+        if (approve && centerId) {
+            updateData.allottedCenterId = centerId;
+        }
+      await updateDoc(docRef, updateData);
+      toast({ title: 'Success', description: `Application ${approve ? 'approved' : 'rejected'}.` });
+      refreshApps();
+    } catch(e) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update application status.' });
+    }
+  };
+
+  return (
+    <Tabs defaultValue="payments">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="payments">Fee Payments</TabsTrigger>
+        <TabsTrigger value="applications">Applications</TabsTrigger>
+      </TabsList>
+      <TabsContent value="payments">
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Payments</CardTitle>
+            <CardDescription>Approve or reject scholarship fee payments.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoadingPayments ? <Loader2 className="animate-spin" /> : payments && payments.length > 0 ? (
+              payments.map(payment => (
+                <Card key={payment.id}>
+                  <CardContent className="p-4 space-y-2">
+                    <p><strong>Student ID:</strong> {payment.userId}</p>
+                    <p><strong>Amount:</strong> ₹{payment.amount}</p>
+                    <p><strong>Mobile:</strong> {payment.paymentMobileNumber}</p>
+                    <div className="flex gap-2 pt-2">
+                      <Button size="sm" onClick={() => handlePaymentApproval(payment.id, true)}>Approve</Button>
+                      <Button size="sm" variant="destructive" onClick={() => handlePaymentApproval(payment.id, false)}>Reject</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : <p>No pending payments.</p>}
+          </CardContent>
+        </Card>
+      </TabsContent>
+      <TabsContent value="applications">
+        <Card>
+          <CardHeader>
+            <CardTitle>Submitted Applications</CardTitle>
+            <CardDescription>Approve applications and allot centers.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoadingApps ? <Loader2 className="animate-spin" /> : applications && applications.length > 0 ? (
+              applications.map(app => (
+                <Card key={app.id}>
+                  <CardContent className="p-4 space-y-3">
+                    <p><strong>Name:</strong> {app.fullName}</p>
+                    <p><strong>Class:</strong> {app.currentClass}</p>
+                    <p><strong>Exam Mode:</strong> {app.examMode}</p>
+                    {app.examMode === 'offline' && (
+                        <div className="space-y-2">
+                            <p><strong>Center Choices:</strong></p>
+                            <ul className="list-disc list-inside text-sm">
+                                <li>1: {centers?.find(c => c.id === app.center1)?.name}</li>
+                                <li>2: {centers?.find(c => c.id === app.center2)?.name}</li>
+                                <li>3: {centers?.find(c => c.id === app.center3)?.name}</li>
+                            </ul>
+                            <Select onValueChange={(centerId) => handleApplicationApproval(app.id, true, centerId)}>
+                                <SelectTrigger><SelectValue placeholder="Allot Center & Approve" /></SelectTrigger>
+                                <SelectContent>
+                                    {centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                     <div className="flex gap-2 pt-2">
+                      {app.examMode === 'online' && <Button size="sm" onClick={() => handleApplicationApproval(app.id, true)}>Approve Online</Button>}
+                      <Button size="sm" variant="destructive" onClick={() => handleApplicationApproval(app.id, false)}>Reject</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : <p>No submitted applications.</p>}
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+const centerSchema = z.object({
+  name: z.string().min(3),
+  address: z.string().min(10),
+  city: z.string().min(2),
+  state: z.string().min(2),
+  pincode: z.string().length(6),
+  examDate: z.string(),
+  examTime: z.string(),
+  admitCardDate: z.string(),
+  resultDate: z.string(),
+  onlineExamStartDate: z.string(),
+  onlineExamEndDate: z.string(),
+  onlineExamStartTime: z.string(),
+  onlineExamEndTime: z.string(),
+});
+
+function AddCenterForm() {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+    const firestore = useFirestore();
+
+    const form = useForm<z.infer<typeof centerSchema>>({
+        resolver: zodResolver(centerSchema),
+        defaultValues: { name: '', address: '', city: '', state: '', pincode: '' }
+    });
+
+    async function onSubmit(values: z.infer<typeof centerSchema>) {
+        setIsSubmitting(true);
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.' });
+            setIsSubmitting(false);
+            return;
+        }
+
+        const centerRef = doc(collection(firestore, 'scholarship_centers'));
+        const centerData = {
+            id: centerRef.id,
+            ...values,
+            createdAt: serverTimestamp()
+        };
+
+        try {
+            await setDoc(centerRef, centerData);
+            toast({ title: 'Success!', description: 'Scholarship center added.' });
+            form.reset();
+        } catch(e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add center.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Center Name</FormLabel><FormControl><Input placeholder="e.g., Vidya Public School" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="address" render={({ field }) => (
+                    <FormItem><FormLabel>Full Address</FormLabel><FormControl><Input placeholder="123, Education Lane" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <div className="grid grid-cols-3 gap-4">
+                    <FormField control={form.control} name="city" render={({ field }) => (
+                        <FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="state" render={({ field }) => (
+                        <FormItem><FormLabel>State</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <FormField control={form.control} name="pincode" render={({ field }) => (
+                        <FormItem><FormLabel>Pincode</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+                <h3 className="font-semibold pt-4 border-t">Offline Exam Schedule</h3>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="examDate" render={({ field }) => (
+                        <FormItem><FormLabel>Exam Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="examTime" render={({ field }) => (
+                        <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+                 <h3 className="font-semibold pt-4 border-t">Online Exam Schedule</h3>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="onlineExamStartDate" render={({ field }) => (
+                        <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="onlineExamEndDate" render={({ field }) => (
+                        <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="onlineExamStartTime" render={({ field }) => (
+                        <FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="onlineExamEndTime" render={({ field }) => (
+                        <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+                 <h3 className="font-semibold pt-4 border-t">Result & Admit Card Schedule</h3>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="admitCardDate" render={({ field }) => (
+                        <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="resultDate" render={({ field }) => (
+                        <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Add Center
+                </Button>
+            </form>
+        </Form>
+    );
+}
+
 const componentMap: { [key: string]: React.FC } = {
   'add-course': CreateCourseForm,
   'add-content': AddContentForm,
@@ -1890,6 +2122,8 @@ const componentMap: { [key: string]: React.FC } = {
   'add-book': AddBookForm,
   'book-orders': ManageBookOrders,
   'add-coupon': AddCouponForm,
+  'scholarship-management': ScholarshipManagement,
+  'add-center': AddCenterForm,
   'manage-content': ManageContent,
   'app-settings': AppSettingsForm,
   'vidya-search-admin': VidyaSearchAdmin,

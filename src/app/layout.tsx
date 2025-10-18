@@ -10,6 +10,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { MobileSidebar } from '@/components/layout/mobile-sidebar';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/firebase';
+import { useState, useEffect } from 'react';
 
 const metadata: Metadata = {
   title: 'Learn with munedra',
@@ -19,6 +20,13 @@ const metadata: Metadata = {
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const pathname = usePathname();
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(storedTheme);
+    document.documentElement.className = storedTheme;
+  }, []);
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   const isVideoPage = pathname.startsWith('/courses/video/');
@@ -71,7 +79,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full dark">
+    <html lang="en" className="h-full">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

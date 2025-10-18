@@ -13,9 +13,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, useDoc } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction, query, where, updateDoc } from 'firebase/firestore';
 import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -68,28 +68,12 @@ export default function ScholarshipApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedAppId, setSubmittedAppId] = useState<string | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const paymentId = searchParams.get('pid');
-  
-  const { data: paymentData, isLoading: isLoadingPayment } = useDoc(useMemoFirebase(
-    () => (firestore && paymentId ? doc(firestore, 'scholarshipPayments', paymentId) : null),
-    [firestore, paymentId]
-  ));
-
   const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
   const { data: settings, isLoading: isLoadingSettings } = useDoc(settingsRef);
-
-
-  useEffect(() => {
-    if (!isLoadingPayment && (!paymentData || paymentData.userId !== user?.uid)) {
-        toast({variant: 'destructive', title: 'Invalid Access', description: 'Please complete the payment process first.'});
-        router.push('/scholarship/payment');
-    }
-  }, [paymentData, isLoadingPayment, user, router, toast]);
 
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
@@ -115,11 +99,13 @@ export default function ScholarshipApplyPage() {
       school: '',
       previousMarks: 0,
       examMode: 'offline',
-      paymentMobileNumber: paymentData?.paymentMobileNumber || '',
+      paymentMobileNumber: '',
     }
   });
 
   const watchExamMode = methods.watch('examMode');
+  const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
+
 
   const steps = [
     { id: 1, title: 'Personal Information', schema: personalInfoSchema },
@@ -132,7 +118,8 @@ export default function ScholarshipApplyPage() {
         },
         { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema }
     ] : []),
-    { id: watchExamMode === 'offline' ? 6 : 4, title: 'Review & Submit', schema: z.object({}) },
+    { id: watchExamMode === 'offline' ? 6 : 4, title: 'Payment', schema: paymentSchema },
+    { id: watchExamMode === 'offline' ? 7 : 5, title: 'Review & Submit', schema: z.object({}) },
   ];
 
   const nextStep = async () => {
@@ -178,20 +165,45 @@ export default function ScholarshipApplyPage() {
     }
 
   const onSubmit = async (data: z.infer<typeof combinedSchema>) => {
-    if (!user || !firestore || !paymentId) {
+    if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'User or database not available.' });
       return;
     }
     
     setIsSubmitting(true);
     try {
+      // 1. Create Payment Document
+      const paymentRef = doc(collection(firestore, 'scholarshipPayments'));
+      const paymentData = {
+          id: paymentRef.id,
+          userId: user.uid,
+          examMode: data.examMode,
+          amount: fee,
+          paymentMobileNumber: data.paymentMobileNumber,
+          status: 'pending', // Admin will approve this
+          createdAt: serverTimestamp(),
+      };
+      await setDoc(paymentRef, paymentData);
+      
+      // 2. Create Application Document
       const newAppId = await generateUniqueAppId();
-
       const applicationData: any = {
         id: String(newAppId),
         userId: user.uid,
-        paymentId: paymentId,
-        ...data,
+        paymentId: paymentRef.id,
+        fullName: data.fullName,
+        fatherName: data.fatherName,
+        dob: data.dob,
+        gender: data.gender,
+        mobile: data.mobile,
+        email: data.email,
+        currentClass: data.currentClass,
+        school: data.school,
+        previousMarks: data.previousMarks,
+        examMode: data.examMode,
+        center1: data.center1,
+        center2: data.center2,
+        center3: data.center3,
         status: 'submitted',
         createdAt: serverTimestamp(),
       };
@@ -209,9 +221,8 @@ export default function ScholarshipApplyPage() {
 
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
       
-      // Update payment to mark as associated with an application
-      const paymentRef = doc(firestore, 'scholarshipPayments', paymentId);
-      await updateDoc(paymentRef, { status: 'submitted', applicationId: String(newAppId) });
+      // 3. Update payment with application ID
+      await updateDoc(paymentRef, { applicationId: String(newAppId) });
 
       setSubmittedAppId(String(newAppId));
     } catch (error) {
@@ -222,7 +233,7 @@ export default function ScholarshipApplyPage() {
     }
   };
 
-  if(isLoadingPayment || isLoadingSettings || !paymentData) {
+  if(isLoadingSettings) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
   }
   
@@ -335,6 +346,8 @@ export default function ScholarshipApplyPage() {
               
               {currentStep === 4 && watchExamMode === 'offline' && (
                  <>
+                    {isLoadingCenters ? <Loader2 className="animate-spin" /> :
+                    <>
                     <FormField name="center1" control={methods.control} render={({ field }) => (
                       <FormItem><FormLabel>Center Choice 1</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select first choice" /></SelectTrigger></FormControl><SelectContent>{centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}, {c.city}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )} />
@@ -344,6 +357,8 @@ export default function ScholarshipApplyPage() {
                      <FormField name="center3" control={methods.control} render={({ field }) => (
                       <FormItem><FormLabel>Center Choice 3</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select third choice" /></SelectTrigger></FormControl><SelectContent>{centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}, {c.city}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )} />
+                    </>
+                    }
                  </>
               )}
                
@@ -356,6 +371,33 @@ export default function ScholarshipApplyPage() {
                         <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
                     )} />
                  </>
+               )}
+               
+               {currentStep === (watchExamMode === 'offline' ? 6 : 4) && (
+                 <div className="space-y-6">
+                    <div className="text-sm font-semibold text-center bg-primary/20 p-3 rounded-md border border-primary/30">
+                        <p>You need to pay ₹{fee || '...'} as application fee.</p>
+                    </div>
+                     {settings?.qrCodeImageUrl && (
+                            <div className='flex flex-col items-center gap-2'>
+                                <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
+                                <p className="text-xs text-muted-foreground text-center">1. Scan this QR to pay ₹{fee || '...'}</p>
+                            </div>
+                     )}
+                     <FormField
+                        control={methods.control}
+                        name="paymentMobileNumber"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>2. Enter your 10-digit UPI Mobile Number for verification</FormLabel>
+                            <FormControl>
+                            <Input type="tel" placeholder="10-Digit Mobile Number" {...field} maxLength={10} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                 </div>
                )}
 
               {currentStep === steps.length && (
