@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,12 +11,21 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useCollection, useMemoFirebase, errorEmitter, useDoc } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp, getDocs, getDoc, runTransaction, query, where, updateDoc } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, doc, setDoc, serverTimestamp, getDocs, runTransaction, updateDoc } from 'firebase/firestore';
 import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+
+const fileToDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+    reader.readAsDataURL(file);
+  });
+};
 
 const finalSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
@@ -51,7 +60,7 @@ const finalSchema = z.object({
         }
     }
     if (data.examMode === 'online') {
-        if (data.paymentMobileNumber && data.paymentMobileNumber.length !== 10) {
+        if (!data.paymentMobileNumber || data.paymentMobileNumber.length !== 10) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Please enter a valid 10-digit UPI mobile number.',
@@ -61,15 +70,6 @@ const finalSchema = z.object({
     }
 });
 
-
-const fileToDataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-    reader.readAsDataURL(file);
-  });
-};
 
 export default function ScholarshipApplyPage() {
   const [currentStep, setCurrentStep] = useState(1);
@@ -103,6 +103,8 @@ export default function ScholarshipApplyPage() {
       center1: '',
       center2: '',
       center3: '',
+      photo: undefined,
+      signature: undefined,
       paymentMobileNumber: '',
     }
   });
@@ -125,11 +127,11 @@ export default function ScholarshipApplyPage() {
     ...(watchExamMode === 'offline' ? [
         { id: 4, title: 'Exam Center Choice', fields: centerChoiceFields },
         { id: 5, title: 'Upload Documents (Optional)', fields: uploadFields },
-        { id: 6, title: 'Review & Submit', fields: [] },
+        { id: 6, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
     ] : [
         { id: 4, title: 'Upload Documents (Optional)', fields: uploadFields },
         { id: 5, title: 'Payment', fields: paymentFields },
-        { id: 6, title: 'Review & Submit', fields: [] },
+        { id: 6, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
     ]),
   ], [watchExamMode]);
 
@@ -145,7 +147,6 @@ export default function ScholarshipApplyPage() {
       }
     }
   };
-
 
   const prevStep = () => {
     if (currentStep > 1) {
@@ -245,7 +246,6 @@ export default function ScholarshipApplyPage() {
           delete applicationData.paymentMobileNumber;
       }
 
-
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
       
       if (paymentId) {
@@ -290,7 +290,6 @@ export default function ScholarshipApplyPage() {
         </div>
     );
   }
-
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -436,10 +435,13 @@ export default function ScholarshipApplyPage() {
                             {Object.entries(methods.getValues()).map(([key, value]) => {
                                 if (value instanceof FileList || typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0) return null;
                                 if (value === '' || value === undefined || value === null) return null;
+                                const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
+                                const file = value instanceof FileList ? value[0]?.name : String(value);
+
                                 return (
                                     <div key={key} className="flex justify-between">
-                                        <span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}:</span>
-                                        <span>{String(value)}</span>
+                                        <span className="font-medium capitalize">{formattedKey}:</span>
+                                        <span>{file}</span>
                                     </div>
                                 );
                             })}
@@ -468,3 +470,5 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
+
+    
