@@ -18,7 +18,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-// A single, comprehensive schema for the entire form
 const finalSchema = z.object({
   fullName: z.string().min(2, "Full name is required."),
   fatherName: z.string().min(2, "Father's name is required."),
@@ -52,7 +51,7 @@ const finalSchema = z.object({
         }
     }
     if (data.examMode === 'online') {
-        if (!data.paymentMobileNumber || data.paymentMobileNumber.length !== 10) {
+        if (data.paymentMobileNumber && data.paymentMobileNumber.length !== 10) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Please enter a valid 10-digit mobile number.',
@@ -107,36 +106,26 @@ export default function ScholarshipApplyPage() {
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
   
-  // Schemas for each step derived from the main schema
-  const personalInfoSchema = finalSchema.pick({ fullName: true, fatherName: true, dob: true, gender: true, mobile: true, email: true });
-  const academicInfoSchema = finalSchema.pick({ currentClass: true, school: true, previousMarks: true });
-  const examModeSchema = finalSchema.pick({ examMode: true });
-  const centerChoiceSchema = finalSchema.pick({center1: true, center2: true, center3: true});
-  const uploadSchema = finalSchema.pick({photo: true, signature: true});
-  const paymentSchema = finalSchema.pick({paymentMobileNumber: true});
-
-  const steps = [
-    { id: 1, title: 'Personal Information', schema: personalInfoSchema },
-    { id: 2, title: 'Academic Information', schema: academicInfoSchema },
-    { id: 3, title: 'Choose Exam Mode', schema: examModeSchema },
+  const steps = useMemo(() => [
+    { id: 1, title: 'Personal Information', fields: ['fullName', 'fatherName', 'dob', 'gender', 'mobile', 'email'] },
+    { id: 2, title: 'Academic Information', fields: ['currentClass', 'school', 'previousMarks'] },
+    { id: 3, title: 'Choose Exam Mode', fields: ['examMode'] },
     ...(watchExamMode === 'offline' ? [
-        { id: 4, title: 'Exam Center Choice', schema: centerChoiceSchema },
-        { id: 5, title: 'Upload Documents (Optional)', schema: uploadSchema },
-        { id: 6, title: 'Review & Submit', schema: z.object({}) },
+        { id: 4, title: 'Exam Center Choice', fields: ['center1', 'center2', 'center3'] },
+        { id: 5, title: 'Upload Documents (Optional)', fields: ['photo', 'signature'] },
+        { id: 6, title: 'Review & Submit', fields: [] },
     ] : [
-        { id: 4, title: 'Upload Documents (Optional)', schema: uploadSchema },
-        { id: 5, title: 'Payment', schema: paymentSchema },
-        { id: 6, title: 'Review & Submit', schema: z.object({}) },
+        { id: 4, title: 'Upload Documents (Optional)', fields: ['photo', 'signature'] },
+        { id: 5, title: 'Payment', fields: ['paymentMobileNumber'] },
+        { id: 6, title: 'Review & Submit', fields: [] },
     ]),
-  ];
+  ], [watchExamMode]);
 
   const nextStep = async () => {
     const currentStepConfig = steps[currentStep - 1];
     if (!currentStepConfig) return;
     
-    // @ts-ignore
-    const currentFields = Object.keys(currentStepConfig.schema.shape || {});
-    const result = await methods.trigger(currentFields as (keyof z.infer<typeof finalSchema>)[]);
+    const result = await methods.trigger(currentStepConfig.fields as (keyof z.infer<typeof finalSchema>)[]);
     
     if (result) {
       if (currentStep < steps.length) {
@@ -148,7 +137,7 @@ export default function ScholarshipApplyPage() {
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep + 1);
+      setCurrentStep(currentStep - 1);
     }
   };
 
@@ -178,13 +167,20 @@ export default function ScholarshipApplyPage() {
     setIsSubmitting(true);
     try {
       let paymentId: string | null = null;
-      // 1. Create Payment Document only for online mode
+
       if (data.examMode === 'online') {
           if (fee === undefined) {
               toast({ variant: 'destructive', title: 'Error', description: 'Fee is not defined. Cannot proceed with payment.' });
               setIsSubmitting(false);
               return;
             }
+          if (!data.paymentMobileNumber || data.paymentMobileNumber.length !== 10) {
+             methods.setError('paymentMobileNumber', {type: 'manual', message: 'Please enter a valid 10-digit UPI mobile number for verification.'});
+             toast({ variant: 'destructive', title: 'Error', description: 'Invalid UPI mobile number.'});
+             setIsSubmitting(false);
+             return;
+          }
+
           const paymentRef = doc(collection(firestore, 'scholarshipPayments'));
           const paymentData = {
               id: paymentRef.id,
@@ -192,19 +188,18 @@ export default function ScholarshipApplyPage() {
               examMode: data.examMode,
               amount: fee,
               paymentMobileNumber: data.paymentMobileNumber,
-              status: 'pending', // Admin will approve this
+              status: 'pending', 
               createdAt: serverTimestamp(),
           };
           await setDoc(paymentRef, paymentData);
           paymentId = paymentRef.id;
       }
       
-      // 2. Create Application Document
       const newAppId = await generateUniqueAppId();
       const applicationData: any = {
         id: String(newAppId),
         userId: user.uid,
-        paymentId: paymentId, // will be null for offline
+        paymentId: paymentId,
         fullName: data.fullName,
         fatherName: data.fatherName,
         dob: data.dob,
@@ -218,7 +213,7 @@ export default function ScholarshipApplyPage() {
         center1: data.center1 || null,
         center2: data.center2 || null,
         center3: data.center3 || null,
-        status: data.examMode === 'offline' ? 'approved' : 'submitted', // Auto-approve offline for now
+        status: data.examMode === 'offline' ? 'approved' : 'submitted',
         createdAt: serverTimestamp(),
       };
       
@@ -461,5 +456,3 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
-
-    
