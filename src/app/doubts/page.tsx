@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
@@ -21,32 +22,33 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-function AskDoubtDialog() {
+function AskDoubtDialog({ forceRefresh }: { forceRefresh: () => void }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [doubtText, setDoubtText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleSubmit = async () => {
     if (!user || !firestore || !doubtText.trim()) return;
     setIsSubmitting(true);
     try {
-      const doubtRef = doc(collection(firestore, 'live_doubts'));
+      const doubtRef = doc(collection(firestore, 'doubts'));
       await setDoc(doubtRef, {
         id: doubtRef.id,
-        studentId: user.uid,
-        studentName: user.displayName,
-        studentImage: user.photoURL,
+        authorId: user.uid,
+        authorName: user.displayName,
+        authorImage: user.photoURL,
         text: doubtText,
-        status: 'open',
         createdAt: serverTimestamp(),
       });
-      toast({ title: 'Doubt Posted!', description: 'Your doubt is now live for solvers.' });
+      toast({ title: 'Doubt Posted!', description: 'Your doubt has been posted on the forum.' });
       setDoubtText('');
-      router.push(`/doubts/room/${doubtRef.id}`);
+      setIsOpen(false);
+      forceRefresh();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to post your doubt.' });
     } finally {
@@ -55,7 +57,7 @@ function AskDoubtDialog() {
   };
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
           <MessageSquarePlus className="mr-2 h-4 w-4" /> Ask a New Doubt
@@ -65,7 +67,7 @@ function AskDoubtDialog() {
         <DialogHeader>
           <DialogTitle>What's your doubt?</DialogTitle>
           <DialogDescription>
-            Post your question and a peer will help you solve it in real-time.
+            Post your question and the community will help you.
           </DialogDescription>
         </DialogHeader>
         <Textarea
@@ -87,78 +89,55 @@ function AskDoubtDialog() {
 
 export default function DoubtsPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
-  const { toast } = useToast();
-  const router = useRouter();
 
-  const openDoubtsQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'live_doubts'), where('status', '==', 'open')) : null,
+  const doubtsQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'doubts'), orderBy('createdAt', 'desc')) : null,
     [firestore]
   );
-  const { data: openDoubts, isLoading } = useCollection(openDoubtsQuery);
+  const { data: doubts, isLoading, forceRefresh } = useCollection(doubtsQuery);
   
-  const handleBecomeSolver = async (doubtId: string) => {
-    if (!user || !firestore) return;
-    
-    const doubtRef = doc(firestore, 'live_doubts', doubtId);
-    
-    try {
-        await updateDoc(doubtRef, {
-            status: 'solving',
-            solverId: user.uid,
-            solverName: user.displayName,
-            solverImage: user.photoURL
-        });
-        router.push(`/doubts/room/${doubtId}`);
-    } catch (error) {
-        console.error(error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not accept this doubt. It might have been taken.'});
-    }
-  }
-
-
   return (
     <div className="max-w-4xl mx-auto">
       <header className="text-center mb-8">
-        <h1 className="text-4xl font-bold font-headline">Live Doubt Solving</h1>
+        <h1 className="text-4xl font-bold font-headline">Doubt Forum</h1>
         <p className="text-muted-foreground mt-2">
-          Ask a question and get it solved by a peer, or help others solve their doubts!
+          Ask a question and get it solved by the community.
         </p>
       </header>
 
       <div className="flex justify-center mb-8">
-        <AskDoubtDialog />
+        <AskDoubtDialog forceRefresh={forceRefresh} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Open for Solving</CardTitle>
-          <CardDescription>Help a peer by solving one of these doubts.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading ? (
-            <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>
-          ) : openDoubts && openDoubts.length > 0 ? (
-            openDoubts.map((doubt: any) => (
-              <div key={doubt.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={doubt.studentImage} />
-                    <AvatarFallback>{doubt.studentName?.[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold">{doubt.studentName}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-1">{doubt.text}</p>
-                  </div>
-                </div>
-                <Button onClick={() => handleBecomeSolver(doubt.id)}>Become a Solver</Button>
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-muted-foreground py-10">No open doubts right now. Be the first to ask one!</p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>
+        ) : doubts && doubts.length > 0 ? (
+          doubts.map((doubt: any) => (
+             <Link href={`/doubts/${doubt.id}`} key={doubt.id} className="block">
+                <Card className="hover:bg-muted/50 transition-colors">
+                    <CardContent className="p-4">
+                         <div className="flex items-start gap-3">
+                            <Avatar className="h-10 w-10">
+                                <AvatarImage src={doubt.authorImage} />
+                                <AvatarFallback>{doubt.authorName?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <p className="font-semibold">{doubt.authorName}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {doubt.createdAt ? formatDistanceToNow(doubt.createdAt.toDate(), { addSuffix: true }) : ''}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="mt-3 text-lg font-semibold">{doubt.text}</p>
+                    </CardContent>
+                </Card>
+             </Link>
+          ))
+        ) : (
+          <p className="text-center text-muted-foreground py-10">No doubts have been asked yet. Be the first!</p>
+        )}
+      </div>
     </div>
   );
 }

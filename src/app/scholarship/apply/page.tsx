@@ -41,8 +41,6 @@ const finalSchema = z.object({
   center1: z.string().optional(),
   center2: z.string().optional(),
   center3: z.string().optional(),
-  photo: z.any().optional(),
-  signature: z.any().optional(),
   paymentMobileNumber: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.examMode === 'offline') {
@@ -103,8 +101,6 @@ export default function ScholarshipApplyPage() {
       center1: '',
       center2: '',
       center3: '',
-      photo: undefined,
-      signature: undefined,
       paymentMobileNumber: '',
     }
   });
@@ -116,7 +112,6 @@ export default function ScholarshipApplyPage() {
   const academicInfoFields: (keyof z.infer<typeof finalSchema>)[] = ['currentClass', 'school', 'previousMarks'];
   const examModeFields: (keyof z.infer<typeof finalSchema>)[] = ['examMode'];
   const centerChoiceFields: (keyof z.infer<typeof finalSchema>)[] = ['center1', 'center2', 'center3'];
-  const uploadFields: (keyof z.infer<typeof finalSchema>)[] = ['photo', 'signature'];
   const paymentFields: (keyof z.infer<typeof finalSchema>)[] = ['paymentMobileNumber'];
 
 
@@ -126,12 +121,10 @@ export default function ScholarshipApplyPage() {
     { id: 3, title: 'Choose Exam Mode', fields: examModeFields },
     ...(watchExamMode === 'offline' ? [
         { id: 4, title: 'Exam Center Choice', fields: centerChoiceFields },
-        { id: 5, title: 'Upload Documents (Optional)', fields: uploadFields },
-        { id: 6, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
+        { id: 5, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
     ] : [
-        { id: 4, title: 'Upload Documents (Optional)', fields: uploadFields },
-        { id: 5, title: 'Payment', fields: paymentFields },
-        { id: 6, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
+        { id: 4, title: 'Payment', fields: paymentFields },
+        { id: 5, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
     ]),
   ], [watchExamMode]);
 
@@ -230,18 +223,6 @@ export default function ScholarshipApplyPage() {
         createdAt: serverTimestamp(),
       };
       
-      const photoFile = (data.photo as FileList)?.[0];
-      if (photoFile) {
-        applicationData.photoUrl = await fileToDataUrl(photoFile);
-      }
-
-      const signatureFile = (data.signature as FileList)?.[0];
-      if (signatureFile) {
-        applicationData.signatureUrl = await fileToDataUrl(signatureFile);
-      }
-
-      delete applicationData.photo;
-      delete applicationData.signature;
       if (data.examMode === 'offline') {
           delete applicationData.paymentMobileNumber;
       }
@@ -388,17 +369,6 @@ export default function ScholarshipApplyPage() {
                     }
                  </>
               )}
-               
-               {steps.find(s => s.id === currentStep)?.title === 'Upload Documents (Optional)' && (
-                 <>
-                    <FormField name="photo" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Photo (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                     <FormField name="signature" control={methods.control} render={({ field: { onChange, ...rest } }) => (
-                        <FormItem><FormLabel>Upload Signature (Optional)</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                 </>
-               )}
                
                {steps.find(s => s.id === currentStep)?.title === 'Payment' && watchExamMode === 'online' && (
                  <div className="space-y-6">
