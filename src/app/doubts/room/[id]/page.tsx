@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, addDoc, serverTimestamp, query, orderBy, updateDoc, deleteDoc } from 'firebase/firestore';
-import { Loader2, Send, X, Check, Brain, MessageSquare } from 'lucide-react';
+import { Loader2, Send, X, Check, Brain, MessageSquare, Image as ImageIcon, RefreshCw } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+
+const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+    reader.readAsDataURL(file);
+});
+
 
 function ChatMessages({ doubtId }: { doubtId: string }) {
     const firestore = useFirestore();
@@ -40,7 +49,11 @@ function ChatMessages({ doubtId }: { doubtId: string }) {
                     <div>
                         <p className="font-semibold text-sm">{msg.authorName}</p>
                         <div className="bg-muted p-3 rounded-lg mt-1">
-                            <p className="text-sm">{msg.text}</p>
+                            {msg.imageUrl ? (
+                                <Image src={msg.imageUrl} alt="Uploaded image" width={200} height={200} className="rounded-md max-w-full h-auto" />
+                            ) : (
+                                <p className="text-sm">{msg.text}</p>
+                            )}
                         </div>
                          <p className="text-xs text-muted-foreground mt-1">
                             {msg.createdAt ? formatDistanceToNow(msg.createdAt.toDate(), { addSuffix: true }) : '...'}
@@ -60,6 +73,7 @@ export default function DoubtRoomPage() {
     const { user } = useUser();
     const firestore = useFirestore();
     const [message, setMessage] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [isSending, setIsSending] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
@@ -74,18 +88,35 @@ export default function DoubtRoomPage() {
     const isStudent = user?.uid === doubt?.studentId;
     const isSolver = user?.uid === doubt?.solverId;
 
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setImageFile(file);
+            setMessage(''); // Clear text message if image is selected
+        }
+    };
+
+
     const handleSendMessage = async () => {
-        if (!user || !firestore || !message.trim()) return;
+        if (!user || !firestore || (!message.trim() && !imageFile)) return;
         setIsSending(true);
         try {
+            let imageUrl: string | null = null;
+            if (imageFile) {
+                imageUrl = await fileToDataUrl(imageFile);
+            }
+
             await addDoc(collection(firestore, `live_doubts/${doubtId}/messages`), {
                 authorId: user.uid,
                 authorName: user.displayName,
                 authorImage: user.photoURL,
                 text: message,
+                imageUrl: imageUrl,
                 createdAt: serverTimestamp()
             });
+
             setMessage('');
+            setImageFile(null);
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to send message.' });
         } finally {
@@ -94,7 +125,7 @@ export default function DoubtRoomPage() {
     };
     
     const handleEndSession = async (markAsSolved: boolean) => {
-        if (!firestore) return;
+        if (!firestore || !doubtRef) return;
 
         if (markAsSolved) {
             await updateDoc(doubtRef, { status: 'solved' });
@@ -106,6 +137,14 @@ export default function DoubtRoomPage() {
         }
         router.push('/doubts');
     }
+    
+    const handleReDoubt = () => {
+        const phoneNumber = "918949814095"; // Replace with your target phone number
+        const doubtText = `नमस्ते, मुझे मेरे संदेह (ID: ${doubtId}) के समाधान में और सहायता चाहिए: "${doubt.text}"`;
+        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(doubtText)}`;
+        window.open(whatsappUrl, '_blank');
+    };
+
 
     if (isLoading) {
         return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin" /></div>;
@@ -155,23 +194,37 @@ export default function DoubtRoomPage() {
                             <Input
                                 placeholder="Type your message..."
                                 value={message}
-                                onChange={(e) => setMessage(e.target.value)}
+                                onChange={(e) => { setMessage(e.target.value); setImageFile(null); }}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                disabled={isSending}
+                                disabled={isSending || !!imageFile}
                             />
-                            <Button onClick={handleSendMessage} disabled={isSending || !message.trim()}>
+                             <Button asChild variant="ghost" size="icon" className="relative">
+                                 <>
+                                <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange} disabled={isSending} />
+                                <ImageIcon className="h-5 w-5" />
+                                </>
+                            </Button>
+                            <Button onClick={handleSendMessage} disabled={isSending || (!message.trim() && !imageFile)}>
                                 {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             </Button>
                         </div>
-                        {(isSolver || isStudent) && (
+                         {imageFile && <p className="text-xs text-muted-foreground mt-2">Image selected: {imageFile.name}</p>}
+                        {(isSolver || (isStudent && doubt.status === 'solved')) && (
                             <div className="flex justify-center gap-4 mt-4">
-                                <Button variant="destructive" size="sm" onClick={() => handleEndSession(false)}>
-                                    <X className="mr-2 h-4 w-4"/> End Session
-                                </Button>
+                               {isStudent && doubt.status === 'solved' && (
+                                     <Button variant="outline" size="sm" onClick={handleReDoubt}>
+                                        <RefreshCw className="mr-2 h-4 w-4"/> Re-Doubt
+                                    </Button>
+                               )}
                                 {isSolver && (
-                                     <Button variant="default" size="sm" onClick={() => handleEndSession(true)} className="bg-green-600 hover:bg-green-700">
+                                    <>
+                                     <Button variant="destructive" size="sm" onClick={() => handleEndSession(false)}>
+                                        <X className="mr-2 h-4 w-4"/> End Session
+                                    </Button>
+                                    <Button variant="default" size="sm" onClick={() => handleEndSession(true)} className="bg-green-600 hover:bg-green-700">
                                         <Check className="mr-2 h-4 w-4"/> Mark as Solved
                                     </Button>
+                                    </>
                                 )}
                             </div>
                         )}
@@ -185,4 +238,3 @@ export default function DoubtRoomPage() {
         </div>
     );
 }
-
