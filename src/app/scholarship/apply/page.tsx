@@ -54,7 +54,7 @@ const finalSchema = z.object({
         if (data.paymentMobileNumber && data.paymentMobileNumber.length !== 10) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: 'Please enter a valid 10-digit mobile number.',
+                message: 'Please enter a valid 10-digit UPI mobile number.',
                 path: ['paymentMobileNumber'],
             });
         }
@@ -100,23 +100,35 @@ export default function ScholarshipApplyPage() {
       school: '',
       previousMarks: 0,
       examMode: 'offline',
+      center1: '',
+      center2: '',
+      center3: '',
+      paymentMobileNumber: '',
     }
   });
 
   const watchExamMode = methods.watch('examMode');
   const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
   
+  const personalInfoFields: (keyof z.infer<typeof finalSchema>)[] = ['fullName', 'fatherName', 'dob', 'gender', 'mobile', 'email'];
+  const academicInfoFields: (keyof z.infer<typeof finalSchema>)[] = ['currentClass', 'school', 'previousMarks'];
+  const examModeFields: (keyof z.infer<typeof finalSchema>)[] = ['examMode'];
+  const centerChoiceFields: (keyof z.infer<typeof finalSchema>)[] = ['center1', 'center2', 'center3'];
+  const uploadFields: (keyof z.infer<typeof finalSchema>)[] = ['photo', 'signature'];
+  const paymentFields: (keyof z.infer<typeof finalSchema>)[] = ['paymentMobileNumber'];
+
+
   const steps = useMemo(() => [
-    { id: 1, title: 'Personal Information', fields: ['fullName', 'fatherName', 'dob', 'gender', 'mobile', 'email'] },
-    { id: 2, title: 'Academic Information', fields: ['currentClass', 'school', 'previousMarks'] },
-    { id: 3, title: 'Choose Exam Mode', fields: ['examMode'] },
+    { id: 1, title: 'Personal Information', fields: personalInfoFields },
+    { id: 2, title: 'Academic Information', fields: academicInfoFields },
+    { id: 3, title: 'Choose Exam Mode', fields: examModeFields },
     ...(watchExamMode === 'offline' ? [
-        { id: 4, title: 'Exam Center Choice', fields: ['center1', 'center2', 'center3'] },
-        { id: 5, title: 'Upload Documents (Optional)', fields: ['photo', 'signature'] },
+        { id: 4, title: 'Exam Center Choice', fields: centerChoiceFields },
+        { id: 5, title: 'Upload Documents (Optional)', fields: uploadFields },
         { id: 6, title: 'Review & Submit', fields: [] },
     ] : [
-        { id: 4, title: 'Upload Documents (Optional)', fields: ['photo', 'signature'] },
-        { id: 5, title: 'Payment', fields: ['paymentMobileNumber'] },
+        { id: 4, title: 'Upload Documents (Optional)', fields: uploadFields },
+        { id: 5, title: 'Payment', fields: paymentFields },
         { id: 6, title: 'Review & Submit', fields: [] },
     ]),
   ], [watchExamMode]);
@@ -125,7 +137,7 @@ export default function ScholarshipApplyPage() {
     const currentStepConfig = steps[currentStep - 1];
     if (!currentStepConfig) return;
     
-    const result = await methods.trigger(currentStepConfig.fields as (keyof z.infer<typeof finalSchema>)[]);
+    const result = await methods.trigger(currentStepConfig.fields);
     
     if (result) {
       if (currentStep < steps.length) {
