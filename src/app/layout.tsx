@@ -107,7 +107,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     // This effect handles redirection once the initial checks are complete.
     if (!isInitialCheckComplete) return;
 
-    if (user && !isProfileComplete && pathname !== '/profile-setup' && !pathname.startsWith('/admin')) {
+    if (user && !user.isAnonymous && !isProfileComplete && pathname !== '/profile-setup' && !pathname.startsWith('/admin')) {
         router.replace('/profile-setup');
     }
   }, [isInitialCheckComplete, user, isProfileComplete, pathname, router]);
@@ -126,7 +126,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isAuthPage = pathname === '/signup' || pathname === '/admin/login' || pathname === '/profile-setup';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
-  const isHomePage = pathname === '/home';
 
   if (showSplash || (!isInitialCheckComplete && !isAuthPage)) {
     return <SplashScreen />;
@@ -143,7 +142,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }
   
   // This allows the profile setup page to render within the main layout if needed, or standalone.
-  if (pathname === '/profile-setup' && !isProfileComplete) {
+  if (pathname === '/profile-setup' && (!user || (user && !user.isAnonymous && !isProfileComplete))) {
        return (
             <div className="flex flex-col min-h-screen">
                 <main className="flex items-center flex-1 justify-center p-4">
@@ -160,7 +159,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <Header />
         <MobileSidebar />
         <main className="flex-1">
-          <div className={`container mx-auto ${isHomePage ? '' : 'px-4'} sm:px-6 lg:px-8 py-8 pb-20 md:pb-8`}>
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
             {children}
           </div>
         </main>
