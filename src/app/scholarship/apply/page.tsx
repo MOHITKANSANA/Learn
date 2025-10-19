@@ -183,7 +183,7 @@ export default function ScholarshipApplyPage() {
                 </CardContent>
                 <CardFooter>
                      <Button asChild className="w-full">
-                        <Link href="/scholarship/my-applications">Go to My Applications</Link>
+                        <Link href="/scholarship">Go to Scholarship Page</Link>
                     </Button>
                 </CardFooter>
             </Card>

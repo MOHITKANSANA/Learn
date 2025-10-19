@@ -20,11 +20,15 @@ import {
   Bot,
   ShoppingBag,
   BadgePercent,
-  HelpCircle,
   MessageCircle,
+  HelpCircle,
   BrainCircuit,
+  Youtube,
+  Facebook,
+  Instagram,
+  Send as Telegram,
+  Link as LinkIcon,
 } from 'lucide-react';
-import { PlaceHolderImages } from './placeholder-images';
 
 type DashboardItem = {
   title: string;
@@ -61,11 +65,11 @@ export const dashboardItems: DashboardItem[] = [
   {
     title: 'Book Shala',
     href: '/book-shala',
-    icon: Library,
+    icon: Book,
   },
    {
-    title: 'Doubt Forum',
-    href: '/doubts',
+    title: 'Public Square',
+    href: '/public-square',
     icon: MessageCircle,
   },
   {
@@ -118,59 +122,21 @@ export const sidebarNavItems: { title: string; href: string; icon: LucideIcon }[
     icon: User,
   },
   {
+    title: 'Social Links',
+    href: '/social-links',
+    icon: LinkIcon,
+  },
+  {
       title: 'Admin',
       href: '/admin',
       icon: Shield,
   }
 ];
 
-
-export const promotionItems = [
-    {
-        title: 'New Course Launch!',
-        description: 'Advanced Web Development course is now available. Enroll now!',
-    },
-    {
-        title: 'Limited Time Offer',
-        description: 'Get 50% off on all test series for the next 48 hours.',
-    },
-    {
-        title: 'Free Live Class',
-        description: 'Join our free live session on "Introduction to AI" this weekend.',
-    }
-];
-
-export const books = [
-  {
-    id: '1',
-    title: 'The Future of AI',
-    author: 'Dr. Evelyn Reed',
-    price: '29.99',
-    description: 'An in-depth exploration of the future of artificial intelligence and its impact on society.',
-    image: PlaceHolderImages.find(img => img.id === 'book-1'),
-  },
-  {
-    id: '2',
-    title: 'Quantum Computing Explained',
-    author: 'Prof. Ken Adams',
-    price: '34.99',
-    description: 'A comprehensive guide to understanding the principles of quantum computing.',
-    image: PlaceHolderImages.find(img => img.id === 'book-2'),
-  },
-  {
-    id: '3',
-    title: 'Advanced Data Structures',
-    author: 'Dr. Priya Sharma',
-    price: '49.99',
-    description: 'Master complex data structures with this advanced textbook for students and professionals.',
-    image: PlaceHolderImages.find(img => img.id === 'book-3'),
-  },
-  {
-    id: '4',
-    title: 'The Art of Learning',
-    author: 'Michael Chen',
-    price: '19.99',
-    description: 'Discover effective strategies for learning any skill and improving your memory.',
-    image: PlaceHolderImages.find(img => img.id === 'book-4'),
-  },
-];
+export const socialLinkIcons: { [key: string]: LucideIcon } = {
+  youtube: Youtube,
+  facebook: Facebook,
+  instagram: Instagram,
+  telegram: Telegram,
+  default: LinkIcon,
+};

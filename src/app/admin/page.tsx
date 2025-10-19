@@ -46,6 +46,12 @@ import {
   Edit,
   DollarSign,
   Tag,
+  ThumbsUp,
+  ThumbsDown,
+  Link as LinkIcon,
+  Facebook,
+  Instagram,
+  Send as Telegram,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1050,6 +1056,7 @@ function ManageBookOrders() {
         try {
             await updateDoc(orderRef, { status });
             toast({ title: 'Success', description: `Order status updated to ${status}.` });
+            forceRefresh();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update order status.' });
         }
@@ -1073,6 +1080,7 @@ function ManageBookOrders() {
             await updateDoc(orderRef, { ...values, status: 'shipped' });
             toast({ title: 'Success', description: 'Order details updated and marked as shipped.' });
             setEditingOrder(null);
+            forceRefresh();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update order details.' });
         }
@@ -1719,6 +1727,84 @@ function ManageContent() {
     );
 }
 
+const socialLinkSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  url: z.string().url("Must be a valid URL"),
+  icon: z.enum(['youtube', 'facebook', 'instagram', 'telegram', 'default']),
+});
+
+function SocialLinksSettings() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const { data: socialLinks, isLoading, forceRefresh } = useCollection(useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'socialLinks'), orderBy('createdAt')) : null,
+    [firestore]
+  ));
+
+  const form = useForm<z.infer<typeof socialLinkSchema>>({
+    resolver: zodResolver(socialLinkSchema),
+    defaultValues: { name: "", url: "", icon: 'default' },
+  });
+
+  async function onSubmit(values: z.infer<typeof socialLinkSchema>) {
+    setIsSubmitting(true);
+    if (!firestore) return;
+    try {
+      await addDoc(collection(firestore, 'socialLinks'), { ...values, createdAt: serverTimestamp() });
+      toast({ title: "Success", description: "Social link added." });
+      form.reset();
+      forceRefresh();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: "Failed to add link." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!firestore) return;
+    try {
+        await deleteDoc(doc(firestore, 'socialLinks', id));
+        toast({title: 'Success', description: 'Link removed.'});
+        forceRefresh();
+    } catch(e) {
+        toast({variant: 'destructive', title: 'Error', description: 'Failed to remove link.'});
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g., YouTube" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="icon" render={({ field }) => (
+              <FormItem><FormLabel>Icon</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select an icon" /></SelectTrigger></FormControl><SelectContent><SelectItem value="youtube">YouTube</SelectItem><SelectItem value="facebook">Facebook</SelectItem><SelectItem value="instagram">Instagram</SelectItem><SelectItem value="telegram">Telegram</SelectItem><SelectItem value="default">Default Link</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+            )} />
+          </div>
+          <FormField control={form.control} name="url" render={({ field }) => (
+            <FormItem><FormLabel>URL</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add Link</Button>
+        </form>
+      </Form>
+      <div className="space-y-2">
+        <h3 className="font-semibold">Current Links</h3>
+        {isLoading ? <Loader2 className="animate-spin" /> : socialLinks?.map(link => (
+          <div key={link.id} className="flex items-center justify-between p-2 bg-muted rounded-md">
+            <p>{link.name}</p>
+            <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => handleDelete(link.id)}><Trash2 className="h-4 w-4" /></Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const settingsSchema = z.object({
   qrCodeImage: z.any().optional(),
   logo: z.any().optional(),
@@ -1799,82 +1885,93 @@ function AppSettingsForm() {
   }
 
   return (
-    <Form {...form}>
-      {isLoading ? <Loader2 className="animate-spin" /> :
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-         <FormField
-          control={form.control}
-          name="logo"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>App Logo (for Splash Screen)</FormLabel>
-              <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {settings?.logoUrl && (
-            <div>
-                <p className="text-sm font-medium mb-2">Current Logo:</p>
-                <Image src={settings.logoUrl} alt="Current App Logo" width={100} height={100} className="rounded-md border bg-white p-2"/>
-            </div>
-        )}
-        <FormField
-          control={form.control}
-          name="mobileNumber"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payment Mobile Number</FormLabel>
-              <FormControl><Input placeholder="Enter mobile number for payments" {...field} value={field.value ?? ''} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="upiId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>UPI ID</FormLabel>
-              <FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} value={field.value ?? ''} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="qrCodeImage"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payment QR Code</FormLabel>
-              <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {settings?.qrCodeImageUrl && (
-            <div>
-                <p className="text-sm font-medium mb-2">Current QR Code:</p>
-                <Image src={settings.qrCodeImageUrl} alt="Current QR Code" width={150} height={150} className="rounded-md border"/>
-            </div>
-        )}
-         <FormField
-          control={form.control}
-          name="offlineScholarshipFee"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Offline Scholarship Fee (₹)</FormLabel>
-              <FormControl><Input type="number" placeholder="e.g., 60" {...field} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Settings
-        </Button>
-      </form>}
-    </Form>
+    <Tabs defaultValue="payment">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="payment">Payment & General</TabsTrigger>
+            <TabsTrigger value="social">Social Links</TabsTrigger>
+        </TabsList>
+        <TabsContent value="payment">
+             <Form {...form}>
+              {isLoading ? <Loader2 className="animate-spin" /> :
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                 <FormField
+                  control={form.control}
+                  name="logo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>App Logo (for Splash Screen)</FormLabel>
+                      <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {settings?.logoUrl && (
+                    <div>
+                        <p className="text-sm font-medium mb-2">Current Logo:</p>
+                        <Image src={settings.logoUrl} alt="Current App Logo" width={100} height={100} className="rounded-md border bg-white p-2"/>
+                    </div>
+                )}
+                <FormField
+                  control={form.control}
+                  name="mobileNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Mobile Number</FormLabel>
+                      <FormControl><Input placeholder="Enter mobile number for payments" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="upiId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>UPI ID</FormLabel>
+                      <FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="qrCodeImage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment QR Code</FormLabel>
+                      <FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files)} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {settings?.qrCodeImageUrl && (
+                    <div>
+                        <p className="text-sm font-medium mb-2">Current QR Code:</p>
+                        <Image src={settings.qrCodeImageUrl} alt="Current QR Code" width={150} height={150} className="rounded-md border"/>
+                    </div>
+                )}
+                 <FormField
+                  control={form.control}
+                  name="offlineScholarshipFee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Offline Scholarship Fee (₹)</FormLabel>
+                      <FormControl><Input type="number" placeholder="e.g., 60" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Settings
+                </Button>
+              </form>}
+            </Form>
+        </TabsContent>
+        <TabsContent value="social">
+            <SocialLinksSettings />
+        </TabsContent>
+    </Tabs>
   )
 
 }
@@ -2054,30 +2151,36 @@ function ScholarshipManagement() {
 
   const { data: centers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
 
-  const handleApplicationApproval = async (id: string, approve: boolean, centerId?: string) => {
+  const handleApplicationApproval = async (appId: string, centerId: string) => {
     if (!firestore) return;
-    const docRef = doc(firestore, 'scholarshipApplications', id);
+    const docRef = doc(firestore, 'scholarshipApplications', appId);
     try {
-        const updateData: any = { status: approve ? 'approved' : 'rejected' };
-        if (approve && centerId) {
-            updateData.allottedCenterId = centerId;
-        } else if (approve && !centerId) {
-             toast({ variant: 'destructive', title: 'Error', description: 'Please allot a center before approving.' });
-             return;
-        }
-      await updateDoc(docRef, updateData);
-      toast({ title: 'Success', description: `Application ${approve ? 'approved' : 'rejected'}.` });
-      refreshApps();
+        const updateData: any = { status: 'approved', allottedCenterId: centerId };
+        await updateDoc(docRef, updateData);
+        toast({ title: 'Success', description: 'Application approved and center allotted.' });
+        refreshApps();
     } catch(e) {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to update application status.' });
     }
   };
 
+  const handleResultUpdate = async (appId: string, result: 'Pass' | 'Fail') => {
+     if (!firestore) return;
+     const docRef = doc(firestore, 'scholarshipApplications', appId);
+     try {
+        await updateDoc(docRef, { result });
+        toast({title: 'Success', description: `Result marked as ${result}.`});
+        refreshApps();
+     } catch(e) {
+        toast({variant: 'destructive', title: 'Error', description: 'Failed to update result.'});
+     }
+  }
+
   return (
         <Card>
           <CardHeader>
             <CardTitle>Offline Applications</CardTitle>
-            <CardDescription>Approve applications and allot centers.</CardDescription>
+            <CardDescription>Approve applications, allot centers, and mark results.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoadingApps ? <Loader2 className="animate-spin" /> : applications && applications.length > 0 ? (
@@ -2085,7 +2188,7 @@ function ScholarshipManagement() {
                 <Card key={app.id}>
                   <CardHeader>
                     <CardTitle className="text-lg">{app.fullName}</CardTitle>
-                    <CardDescription>Status: <span className="font-bold capitalize">{app.status}</span></CardDescription>
+                    <CardDescription>Status: <span className="font-bold capitalize">{app.status}</span> {app.result && `| Result: ${app.result}`}</CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 space-y-3">
                     <p><strong>Class:</strong> {app.currentClass}</p>
@@ -2098,14 +2201,19 @@ function ScholarshipManagement() {
                             </ul>
                             
                              <div className="flex items-center gap-2">
-                                <Select onValueChange={(centerId) => handleApplicationApproval(app.id, true, centerId)} disabled={app.status === 'approved'}>
-                                    <SelectTrigger><SelectValue placeholder={app.status === 'approved' ? centers?.find(c=> c.id === app.allottedCenterId)?.name : "Allot Center & Approve"} /></SelectTrigger>
+                                <Select onValueChange={(centerId) => handleApplicationApproval(app.id, centerId)} defaultValue={app.allottedCenterId}>
+                                    <SelectTrigger><SelectValue placeholder={app.allottedCenterId ? centers?.find(c=> c.id === app.allottedCenterId)?.name : "Allot Center & Approve"} /></SelectTrigger>
                                     <SelectContent>
                                         {centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                 <Button size="sm" variant="destructive" onClick={() => handleApplicationApproval(app.id, false)}>Reject</Button>
                             </div>
+                            {app.status === 'approved' && (
+                                <div className="flex items-center gap-2 pt-2 border-t">
+                                    <Button size="sm" variant="secondary" onClick={() => handleResultUpdate(app.id, 'Pass')}><ThumbsUp className="mr-2 h-4 w-4"/>Mark as Pass</Button>
+                                     <Button size="sm" variant="destructive" onClick={() => handleResultUpdate(app.id, 'Fail')}><ThumbsDown className="mr-2 h-4 w-4"/>Mark as Fail</Button>
+                                </div>
+                            )}
                         </div>
                   </CardContent>
                 </Card>
@@ -2126,6 +2234,7 @@ const centerSchema = z.object({
   examTime: z.string(),
   admitCardDate: z.string(),
   resultDate: z.string(),
+  applicationEndDate: z.string(),
 });
 
 function AddCenterForm() {
@@ -2195,6 +2304,9 @@ function AddCenterForm() {
                 </div>
                  <h3 className="font-semibold pt-4 border-t">Result &amp; Admit Card Schedule</h3>
                  <div className="grid grid-cols-2 gap-4">
+                     <FormField control={form.control} name="applicationEndDate" render={({ field }) => (
+                        <FormItem><FormLabel>Application End Date</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
                     <FormField control={form.control} name="admitCardDate" render={({ field }) => (
                         <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -2297,6 +2409,7 @@ function EditCenterForm({ centerData, onFinished }: { centerData: any, onFinishe
             examTime: centerData.examTime || '',
             admitCardDate: centerData.admitCardDate || '',
             resultDate: centerData.resultDate || '',
+            applicationEndDate: centerData.applicationEndDate || '',
         }
     });
 
@@ -2342,6 +2455,9 @@ function EditCenterForm({ centerData, onFinished }: { centerData: any, onFinishe
                     <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <h3 className="font-semibold pt-4 border-t">Result & Admit Card</h3>
+                <FormField control={form.control} name="applicationEndDate" render={({ field }) => (
+                    <FormItem><FormLabel>Application End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
                 <FormField control={form.control} name="admitCardDate" render={({ field }) => (
                     <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />

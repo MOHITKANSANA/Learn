@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ export default function CityIntimationPage() {
     ));
 
     const handleSearch = async () => {
-        if (!applicationId || !user || !firestore) {
+        if (!applicationId || !firestore) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please enter a valid Application ID.' });
             return;
         }
@@ -32,26 +32,16 @@ export default function CityIntimationPage() {
         setCenterInfo(null);
 
         try {
-            const appQuery = query(
-                collection(firestore, 'scholarshipApplications'),
-                where('id', '==', applicationId),
-                where('userId', '==', user.uid)
-            );
-            const appSnapshot = await getDocs(appQuery);
+            const appRef = doc(firestore, 'scholarshipApplications', applicationId);
+            const appDoc = await getDoc(appRef);
 
-            if (appSnapshot.empty) {
-                toast({ variant: 'destructive', title: 'Not Found', description: 'No application found with this ID for your account.' });
+            if (!appDoc.exists()) {
+                toast({ variant: 'destructive', title: 'Not Found', description: 'No application found with this ID.' });
                 setIsLoading(false);
                 return;
             }
 
-            const application = appSnapshot.docs[0].data();
-
-            if (application.examMode !== 'offline') {
-                toast({ variant: 'destructive', title: 'Invalid Mode', description: 'City intimation is only for offline exam applicants.' });
-                 setIsLoading(false);
-                return;
-            }
+            const application = appDoc.data();
             
             if (application.allottedCenterId && centers) {
                 const allottedCenter = centers.find(c => c.id === application.allottedCenterId);

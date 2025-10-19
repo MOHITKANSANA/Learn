@@ -45,7 +45,7 @@ const featureCards = [
     icon: BarChart,
     title: 'Check Result',
     description: 'View your test scores and scholarship results after the exam.',
-    href: '/scholarship/my-applications', // Results can be shown here
+    href: '/scholarship/result', 
     color: 'bg-purple-500/10 border-purple-500/30 text-purple-300',
     id: 'check-result',
   },
@@ -60,6 +60,7 @@ export default function ScholarshipPage() {
 
     const schedule = centers && centers.length > 0 ? centers[0] : null;
     const scheduleItems = schedule ? [
+        `Application Ends: ${new Date(schedule.applicationEndDate).toLocaleDateString()}`,
         `Offline Exam: ${new Date(schedule.examDate).toLocaleDateString()}`,
         `Admit Cards From: ${new Date(schedule.admitCardDate).toLocaleDateString()}`,
         `Results On: ${new Date(schedule.resultDate).toLocaleDateString()}`,
@@ -124,5 +125,3 @@ export default function ScholarshipPage() {
     </div>
   );
 }
-
-    

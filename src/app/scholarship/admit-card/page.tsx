@@ -2,12 +2,12 @@
 'use client';
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Loader2, Download, User, Calendar, Clock, MapPin, School, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -25,21 +25,21 @@ export default function AdmitCardPage() {
     const { data: centers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
 
     const handleSearch = async () => {
-        if(!applicationId || !user || !firestore) return;
+        if(!applicationId || !firestore) return;
         setIsLoading(true);
         setApplication(null);
         setAllottedCenter(null);
 
-        const appQuery = query(collection(firestore, 'scholarshipApplications'), where('id', '==', applicationId), where('userId', '==', user.uid));
-        const appSnapshot = await getDocs(appQuery);
+        const appRef = doc(firestore, 'scholarshipApplications', applicationId);
+        const appDoc = await getDoc(appRef);
 
-        if(appSnapshot.empty) {
-            toast({variant: 'destructive', title: 'Not Found', description: 'No application found with this ID for your account.'});
+        if(!appDoc.exists()) {
+            toast({variant: 'destructive', title: 'Not Found', description: 'No application found with this ID.'});
             setIsLoading(false);
             return;
         }
 
-        const appData = appSnapshot.docs[0].data();
+        const appData = appDoc.data();
 
         if (appData.status !== 'approved') {
              toast({variant: 'destructive', title: 'Not Approved', description: 'Your admit card is not yet available. Application is not approved.'});
@@ -148,16 +148,6 @@ export default function AdmitCardPage() {
                                      <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><p><strong>Time:</strong> {allottedCenter.examTime}</p></div>
                                 </div>
                             </div>
-                        ) : application.examMode === 'online' ? (
-                             <div className="pt-4 border-t">
-                                <h3 className="font-bold mb-2 text-primary">Online Examination Details</h3>
-                                 <div className="space-y-2">
-                                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>Start Date:</strong> {new Date(centers[0]?.onlineExamStartDate).toLocaleDateString()}</p></div>
-                                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground" /><p><strong>End Date:</strong> {new Date(centers[0]?.onlineExamEndDate).toLocaleDateString()}</p></div>
-                                     <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><p><strong>Time:</strong> {centers[0]?.onlineExamStartTime} to {centers[0]?.onlineExamEndTime}</p></div>
-                                 </div>
-                                 <p className="text-sm text-muted-foreground mt-2">You can start the test from the scholarship page on the scheduled date and time.</p>
-                            </div>
                         ) : null
                         }
                         
@@ -180,7 +170,6 @@ export default function AdmitCardPage() {
                            {application.examMode === 'offline' && <li>परीक्षा शुरू होने से कम से कम 30 मिनट पहले परीक्षा केंद्र पर पहुंचें।</li>}
                            {application.examMode === 'offline' && <li className='font-bold'>आपको परीक्षा केंद्र पर ₹{offlineFee} का शुल्क नकद जमा करना होगा।</li>}
                             <li>परीक्षा हॉल में किसी भी प्रकार के इलेक्ट्रॉनिक उपकरण (मोबाइल फोन, स्मार्ट वॉच आदि) ले जाना सख्त वर्जित है।</li>
-                           {application.examMode === 'online' && <li>सुनिश्चित करें कि आपके पास एक स्थिर इंटरनेट कनेक्शन है।</li>}
                         </ul>
                      </div>
                      <Button onClick={handlePrint} className="w-full print:hidden">
