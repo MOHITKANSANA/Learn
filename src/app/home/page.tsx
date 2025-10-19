@@ -181,7 +181,7 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <section className='space-y-2'>
+      <section className='space-y-2 px-4'>
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Hello {user?.displayName || 'Student'}!</h1>
           <Button>Support</Button>
@@ -218,7 +218,7 @@ export default function Home() {
       </section>
 
       <section>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-1">
           {dashboardItems.map((item, index) => {
             const Icon = item.icon;
             return (
@@ -235,7 +235,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section>
+      <section className="px-4">
         <h2 className="text-xl font-bold mb-4">Free Courses</h2>
         {isLoadingFreeCourses ? (
           <div className="flex justify-center items-center h-48">
@@ -269,7 +269,7 @@ export default function Home() {
         ) : <p className="text-muted-foreground">No free courses available at the moment.</p>}
       </section>
 
-      <section>
+      <section className="px-4">
         <h2 className="text-xl font-bold mb-4">Paid Courses</h2>
         {isLoadingPaidCourses ? (
           <div className="flex justify-center items-center h-48">
@@ -304,7 +304,7 @@ export default function Home() {
         ) : <p className="text-muted-foreground">No paid courses available at the moment.</p>}
       </section>
 
-       <section>
+       <section className="px-4">
         <h2 className="text-xl font-bold mb-4">Our Educators</h2>
         {isLoadingEducators ? (
           <div className="flex justify-center items-center h-48">
@@ -332,7 +332,7 @@ export default function Home() {
         )}
       </section>
 
-      <section>
+      <section className="px-4">
         <Card className="bg-card/80">
           <CardContent className="p-4 text-center">
             <h3 className="text-lg font-semibold mb-2">Next Live Class</h3>

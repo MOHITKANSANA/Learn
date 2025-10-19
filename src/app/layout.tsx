@@ -64,7 +64,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Use a separate hook/state to track profile data from Firestore
   const firestore = useFirestore(); // Get firestore instance
-  const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+  const userDocRef = useMemo(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
   
   // A new state to determine if initial checks are complete
@@ -107,7 +107,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     // This effect handles redirection once the initial checks are complete.
     if (!isInitialCheckComplete) return;
 
-    if (user && !isProfileComplete && pathname !== '/profile-setup') {
+    if (user && !isProfileComplete && pathname !== '/profile-setup' && !pathname.startsWith('/admin')) {
         router.replace('/profile-setup');
     }
   }, [isInitialCheckComplete, user, isProfileComplete, pathname, router]);
@@ -160,7 +160,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <Header />
         <MobileSidebar />
         <main className="flex-1">
-          <div className={`container mx-auto ${isHomePage ? 'px-1' : 'px-4'} sm:px-6 lg:px-8 py-8 pb-20 md:pb-8`}>
+          <div className={`container mx-auto ${isHomePage ? '' : 'px-4'} sm:px-6 lg:px-8 py-8 pb-20 md:pb-8`}>
             {children}
           </div>
         </main>
