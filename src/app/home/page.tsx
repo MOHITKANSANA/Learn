@@ -299,7 +299,7 @@ export default function Home() {
                 })}
             </CarouselContent>
             <CarouselPrevious className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity" />
-            <CarouselNext className="hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CarouselNext className="hidden sm-flex opacity-0 group-hover:opacity-100 transition-opacity" />
           </Carousel>
         ) : <p className="text-muted-foreground">No paid courses available at the moment.</p>}
       </section>

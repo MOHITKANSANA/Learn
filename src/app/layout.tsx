@@ -40,7 +40,7 @@ function SplashScreen() {
                       className="rounded-full object-cover p-2 animate-pulse"
                   /> :
                   <Image 
-                      src="/icons/logo-512.png" 
+                      src="/logo-512.png" 
                       alt="App Logo" 
                       width={160} 
                       height={160} 
@@ -126,8 +126,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isAuthPage = pathname === '/signup' || pathname === '/admin/login' || pathname === '/profile-setup';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
+  const isHomePage = pathname === '/home';
 
-  if (showSplash || !isInitialCheckComplete) {
+  if (showSplash || (!isInitialCheckComplete && !isAuthPage)) {
     return <SplashScreen />;
   }
   
@@ -159,7 +160,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <Header />
         <MobileSidebar />
         <main className="flex-1">
-          <div className={` ${isVideoPage ? '' : 'container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8'}`}>
+          <div className={`container mx-auto ${isHomePage ? 'px-1' : 'px-4'} sm:px-6 lg:px-8 py-8 pb-20 md:pb-8`}>
             {children}
           </div>
         </main>
@@ -181,7 +182,7 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#facc15" />
-        <link rel="apple-touch-icon" href="/icons/logo-192.png" />
+        <link rel="apple-touch-icon" href="/logo-192.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
