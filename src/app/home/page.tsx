@@ -5,22 +5,22 @@ import Image from 'next/image';
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
-import { dashboardItems } from '@/lib/data';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay"
-import { Loader2, User as UserIcon, BookOpenCheck, Gift, Trophy, FileText, PlaySquare, Book, Briefcase } from 'lucide-react';
-import { collection, query, where, limit } from 'firebase/firestore';
+import { Loader2, User as UserIcon, BookOpenCheck, Gift, Trophy, FileText, PlaySquare, Book, Briefcase, ArrowRight } from 'lucide-react';
+import { collection, query, where, limit, getDoc, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useEffect, useState } from 'react';
 
 
 const primaryButtons = [
@@ -35,16 +35,35 @@ const primaryButtons = [
 export default function Home() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const [mainCourse, setMainCourse] = useState<any>(null);
+  const [isLoadingCourse, setIsLoadingCourse] = useState(true);
   
   const promotionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'promotions'), limit(1)) : null, [firestore]);
   const { data: promotions, isLoading: isLoadingPromotions } = useCollection(promotionsQuery);
   
-  const educatorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'educators') : null, [firestore]);
-  const { data: educators, isLoading: isLoadingEducators } = useCollection(educatorsQuery);
+  useEffect(() => {
+    const fetchMainCourse = async () => {
+      if (!firestore) return;
+      setIsLoadingCourse(true);
+      try {
+        const settingsRef = doc(firestore, 'settings', 'mainCourse');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists() && settingsSnap.data().courseId) {
+          const courseRef = doc(firestore, 'courses', settingsSnap.data().courseId);
+          const courseSnap = await getDoc(courseRef);
+          if (courseSnap.exists()) {
+            setMainCourse(courseSnap.data());
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch main course:", error);
+      } finally {
+        setIsLoadingCourse(false);
+      }
+    };
+    fetchMainCourse();
+  }, [firestore]);
 
-  const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
-  const { data: courses, isLoading: isLoadingCourses } = useCollection(coursesQuery);
-  
   const handleWhatsAppSupport = () => {
     const phoneNumber = "918949814095"; 
     const message = "Hello, I need help with my book order or enrollment.";
@@ -76,7 +95,9 @@ export default function Home() {
                 </p>
             </div>
           </Link>
-        ) : null}
+        ) : (
+          <div className="w-full h-14" /> // Placeholder to prevent layout shift
+        )}
       </section>
 
       {/* 6-Button Grid */}
@@ -96,63 +117,38 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Our Educators Carousel */}
+      {/* Main Course Section */}
       <section>
-        <h2 className="text-xl font-bold mb-3">Our Educators</h2>
-        {isLoadingEducators ? <Skeleton className="w-full h-36 rounded-lg" /> :
-          educators && educators.length > 0 && (
-            <Carousel opts={{ align: "start", loop: true }} className="w-full">
-              <CarouselContent>
-                {educators.map(educator => (
-                   <CarouselItem key={educator.id} className="basis-1/2 sm:basis-1/3">
-                     <Link href={`/educators/${educator.id}`}>
-                      <Card className="overflow-hidden">
-                        <CardContent className="p-0 flex flex-col items-center text-center">
-                          <Avatar className="h-20 w-20 mt-4 border-2 border-primary">
-                            <AvatarImage src={educator.imageUrl} />
-                            <AvatarFallback>{educator.name[0]}</AvatarFallback>
-                          </Avatar>
-                          <div className="p-2">
-                            <p className="font-semibold text-sm">{educator.name}</p>
-                            <p className="text-xs text-muted-foreground">{educator.subject}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                     </Link>
-                   </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-          )
-        }
-      </section>
-      
-      {/* Top Courses Carousel */}
-       <section>
-        <h2 className="text-xl font-bold mb-3">Top Courses</h2>
-        {isLoadingCourses ? <Skeleton className="w-full h-48 rounded-lg" /> :
-          courses && courses.length > 0 && (
-            <Carousel opts={{ align: "start" }} className="w-full">
-              <CarouselContent>
-                {courses.map(course => (
-                   <CarouselItem key={course.id} className="basis-2/3 sm:basis-1/2">
-                     <Link href={`/courses/content/${course.id}`}>
-                      <Card className="overflow-hidden">
-                          <Image src={course.imageUrl} alt={course.title} width={300} height={170} className="w-full aspect-video object-cover"/>
-                          <p className="font-semibold text-sm p-2 truncate">{course.title}</p>
-                      </Card>
-                     </Link>
-                   </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="hidden sm:flex" />
-              <CarouselNext className="hidden sm:flex"/>
-            </Carousel>
-          )
-        }
+        <h2 className="text-xl font-bold mb-3">Main Course</h2>
+        {isLoadingCourse ? (
+            <Skeleton className="w-full h-48 rounded-lg" />
+        ) : mainCourse ? (
+            <Link href={`/courses/content/${mainCourse.id}`}>
+                <Card className="overflow-hidden bg-muted/30 group">
+                    <div className="flex flex-col sm:flex-row">
+                        <div className="sm:w-1/3">
+                             <Image src={mainCourse.imageUrl} alt={mainCourse.title} width={300} height={170} className="w-full h-full object-cover"/>
+                        </div>
+                        <div className="p-4 flex flex-col justify-between sm:w-2/3">
+                            <div>
+                                <CardTitle className="mb-2 text-lg">{mainCourse.title}</CardTitle>
+                                <p className="text-sm text-muted-foreground line-clamp-2">{mainCourse.description}</p>
+                            </div>
+                            <Button variant="link" className="p-0 h-auto self-end text-primary group-hover:underline">
+                                Start Learning <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            </Link>
+        ) : (
+            <Card className="flex items-center justify-center h-24 bg-muted/20">
+                <p className="text-muted-foreground">No main course selected.</p>
+            </Card>
+        )}
       </section>
 
-
+      <div className="h-12" /> 
     </div>
   );
 }

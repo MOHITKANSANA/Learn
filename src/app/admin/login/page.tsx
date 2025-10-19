@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -19,6 +20,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const formSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
@@ -71,7 +73,8 @@ export default function AdminLoginPage() {
   return (
     <div className="flex justify-center items-center h-screen bg-muted/40">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center items-center">
+          <Image src="/logo-512.png" alt="Logo" width={80} height={80} className="mb-4" />
           <CardTitle className="text-2xl font-bold">Admin Panel Login</CardTitle>
           <CardDescription>Enter your credentials to access the dashboard.</CardDescription>
         </CardHeader>

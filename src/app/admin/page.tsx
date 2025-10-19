@@ -53,6 +53,7 @@ import {
   Instagram,
   Send as Telegram,
   TrendingUp,
+  Star,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1638,6 +1639,17 @@ function ManageContent() {
         }
     }
 
+    const handleSetMainCourse = async (courseId: string) => {
+        if (!firestore) return;
+        try {
+            const settingsRef = doc(firestore, 'settings', 'mainCourse');
+            await setDoc(settingsRef, { courseId: courseId });
+            toast({ title: 'Success', description: 'Main course set for home page.' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to set main course.' });
+        }
+    };
+
 
     return (
         <Tabs defaultValue="courses" className="w-full">
@@ -1671,7 +1683,12 @@ function ManageContent() {
                                                         <TableCell>
                                                              {item.hasOwnProperty('isFree') && item.isFree ? <Badge variant="secondary">Free</Badge> : item.hasOwnProperty('price') ? `₹${item.price}`: `₹${item.discountValue}`}
                                                         </TableCell>
-                                                        <TableCell className="flex gap-2">
+                                                        <TableCell className="flex gap-1">
+                                                            {c.path === 'courses' && (
+                                                                <Button variant="ghost" size="icon" onClick={() => handleSetMainCourse(item.id)}>
+                                                                    <Star className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
                                                             {item.hasOwnProperty('isFree') && (
                                                                 <Button variant="ghost" size="icon" onClick={() => handleFreeToggle(c.path, item, refresh)}>
                                                                     <Tag className="h-4 w-4" />
