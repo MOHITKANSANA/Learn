@@ -48,7 +48,7 @@ export default function LoginPage() {
         title: 'Login Successful!',
         description: "You're now logged in.",
       });
-      router.push('/');
+      router.push('/install');
     } catch (error: any) {
       console.error('Login error:', error);
       toast({

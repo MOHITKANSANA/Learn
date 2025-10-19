@@ -16,7 +16,7 @@ import Image from 'next/image';
 import { doc } from 'firebase/firestore';
 
 const metadata: Metadata = {
-  title: 'Learn with munedra',
+  title: 'Learn with Munedra',
   description: 'Your personalized learning platform',
 };
 
@@ -29,9 +29,16 @@ function SplashScreen() {
       <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-4">
           <div className="relative w-40 h-40">
               <div className="absolute inset-0 border-4 border-primary rounded-full animate-spin"></div>
-              {settings?.logoUrl && 
+              {settings?.logoUrl ? 
                   <Image 
                       src={settings.logoUrl} 
+                      alt="App Logo" 
+                      width={160} 
+                      height={160} 
+                      className="rounded-full object-cover p-2 animate-pulse"
+                  /> :
+                  <Image 
+                      src="/icons/icon-192x192.png" 
                       alt="App Logo" 
                       width={160} 
                       height={160} 
@@ -54,6 +61,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => console.log('Service Worker registered with scope:', registration.scope))
+        .catch((error) => console.log('Service Worker registration failed:', error));
+    }
+
     const storedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(storedTheme);
     document.documentElement.className = storedTheme;
@@ -66,19 +79,20 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!isUserLoading && !user && pathname !== '/login' && pathname !== '/signup') {
+    if (!isUserLoading && !user && !['/login', '/signup', '/install'].includes(pathname)) {
       router.push('/signup');
     }
   }, [user, isUserLoading, pathname, router]);
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const isInstallPage = pathname === '/install';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
 
-  if (showSplash || isUserLoading || (!user && !isAuthPage)) {
+  if (showSplash || isUserLoading || (!user && !isAuthPage && !isInstallPage)) {
     return <SplashScreen />;
   }
   
-  if (isAuthPage) {
+  if (isAuthPage || isInstallPage) {
     return (
       <div className="flex flex-col min-h-screen">
         <main className="flex items-center flex-1">
@@ -116,6 +130,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#facc15" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
