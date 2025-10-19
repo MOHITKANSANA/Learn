@@ -62,8 +62,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState('dark');
   const [showSplash, setShowSplash] = useState(true);
 
-  // Checks if the user's profile is complete.
-  const isProfileComplete = !!user?.displayName && !!user?.mobileNumber;
+  // Use a separate hook/state to track profile data from Firestore
+  const userDocRef = useMemoFirebase(() => user ? doc(useFirestore(), 'users', user.uid) : null, [user]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
+  // Checks if the user's profile is complete based on Firestore data.
+  const isProfileComplete = !!userProfile?.name && !!userProfile?.mobileNumber;
 
   useEffect(() => {
     // Automatically sign in users anonymously if they aren't logged in.
@@ -80,16 +84,22 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user, isUserLoading, auth]);
 
   useEffect(() => {
-    // Show splash screen and then redirect if profile is incomplete.
-    const timer = setTimeout(() => {
+    // Show splash screen for a minimum duration
+    const splashTimer = setTimeout(() => {
         setShowSplash(false);
-        if (!isUserLoading && user && !isProfileComplete && pathname !== '/profile-setup') {
-            router.replace('/profile-setup');
-        }
     }, 2500);
 
-    return () => clearTimeout(timer);
-  }, [isUserLoading, user, isProfileComplete, pathname, router]);
+    return () => clearTimeout(splashTimer);
+  }, []);
+
+  useEffect(() => {
+    // Redirect logic after splash screen and loading is complete
+    if (showSplash || isUserLoading || isProfileLoading) return;
+
+    if (user && !isProfileComplete && pathname !== '/profile-setup') {
+        router.replace('/profile-setup');
+    }
+  }, [showSplash, isUserLoading, isProfileLoading, user, isProfileComplete, pathname, router]);
 
   useEffect(() => {
     // PWA and theme setup
