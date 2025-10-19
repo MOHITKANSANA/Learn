@@ -76,7 +76,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Automatically sign in users anonymously if they aren't logged in.
     const handleAnonymousSignIn = async () => {
-        if (!user && !isUserLoading && !auth.currentUser) {
+        if (!user && !isUserLoading && auth && !auth.currentUser) {
             try {
                 await signInAnonymously(auth);
             } catch (error) {
@@ -159,7 +159,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <Header />
         <MobileSidebar />
         <main className="flex-1">
-          <div className="container mx-auto px-1 py-8 pb-20 md:pb-8">
+          <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8">
             {children}
           </div>
         </main>
