@@ -159,7 +159,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <Header />
         <MobileSidebar />
         <main className="flex-1">
-          <div className="container mx-auto px-1 sm:px-4 lg:px-4 py-8 pb-20 md:pb-8">
+          <div className="container mx-auto px-1 py-8 pb-20 md:pb-8">
             {children}
           </div>
         </main>

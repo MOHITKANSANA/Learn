@@ -86,9 +86,9 @@ export default function Home() {
                 const Icon = item.icon;
                 return (
                 <Link href={item.href} key={item.title}>
-                    <div className={`flex flex-col items-center justify-center text-center p-4 gap-2 rounded-lg ${item.color} text-white hover:opacity-90 transition-opacity aspect-square`}>
-                        <Icon className="h-8 w-8" />
-                        <p className="font-semibold text-center text-sm leading-tight mt-1">{item.title}</p>
+                    <div className={`flex flex-col items-center justify-center text-center p-2 gap-1 rounded-lg ${item.color} text-white hover:opacity-90 transition-opacity aspect-square`}>
+                        <Icon className="h-6 w-6" />
+                        <p className="font-semibold text-center text-xs leading-tight mt-1">{item.title}</p>
                     </div>
                 </Link>
                 );
