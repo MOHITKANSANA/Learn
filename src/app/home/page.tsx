@@ -21,24 +21,20 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay"
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
-import { Loader2, ArrowRight, Video, BookOpen, User as UserIcon, Info } from 'lucide-react';
-import { collection, query, where, doc, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
+import { Loader2, User as UserIcon, Info } from 'lucide-react';
+import { collection, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
 export default function Home() {
   const { user } = useUser();
-  const router = useRouter();
   const firestore = useFirestore();
   
   const promotionsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'promotions')) : null, [firestore]);
   const { data: promotions, isLoading: isLoadingPromotions } = useCollection(promotionsQuery);
   
   const handleWhatsAppSupport = () => {
-    const phoneNumber = "918949814095";
+    const phoneNumber = "918949814095"; // Replace with your number, e.g., a business account
     const message = "Hello, I need help with my book order or enrollment.";
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -46,6 +42,7 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
+      {/* Welcome Header */}
       <section className='space-y-4'>
         <div className="flex justify-between items-center">
           <div>
@@ -54,6 +51,7 @@ export default function Home() {
           </div>
            <Button variant="ghost" size="icon" asChild><Link href="/profile"><UserIcon /></Link></Button>
         </div>
+        {/* Promotions Carousel */}
         {isLoadingPromotions ? (
           <Skeleton className="w-full h-36 rounded-lg" />
         ) : promotions && promotions.length > 0 ? (
@@ -80,6 +78,7 @@ export default function Home() {
         ) : null}
       </section>
 
+      {/* 12-Button Grid */}
        <section>
         <div className="grid grid-cols-3 gap-3">
             {dashboardItems.map((item) => {
@@ -98,6 +97,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Support Card */}
       <section>
         <Card className="mt-8 bg-blue-900/20 border-blue-500/30">
           <CardHeader className="flex flex-row items-center gap-4">
