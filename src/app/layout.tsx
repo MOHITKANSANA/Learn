@@ -67,7 +67,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isUserLoading && !user && pathname !== '/login' && pathname !== '/signup') {
-      router.push('/login');
+      router.push('/signup');
     }
   }, [user, isUserLoading, pathname, router]);
 
@@ -92,16 +92,13 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="relative flex min-h-screen flex-col overflow-x-hidden">
+      <div className="relative flex min-h-screen flex-col">
         <Header />
         <MobileSidebar />
-        <main className={`transition-all duration-300 ${isVideoPage ? '' : 'pt-16 md:pt-0'}`}>
-          {!isVideoPage && (
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8 h-full">
-                {children}
-            </div>
-          )}
-          {isVideoPage && children}
+        <main className="flex-1">
+          <div className={` ${isVideoPage ? '' : 'container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20 md:pb-8'}`}>
+            {children}
+          </div>
         </main>
         {!isVideoPage && <Footer />}
       </div>

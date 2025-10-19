@@ -155,14 +155,14 @@ export default function Home() {
 
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <section>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Hello {user?.displayName?.split(' ')[0] || 'Student'}!</h1>
           <Button>Support</Button>
         </div>
         {isLoadingPromotions ? (
-          <Card className="bg-primary/90">
+          <Card className="bg-primary/90 mt-4">
              <CardContent className="p-3">
                <Loader2 className="h-4 w-4 animate-spin text-primary-foreground mx-auto" />
              </CardContent>
@@ -171,6 +171,7 @@ export default function Home() {
           <Carousel
             plugins={[Autoplay({ delay: 3000, stopOnInteraction: false, stopOnMouseEnter: false })]}
             opts={{ align: "start", loop: true }}
+            className="mt-4"
           >
             <CarouselContent>
               {promotions.map((promo) => (

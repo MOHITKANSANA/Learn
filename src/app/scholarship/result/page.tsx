@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Loader2, ArrowLeft, ThumbsUp, ThumbsDown, Trophy } from 'lucide-react';
+import { Loader2, ArrowLeft, ThumbsUp, ThumbsDown, Trophy, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 const resultSchema = z.object({
@@ -49,9 +50,10 @@ export default function ScholarshipResultPage() {
         if (appData.result) {
             setResult(appData);
         } else {
+            setResult({ ...appData, result: 'Pending' });
              toast({
                 title: 'Result Not Declared',
-                description: 'The result for this application has not been declared yet.',
+                description: 'Your result is pending.',
             });
         }
       }
@@ -99,10 +101,17 @@ export default function ScholarshipResultPage() {
                 <Trophy className="h-16 w-16 mx-auto text-yellow-400 mb-4" />
                 <h3 className="font-semibold text-lg">{result.fullName}</h3>
                 <p className="text-sm text-muted-foreground">Application ID: {result.id}</p>
-                <div className={`mt-4 p-4 rounded-lg flex items-center justify-center gap-2 font-bold text-2xl ${result.result === 'Pass' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                    {result.result === 'Pass' ? <ThumbsUp/> : <ThumbsDown/>}
-                    You have {result.result}ed!
-                </div>
+                {result.result === 'Pending' ? (
+                   <div className="mt-4 p-4 rounded-lg flex items-center justify-center gap-2 font-bold text-2xl bg-yellow-500/10 text-yellow-500">
+                        <Clock />
+                        <span>Result Pending</span>
+                   </div>
+                ) : (
+                    <div className={`mt-4 p-4 rounded-lg flex items-center justify-center gap-2 font-bold text-2xl ${result.result === 'Pass' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                        {result.result === 'Pass' ? <ThumbsUp/> : <ThumbsDown/>}
+                        You have {result.result}ed!
+                    </div>
+                )}
             </div>
           )}
         </CardContent>

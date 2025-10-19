@@ -52,6 +52,7 @@ import {
   Facebook,
   Instagram,
   Send as Telegram,
+  TrendingUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,6 +103,7 @@ import {
 
 
 const adminNavItems = [
+  { value: 'revenue', icon: TrendingUp, label: 'Revenue' },
   { value: 'add-course', icon: PlusCircle, label: 'Add Course' },
   { value: 'add-content', icon: FilePlus, label: 'Add Content to Course' },
   { value: 'add-ebook', icon: BookOpen, label: 'Add E-book' },
@@ -2582,9 +2584,119 @@ function MotivationAdmin() {
     )
 }
 
+function RevenueDashboard() {
+  const [password, setPassword] = useState('');
+  const [showEdit, setShowEdit] = useState(false);
+  const [newRevenue, setNewRevenue] = useState<number | string>('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
+
+  const enrollmentsQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'enrollments'), where('isApproved', '==', true)) : null
+  , [firestore]);
+  const { data: enrollments, isLoading: enrollmentsLoading } = useCollection(enrollmentsQuery);
+  
+  const bookOrdersQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'bookOrders'), where('status', '==', 'approved')) : null
+  , [firestore]);
+  const { data: bookOrders, isLoading: bookOrdersLoading } = useCollection(bookOrdersQuery);
+  
+  const revenueDocRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'revenue') : null, [firestore]);
+  const { data: revenueData, isLoading: revenueLoading, forceRefresh } = useDoc(revenueDocRef);
+
+  const totalRevenue = useMemo(() => {
+    if (revenueData?.manualTotal) {
+      return revenueData.manualTotal;
+    }
+    const enrollmentRevenue = enrollments?.reduce((acc, item) => acc + (item.pricePaid || 0), 0) || 0;
+    const bookOrderRevenue = bookOrders?.reduce((acc, item) => acc + (item.price || 0) + (item.verificationCharge || 0), 0) || 0;
+    return enrollmentRevenue + bookOrderRevenue;
+  }, [enrollments, bookOrders, revenueData]);
+
+  const handleEditClick = () => {
+    const enteredPassword = prompt('Please enter the password to edit revenue:');
+    if (enteredPassword === 'LWM@2024') {
+      setNewRevenue(totalRevenue);
+      setShowEdit(true);
+    } else if (enteredPassword) {
+      toast({ variant: 'destructive', title: 'Incorrect Password' });
+    }
+  };
+
+  const handleUpdateRevenue = async () => {
+    if (!firestore || newRevenue === '' || !revenueDocRef) return;
+    setIsUpdating(true);
+    try {
+      await setDoc(revenueDocRef, { manualTotal: Number(newRevenue) }, { merge: true });
+      toast({ title: 'Success', description: 'Revenue updated manually.' });
+      setShowEdit(false);
+      forceRefresh();
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update revenue.' });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const isLoading = enrollmentsLoading || bookOrdersLoading || revenueLoading;
+  const munedraShare = totalRevenue * 0.5;
+  const mohitShare = totalRevenue * 0.5;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Revenue Dashboard</CardTitle>
+        <CardDescription>Total revenue generated from all sales.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {isLoading ? <Loader2 className="mx-auto animate-spin" /> :
+          <>
+            <div className="text-center">
+              <p className="text-muted-foreground">Total Revenue</p>
+              <p className="text-4xl font-bold">₹{totalRevenue.toFixed(2)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Munedra Yadav Sir's Share (50%)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold text-primary">₹{munedraShare.toFixed(2)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Mohit Kansana's Share (50%)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold text-primary">₹{mohitShare.toFixed(2)}</p>
+                </CardContent>
+              </Card>
+            </div>
+            {showEdit ? (
+              <div className="flex gap-2">
+                <Input type="number" value={newRevenue} onChange={(e) => setNewRevenue(e.target.value)} />
+                <Button onClick={handleUpdateRevenue} disabled={isUpdating}>
+                  {isUpdating && <Loader2 className="animate-spin mr-2" />} Save
+                </Button>
+                <Button variant="ghost" onClick={() => setShowEdit(false)}>Cancel</Button>
+              </div>
+            ) : (
+              <Button onClick={handleEditClick} variant="outline" size="sm">
+                Edit Total Revenue
+              </Button>
+            )}
+          </>
+        }
+      </CardContent>
+    </Card>
+  );
+}
 
 
 const componentMap: { [key: string]: React.FC } = {
+  'revenue': RevenueDashboard,
   'add-course': CreateCourseForm,
   'add-content': AddContentForm,
   'add-ebook': CreateEbookForm,
@@ -2661,5 +2773,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

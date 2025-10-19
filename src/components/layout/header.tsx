@@ -38,9 +38,9 @@ export function Header() {
   };
 
   return (
-    <header className="bg-card shadow-sm sticky top-0 z-40">
+    <header className="bg-card shadow-sm sticky top-0 z-40 h-16 flex items-center">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpenMobile(true)}>
               <Menu className="h-6 w-6" />
