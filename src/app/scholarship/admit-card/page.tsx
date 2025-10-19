@@ -54,12 +54,8 @@ export default function AdmitCardPage() {
         }
         
         let centerForAdmitCardDate: any = null;
-
         if (appData.examMode === 'offline' && appData.allottedCenterId) {
             centerForAdmitCardDate = centers?.find(c => c.id === appData.allottedCenterId);
-        } else if (appData.examMode === 'online' && centers && centers.length > 0) {
-            // For online, use the latest general schedule for admit card date check
-            centerForAdmitCardDate = centers.sort((a,b) => b.createdAt.seconds - a.createdAt.seconds)[0];
         }
 
         if (centerForAdmitCardDate) {
@@ -181,3 +177,5 @@ export default function AdmitCardPage() {
         </div>
     );
 }
+
+    

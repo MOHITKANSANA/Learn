@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ImagePlus, Send, MessageSquare } from 'lucide-react';
+import { Loader2, ImagePlus, Send, MessageSquare, X } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, setDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import Image from 'next/image';
@@ -27,7 +27,7 @@ export default function PublicSquarePage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const messagesQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'public_chat'), orderBy('createdAt', 'desc')) : null,
+        firestore ? query(collection(firestore, 'public_chat'), orderBy('createdAt', 'asc')) : null,
         [firestore]
     );
     const { data: messages, isLoading } = useCollection(messagesQuery);
@@ -81,12 +81,6 @@ export default function PublicSquarePage() {
         }
     };
     
-    const sortedMessages = useMemo(() => {
-        if (!messages) return [];
-        // The query is already ordered by descending, but onSnapshot might deliver them out of order initially
-        // So we sort them descending by time, then reverse for display
-        return [...messages].sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds).reverse();
-    }, [messages]);
 
     return (
         <div className="h-[calc(100vh-4rem)] max-w-4xl mx-auto flex flex-col bg-slate-800 rounded-lg shadow-2xl" style={{backgroundImage: "url('/whatsapp-bg.png')"}}>
@@ -100,7 +94,7 @@ export default function PublicSquarePage() {
 
             <div ref={messagesContainerRef} className="flex-grow p-4 space-y-4 overflow-y-auto">
                 {isLoading ? <Loader2 className="mx-auto animate-spin text-white" /> :
-                sortedMessages.map(msg => (
+                messages?.map(msg => (
                      <div key={msg.id} className={`flex items-end gap-2 ${msg.authorId === user?.uid ? 'justify-end' : ''}`}>
                          {msg.authorId !== user?.uid && <Avatar className="h-6 w-6"><AvatarImage src={msg.authorImage} /><AvatarFallback>{msg.authorName?.[0]}</AvatarFallback></Avatar>}
                         <div className={`max-w-xs md:max-w-md p-2 rounded-lg ${msg.authorId === user?.uid ? 'bg-[#005c4b] text-white' : 'bg-[#202c33] text-white'}`}>
@@ -146,5 +140,7 @@ export default function PublicSquarePage() {
         </div>
     );
 }
+
+    
 
     
