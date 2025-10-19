@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from '@/components/ui/sidebar';
 import { collection, query } from 'firebase/firestore';
 
@@ -25,6 +25,7 @@ export function Header() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
+  const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
 
   const cartQuery = useMemoFirebase(() => {
@@ -46,6 +47,9 @@ export function Header() {
           router.push('/profile');
       }
   }
+  
+  // Hide app name on the home page
+  const showAppName = pathname !== '/home';
 
   return (
     <header className="bg-card shadow-sm sticky top-0 z-40 h-16 flex items-center">
@@ -58,7 +62,7 @@ export function Header() {
             </Button>
             <Link href="/" className="flex items-center gap-2 text-xl font-bold font-headline text-primary">
               <GraduationCap className="h-7 w-7" />
-              <span className="inline-block">L W M</span>
+              {showAppName && <span className="inline-block">L W M</span>}
             </Link>
           </div>
           <div className="flex items-center gap-4">
