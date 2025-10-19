@@ -218,15 +218,15 @@ export default function Home() {
       </section>
 
       <section>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {dashboardItems.map((item, index) => {
             const Icon = item.icon;
             return (
               <Link href={item.href} key={item.title}>
                 <Card className={`${colors[index % colors.length]} text-white h-full hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 group`}>
                   <CardContent className="flex flex-col items-center justify-center p-2 aspect-square">
-                    <Icon className="h-6 w-6 mb-1" />
-                    <p className="font-semibold text-center text-xs">{item.title}</p>
+                    <Icon className="h-5 w-5 mb-1" />
+                    <p className="font-semibold text-center text-[10px] leading-tight">{item.title}</p>
                   </CardContent>
                 </Card>
               </Link>
