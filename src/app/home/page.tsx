@@ -226,7 +226,7 @@ export default function Home() {
                 <Card className={`${colors[index % colors.length]} text-white h-full hover:shadow-lg transition-shadow duration-300 transform hover:-translate-y-1 group`}>
                   <CardContent className="flex flex-col items-center justify-center p-2 aspect-square">
                     <Icon className="h-5 w-5 mb-1" />
-                    <p className="font-semibold text-center text-[10px] leading-tight">{item.title}</p>
+                    <p className="font-semibold text-center text-xs leading-tight">{item.title}</p>
                   </CardContent>
                 </Card>
               </Link>
