@@ -218,7 +218,7 @@ export default function Home() {
       </section>
 
       <section>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-3">
           {dashboardItems.map((item, index) => {
             const Icon = item.icon;
             return (
