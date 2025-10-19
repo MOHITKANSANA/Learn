@@ -1,11 +1,11 @@
 {
   "name": "Learn with Munedra",
   "short_name": "LWM",
-  "description": "Your personalized learning platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "background_color": "#222.2 84% 4.9%",
   "theme_color": "#facc15",
+  "description": "Your personalized learning platform.",
   "icons": [
     {
       "src": "/icons/logo-192.png",

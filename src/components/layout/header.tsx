@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -34,8 +35,17 @@ export function Header() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    router.push('/login');
+    router.push('/');
+    window.location.reload(); // Force a reload to re-trigger anonymous sign-in
   };
+  
+  const handleProfileClick = () => {
+      if(user?.isAnonymous) {
+          router.push('/signup');
+      } else {
+          router.push('/profile');
+      }
+  }
 
   return (
     <header className="bg-card shadow-sm sticky top-0 z-40 h-16 flex items-center">
@@ -73,16 +83,19 @@ export function Header() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="cursor-pointer h-9 w-9">
-                    <AvatarImage src={user.photoURL || "https://picsum.photos/seed/user/100/100"} alt="User avatar" />
+                    <AvatarImage src={user.isAnonymous ? '' : user.photoURL || "https://picsum.photos/seed/user/100/100"} alt="User avatar" />
                     <AvatarFallback>
-                      {user.displayName?.charAt(0) || user.email?.charAt(0) || <User />}
+                      {user.isAnonymous ? <User /> : user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
                     </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuLabel>{user.isAnonymous ? 'Guest Account' : 'My Account'}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleProfileClick}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>{user.isAnonymous ? 'Sign Up' : 'Profile'}</span>
+                  </DropdownMenuItem>
                    <DropdownMenuItem asChild>
                      <Link href="/admin">
                         <Shield className="mr-2 h-4 w-4" />
@@ -92,36 +105,20 @@ export function Header() {
                   <DropdownMenuItem>My Courses</DropdownMenuItem>
                   <DropdownMenuItem>Settings</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
+                  {!user.isAnonymous && (
+                    <DropdownMenuItem onClick={handleLogout}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Avatar className="cursor-pointer h-9 w-9">
+               <Avatar className="cursor-pointer h-9 w-9">
                     <AvatarFallback>
                       <User />
                     </AvatarFallback>
-                  </Avatar>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                   <DropdownMenuItem asChild>
-                     <Link href="/login">
-                        Login
-                      </Link>
-                   </DropdownMenuItem>
-                   <DropdownMenuItem asChild>
-                     <Link href="/signup">
-                        Sign Up
-                      </Link>
-                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </Avatar>
             )}
           </div>
         </div>

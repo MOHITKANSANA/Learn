@@ -1,4 +1,5 @@
 
+
 'use client';
 import type { Metadata } from 'next';
 import { Toaster } from '@/components/ui/toaster';
@@ -9,11 +10,12 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { MobileSidebar } from '@/components/layout/mobile-sidebar';
 import { usePathname, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { doc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 
 const metadata: Metadata = {
   title: 'Learn with Munedra',
@@ -38,7 +40,7 @@ function SplashScreen() {
                       className="rounded-full object-cover p-2 animate-pulse"
                   /> :
                   <Image 
-                      src="/icons/icon-192x192.png" 
+                      src="/icons/logo-192.png" 
                       alt="App Logo" 
                       width={160} 
                       height={160} 
@@ -55,10 +57,24 @@ function SplashScreen() {
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [theme, setTheme] = useState('dark');
   const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const handleAnonymousSignIn = async () => {
+        if (!user && !isUserLoading) {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Anonymous sign-in failed:", error);
+            }
+        }
+    };
+    handleAnonymousSignIn();
+  }, [user, isUserLoading, auth]);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -78,16 +94,10 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (!isUserLoading && !user && !['/login', '/signup'].includes(pathname)) {
-      router.push('/signup');
-    }
-  }, [user, isUserLoading, pathname, router]);
-
-  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const isAuthPage = pathname === '/signup';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
 
-  if (showSplash || (isUserLoading && !isAuthPage)) {
+  if (showSplash || isUserLoading) {
     return <SplashScreen />;
   }
   
@@ -131,7 +141,7 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#facc15" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" href="/icons/logo-192.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />

@@ -16,9 +16,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { useAuth, useFirestore, useUser } from '@/firebase';
+import { createUserWithEmailAndPassword, updateProfile, EmailAuthProvider, linkWithCredential } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -31,6 +31,7 @@ const formSchema = z.object({
 export default function SignupPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
@@ -46,43 +47,67 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
-
-      await updateProfile(user, { displayName: values.name });
-
-      await setDoc(doc(firestore, 'users', user.uid), {
-        id: user.uid,
-        name: values.name,
-        email: values.email,
-        profileImageUrl: `https://picsum.photos/seed/${user.uid}/100/100`,
-      });
-
-      toast({
-        title: 'Account Created!',
-        description: "You're now logged in.",
-      });
-      router.push('/');
-    } catch (error: any) {
-      console.error('Signup error:', error);
-       if (error.code === 'auth/email-already-in-use') {
-        toast({
-          variant: 'destructive',
-          title: 'Signup Failed',
-          description: 'This email is already in use. Please log in or use a different email.',
-        });
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Signup Failed',
-          description: error.message || 'An unexpected error occurred. Please try again.',
-        });
-      }
-    } finally {
-      setIsSubmitting(false);
+    if (!auth.currentUser) {
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'No user session found. Please refresh.' });
+        setIsSubmitting(false);
+        return;
     }
-  }
+
+    try {
+        const credential = EmailAuthProvider.credential(values.email, values.password);
+        
+        // Link the anonymous account with the new email/password credential
+        await linkWithCredential(auth.currentUser, credential);
+        
+        const upgradedUser = auth.currentUser;
+
+        // Update profile display name
+        await updateProfile(upgradedUser, { displayName: values.name });
+
+        // Update or create the user document in Firestore
+        const userDocRef = doc(firestore, 'users', upgradedUser.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        const userData = {
+            id: upgradedUser.uid,
+            name: values.name,
+            email: values.email,
+            profileImageUrl: userDoc.exists() ? userDoc.data().profileImageUrl : `https://picsum.photos/seed/${upgradedUser.uid}/100/100`,
+        };
+
+        await setDoc(userDocRef, userData, { merge: true });
+
+        toast({
+            title: 'Account Upgraded!',
+            description: "You've successfully created your account.",
+        });
+        router.push('/');
+    } catch (error: any) {
+        console.error('Signup error:', error);
+        if (error.code === 'auth/email-already-in-use') {
+            toast({
+                variant: 'destructive',
+                title: 'Signup Failed',
+                description: 'This email is already in use. Please use a different email.',
+            });
+        } else if (error.code === 'auth/credential-already-in-use') {
+             toast({
+                variant: 'destructive',
+                title: 'Account Linked',
+                description: 'This account is already linked. Please try logging in normally.',
+             });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Signup Failed',
+                description: error.message || 'An unexpected error occurred. Please try again.',
+            });
+        }
+    } finally {
+        setIsSubmitting(false);
+    }
+}
+
 
   return (
     <div className="flex justify-center items-center h-full">
@@ -139,12 +164,6 @@ export default function SignupPage() {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Account
               </Button>
-              <p className="text-sm text-center text-muted-foreground">
-                Already have an account?{' '}
-                <Link href="/login" className="text-primary hover:underline">
-                  Login
-                </Link>
-              </p>
             </CardFooter>
           </form>
         </Form>

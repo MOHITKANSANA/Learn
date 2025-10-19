@@ -72,19 +72,10 @@ export default function Home() {
     e.stopPropagation();
 
     if (!user || !firestore) {
-      router.push('/signup');
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
       return;
     }
-
-    if (user.isAnonymous) {
-        toast({
-            title: "Please Sign Up",
-            description: "To enroll in courses, please create an account first.",
-            action: <Button onClick={() => router.push('/signup')}>Sign Up</Button>
-        })
-        return;
-    }
-
+    // Prevent re-enrollment
     const q = query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemId', '==', course.id));
     const existingEnrollment = await getDocs(q);
     if (!existingEnrollment.empty) {
@@ -129,18 +120,6 @@ export default function Home() {
     );
   }
 
-  const handlePaidCourseClick = (courseId: string) => {
-    if (!user || user.isAnonymous) {
-        toast({
-            title: "Please Sign Up",
-            description: "To purchase courses, please create an account first.",
-            action: <Button onClick={() => router.push('/signup')}>Sign Up</Button>
-        })
-    } else {
-        router.push(`/checkout/${courseId}?type=course`);
-    }
-  }
-
   const renderPaidCourseButton = (course: any) => {
     const status = enrollmentStatus.get(course.id);
     if (status === 'approved') {
@@ -152,7 +131,7 @@ export default function Home() {
         return <Button disabled size="sm">Pending Approval</Button>;
     }
     return (
-        <Button size="sm" onClick={() => handlePaidCourseClick(course.id)}>Buy Now</Button>
+        <Button size="sm" asChild><Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link></Button>
     );
   };
   
