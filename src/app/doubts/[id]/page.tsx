@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -80,42 +81,44 @@ function CommentSection({ doubtId }: { doubtId: string }) {
     };
 
     return (
-        <div className="space-y-4 p-4 flex-grow overflow-y-auto">
-            {isLoading ? <Loader2 className="mx-auto animate-spin" /> : 
-             comments && comments.length > 0 ? (
-                comments.map(c => {
-                    const isLiked = user && c.likes?.includes(user.uid);
-                    return (
-                        <div key={c.id} className="flex items-start gap-3">
-                             <Avatar className="h-8 w-8">
-                                <AvatarImage src={c.authorImage} />
-                                <AvatarFallback>{c.authorName?.[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="w-full">
-                                <div className="bg-muted p-3 rounded-lg">
-                                    <p className="font-semibold text-sm">{c.authorName}</p>
-                                    <p className="text-sm">{c.text}</p>
-                                </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <Button variant="ghost" size="sm" onClick={() => handleLike(c.id)} className={`h-auto p-1 text-xs ${isLiked ? 'text-primary' : 'text-muted-foreground'}`}>
-                                        <ThumbsUp className={`mr-1 h-3 w-3 ${isLiked ? 'fill-current' : ''}`} />
-                                        {c.likes?.length || 0}
-                                    </Button>
-                                    <p className="text-xs text-muted-foreground">
-                                        {c.createdAt ? formatDistanceToNow(c.createdAt.toDate(), { addSuffix: true }) : '...'}
-                                    </p>
+        <div className="flex flex-col h-full">
+            <div className="flex-grow p-4 space-y-4 overflow-y-auto">
+                {isLoading ? <Loader2 className="mx-auto animate-spin" /> : 
+                comments && comments.length > 0 ? (
+                    comments.map(c => {
+                        const isLiked = user && c.likes?.includes(user.uid);
+                        return (
+                            <div key={c.id} className="flex items-start gap-3">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={c.authorImage} />
+                                    <AvatarFallback>{c.authorName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="w-full">
+                                    <div className="bg-muted p-3 rounded-lg">
+                                        <p className="font-semibold text-sm">{c.authorName}</p>
+                                        <p className="text-sm">{c.text}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <Button variant="ghost" size="sm" onClick={() => handleLike(c.id)} className={`h-auto p-1 text-xs ${isLiked ? 'text-primary' : 'text-muted-foreground'}`}>
+                                            <ThumbsUp className={`mr-1 h-3 w-3 ${isLiked ? 'fill-current' : ''}`} />
+                                            {c.likes?.length || 0}
+                                        </Button>
+                                        <p className="text-xs text-muted-foreground">
+                                            {c.createdAt ? formatDistanceToNow(c.createdAt.toDate(), { addSuffix: true }) : '...'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })
-             ) : (
-                <p className="text-center py-8 text-muted-foreground">No replies yet. Be the first to reply!</p>
-             )}
-             <div ref={messagesEndRef} />
+                        );
+                    })
+                ) : (
+                    <p className="text-center py-8 text-muted-foreground">No replies yet. Be the first to reply!</p>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
 
-             <div className="border-t pt-4 sticky bottom-0 bg-card">
-                 {user && (
+            <div className="border-t p-4 bg-card">
+                {user && (
                     <div className="flex gap-2">
                         <Input
                             placeholder="Add a reply..."
@@ -129,7 +132,7 @@ function CommentSection({ doubtId }: { doubtId: string }) {
                         </Button>
                     </div>
                 )}
-             </div>
+            </div>
         </div>
     );
 }
@@ -178,8 +181,8 @@ export default function DoubtRoomPage() {
 
     return (
         <div className="max-w-4xl mx-auto h-[calc(100vh-4rem)] flex flex-col">
-            <Card className="flex-grow flex flex-col">
-                <CardHeader className="border-b">
+            <Card className="flex-grow flex flex-col overflow-hidden">
+                <div className="p-4 border-b">
                     <div className="flex items-center gap-4 mb-4">
                          <Button asChild variant="ghost" size="icon">
                             <Link href="/doubts">
@@ -197,15 +200,15 @@ export default function DoubtRoomPage() {
                             </p>
                         </div>
                     </div>
-                    <CardTitle className="text-xl">
+                    <h2 className="text-xl font-semibold">
                         {doubt.text}
-                    </CardTitle>
+                    </h2>
                     {doubt.imageUrl && (
                         <div className="mt-4">
                             <Image src={doubt.imageUrl} alt="Doubt image" width={400} height={300} className="rounded-md object-contain" />
                         </div>
                     )}
-                    <CardDescription className="pt-4 flex items-center gap-6">
+                    <div className="pt-4 flex items-center gap-6">
                        <Button variant="ghost" size="sm" onClick={handleLikeDoubt} className={`h-auto p-1 text-sm ${isLiked ? 'text-primary' : 'text-muted-foreground'}`}>
                             <ThumbsUp className={`mr-2 h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                             {doubt.likes?.length || 0} Likes
@@ -216,10 +219,12 @@ export default function DoubtRoomPage() {
                          <Button onClick={handleReDoubt} variant="outline" size="sm" className="ml-auto">
                             Re-Doubt on WhatsApp
                         </Button>
-                    </CardDescription>
-                </CardHeader>
+                    </div>
+                </div>
                 <CommentSection doubtId={doubtId} />
             </Card>
         </div>
     );
 }
+
+    

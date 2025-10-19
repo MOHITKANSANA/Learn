@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Input } from '@/components/ui/input';
-import { formatDistanceToNow } from 'date-fns';
 
 function YouTubePlayer({ videoId }: { videoId: string }) {
     return (
@@ -34,7 +33,7 @@ function ChatSection({ videoId }: { videoId: string }) {
     const { user } = useUser();
     const [message, setMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     const chatQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'video_chat'), where('videoId', '==', videoId)) : null,
@@ -44,7 +43,9 @@ function ChatSection({ videoId }: { videoId: string }) {
     const { data: messages, isLoading } = useCollection(chatQuery);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
     }, [messages]);
 
     const handleSendMessage = async () => {
@@ -76,8 +77,8 @@ function ChatSection({ videoId }: { videoId: string }) {
     }, [messages]);
 
     return (
-        <Card className="h-full flex flex-col">
-            <CardContent className="p-4 flex-grow overflow-auto space-y-4">
+        <div className="h-full flex flex-col">
+            <div ref={messagesContainerRef} className="flex-grow overflow-auto p-4 space-y-4">
                 {isLoading ? <Loader2 className="animate-spin mx-auto" /> :
                     sortedMessages && sortedMessages.length > 0 ? (
                         sortedMessages.map(msg => (
@@ -86,9 +87,6 @@ function ChatSection({ videoId }: { videoId: string }) {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <p className="font-semibold text-sm">{msg.authorName}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {msg.createdAt ? formatDistanceToNow(msg.createdAt.toDate(), { addSuffix: true }) : ''}
-                                        </p>
                                     </div>
                                     <p className="text-sm">{msg.text}</p>
                                 </div>
@@ -96,10 +94,9 @@ function ChatSection({ videoId }: { videoId: string }) {
                         ))
                     ) : <p className="text-center text-muted-foreground">No messages yet. Start the conversation!</p>
                 }
-                <div ref={messagesEndRef} />
-            </CardContent>
+            </div>
             {user && (
-                <CardContent className="p-4 border-t">
+                <div className="p-4 border-t bg-background">
                     <div className="flex gap-2">
                         <Input
                             value={message}
@@ -112,9 +109,9 @@ function ChatSection({ videoId }: { videoId: string }) {
                             {isSending ? <Loader2 className="animate-spin" /> : <Send />}
                         </Button>
                     </div>
-                </CardContent>
+                </div>
             )}
-        </Card>
+        </div>
     );
 }
 
@@ -148,7 +145,7 @@ export default function LiveClassPlayerPage() {
                 <h1 className="text-lg font-semibold truncate">{liveClass.title}</h1>
             </div>
 
-            <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col md:flex-row gap-4 p-4">
+            <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col md:flex-row gap-4 p-4 min-h-0">
                 <div className="flex-grow-[3] flex-shrink-0">
                     {youtubeVideoId ? (
                         <YouTubePlayer videoId={youtubeVideoId} />
@@ -164,8 +161,10 @@ export default function LiveClassPlayerPage() {
                         <TabsList className="grid w-full grid-cols-1">
                             <TabsTrigger value="chat"><MessageCircle className="mr-2" />Live Chat</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="chat" className="flex-grow mt-4">
-                            {liveClassId && <ChatSection videoId={liveClassId} />}
+                        <TabsContent value="chat" className="flex-grow mt-4 min-h-0">
+                           <Card className="h-full w-full">
+                             {liveClassId && <ChatSection videoId={liveClassId} />}
+                           </Card>
                         </TabsContent>
                     </Tabs>
                 </div>
@@ -173,3 +172,5 @@ export default function LiveClassPlayerPage() {
         </div>
     );
 }
+
+    

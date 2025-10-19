@@ -12,8 +12,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay";
 
@@ -44,14 +42,6 @@ const featureCards = [
     id: 'admit-card',
   },
   {
-    icon: Trophy,
-    title: 'Start Test',
-    description: 'Begin your online scholarship examination from here.',
-    href: '/scholarship/test',
-    color: 'bg-rose-500/10 border-rose-500/30 text-rose-300',
-    id: 'start-test',
-  },
-  {
     icon: BarChart,
     title: 'Check Result',
     description: 'View your test scores and scholarship results after the exam.',
@@ -65,24 +55,14 @@ const featureCards = [
 export default function ScholarshipPage() {
     const { user } = useUser();
     const firestore = useFirestore();
-
-    const applicationQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(collection(firestore, 'scholarshipApplications'), where('userId', '==', user.uid));
-    }, [user, firestore]);
     
-    const {data: applications} = useCollection(applicationQuery);
-
     const {data: centers} = useCollection(useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarship_centers'), orderBy('createdAt', 'desc')) : null, [firestore]));
-
-    const isOnlineApplicant = applications?.some(app => app.examMode === 'online');
 
     const schedule = centers && centers.length > 0 ? centers[0] : null;
     const scheduleItems = schedule ? [
         `Offline Exam: ${new Date(schedule.examDate).toLocaleDateString()}`,
         `Admit Cards From: ${new Date(schedule.admitCardDate).toLocaleDateString()}`,
         `Results On: ${new Date(schedule.resultDate).toLocaleDateString()}`,
-        `Online Exam: ${new Date(schedule.onlineExamStartDate).toLocaleDateString()} to ${new Date(schedule.onlineExamEndDate).toLocaleDateString()}`,
     ] : [];
 
 
@@ -103,7 +83,7 @@ export default function ScholarshipPage() {
         {scheduleItems.length > 0 && (
             <Card className="mb-8 bg-primary/90">
                  <Carousel
-                    plugins={[Autoplay({ delay: 2000, stopOnInteraction: false, stopOnMouseEnter: false })]}
+                    plugins={[Autoplay({ delay: 2500, stopOnInteraction: false, stopOnMouseEnter: false })]}
                     opts={{ align: "start", loop: true }}
                     orientation="vertical"
                     className="w-full h-12"
@@ -122,10 +102,8 @@ export default function ScholarshipPage() {
         )}
 
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
             {featureCards.map((card) => {
-                if(isOnlineApplicant && card.id === 'city-intimation') return null;
-
                 return (
                     <Link href={card.href} key={card.title} className="group">
                         <Card 
@@ -146,3 +124,5 @@ export default function ScholarshipPage() {
     </div>
   );
 }
+
+    

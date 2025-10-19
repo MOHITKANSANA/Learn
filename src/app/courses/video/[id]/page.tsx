@@ -13,7 +13,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
 import { Input } from '@/components/ui/input';
 
 function YouTubePlayer({ videoId }: { videoId: string }) {
@@ -36,7 +35,7 @@ function ChatSection({ videoId }: { videoId: string }) {
     const { user } = useUser();
     const [message, setMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     const chatQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'video_chat'), where('videoId', '==', videoId)) : null
@@ -45,7 +44,9 @@ function ChatSection({ videoId }: { videoId: string }) {
     const { data: messages, isLoading } = useCollection(chatQuery);
     
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
     }, [messages]);
 
     const handleSendMessage = async () => {
@@ -77,8 +78,8 @@ function ChatSection({ videoId }: { videoId: string }) {
     }, [messages]);
 
     return (
-        <Card className="h-full flex flex-col">
-            <CardContent className="p-4 flex-grow overflow-auto space-y-4">
+        <div className="h-full flex flex-col">
+            <div ref={messagesContainerRef} className="flex-grow overflow-auto p-4 space-y-4">
                 {isLoading ? <Loader2 className="animate-spin mx-auto" /> :
                     sortedMessages && sortedMessages.length > 0 ? (
                         sortedMessages.map(msg => (
@@ -87,9 +88,6 @@ function ChatSection({ videoId }: { videoId: string }) {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <p className="font-semibold text-sm">{msg.authorName}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                           {msg.createdAt ? formatDistanceToNow(msg.createdAt.toDate(), { addSuffix: true }) : ''}
-                                        </p>
                                     </div>
                                     <p className="text-sm">{msg.text}</p>
                                 </div>
@@ -97,10 +95,9 @@ function ChatSection({ videoId }: { videoId: string }) {
                         ))
                     ) : <p className="text-center text-muted-foreground">No messages yet. Start the conversation!</p>
                 }
-                <div ref={messagesEndRef} />
-            </CardContent>
+            </div>
             {user && (
-                 <CardContent className="p-4 border-t">
+                 <div className="p-4 border-t bg-background">
                     <div className="flex gap-2">
                         <Input 
                             value={message}
@@ -113,9 +110,9 @@ function ChatSection({ videoId }: { videoId: string }) {
                             {isSending ? <Loader2 className="animate-spin" /> : <Send />}
                         </Button>
                     </div>
-                </CardContent>
+                </div>
             )}
-        </Card>
+        </div>
     );
 }
 
@@ -262,7 +259,7 @@ export default function VideoPlayerPage() {
             <h1 className="text-lg font-semibold truncate">{video.title}</h1>
        </div>
 
-      <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col md:flex-row gap-4 p-4">
+      <div className="w-full max-w-7xl mx-auto flex-grow flex flex-col md:flex-row gap-4 p-4 min-h-0">
         <div className="flex-grow-[3] flex-shrink-0">
              {youtubeVideoId ? (
                 <YouTubePlayer videoId={youtubeVideoId} />
@@ -279,8 +276,10 @@ export default function VideoPlayerPage() {
               <TabsTrigger value="chat"><MessageCircle className="mr-2"/>Chat</TabsTrigger>
               <TabsTrigger value="notes"><FileText className="mr-2"/>Notes</TabsTrigger>
             </TabsList>
-            <TabsContent value="chat" className="flex-grow mt-4">
-                {videoId && <ChatSection videoId={videoId}/>}
+            <TabsContent value="chat" className="flex-grow mt-4 min-h-0">
+                <Card className="h-full w-full">
+                    {videoId && <ChatSection videoId={videoId}/>}
+                </Card>
             </TabsContent>
             <TabsContent value="notes" className="flex-grow mt-4">
                {videoId && courseId && <NotesSection courseId={courseId} videoId={videoId}/>}
@@ -291,3 +290,5 @@ export default function VideoPlayerPage() {
     </div>
   );
 }
+
+    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, ChangeEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
 import { Loader2, Search, Link as LinkIcon, Bot, Package, CheckCircle, GraduationCap, FileText, ExternalLink, Brain, FileQuestion, HelpCircle } from 'lucide-react';
@@ -41,7 +41,6 @@ const quickLinks = [
     { name: 'Physics Wallah', url: 'https://www.pw.live/', icon: GraduationCap },
 ];
 
-// Function to shuffle an array
 const shuffleArray = (array: any[]) => {
     let currentIndex = array.length, randomIndex;
     while (currentIndex !== 0) {
@@ -97,7 +96,7 @@ export default function VidyaSearchPage() {
             placeholder="Search for anything or enter your 5-digit Order/Enrollment ID..."
             className="text-base h-12 pl-10"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
          />
       </div>
       
@@ -106,7 +105,7 @@ export default function VidyaSearchPage() {
                 <div className="flex justify-center p-10">
                     <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
-           ) : filteredResults.length > 0 && searchTerm ? (
+           ) : filteredResults.length > 0 ? (
                 filteredResults.map((result, index) => (
                     <Card key={result.id || index} className="bg-card/70 hover:bg-card/90 transition-colors">
                          <CardContent className="p-4 flex gap-4">
@@ -133,7 +132,7 @@ export default function VidyaSearchPage() {
                 ))
             ) : searchTerm ? (
                  <Card className="bg-destructive/10 border-destructive text-destructive-foreground">
-                    <CardContent className="p-4 text-center">आपकी खोज के लिए कोई परिणाम नहीं मिला।</CardContent>
+                    <CardContent className="p-4 text-center">No results found for your query.</CardContent>
                 </Card>
             ) : (
                  <div className="space-y-4">
@@ -155,3 +154,5 @@ export default function VidyaSearchPage() {
     </div>
   );
 }
+
+    

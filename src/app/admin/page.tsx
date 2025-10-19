@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, Fragment, useMemo } from 'react';
+import { useState, Fragment, useMemo, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -109,10 +110,12 @@ const adminNavItems = [
   { value: 'add-coupon', icon: Ticket, label: 'Add Coupon' },
   { value: 'scholarship-management', icon: Trophy, label: 'Scholarship' },
   { value: 'add-center', icon: MapPin, label: 'Add Scholarship Center' },
+  { value: 'manage-centers', icon: Settings, label: 'Manage Centers'},
   { value: 'manage-content', icon: List, label: 'Manage Content' },
   { value: 'manage-users', icon: Users, label: 'Manage Users' },
   { value: 'app-settings', icon: Settings, label: 'App Settings' },
   { value: 'vidya-search-admin', icon: Bot, label: 'Vidya Search Admin' },
+  { value: 'motivation-admin', icon: Heart, label: 'Motivation Admin' },
 ];
 
 const courseSchema = z.object({
@@ -1565,6 +1568,8 @@ function ManageContent() {
         { name: 'Test Series', path: 'test_series' },
         { name: 'Previous Papers', path: 'previousYearPapers' },
         { name: 'Live Classes', path: 'live_classes' },
+        { name: 'Books', path: 'books' },
+        { name: 'Coupons', path: 'coupons' },
     ];
 
     const { data: coursesData, isLoading: coursesLoading, forceRefresh: refreshCourses } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]));
@@ -1572,6 +1577,9 @@ function ManageContent() {
     const { data: testSeriesData, isLoading: testSeriesLoading, forceRefresh: refreshTestSeries } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'test_series') : null, [firestore]));
     const { data: papersData, isLoading: papersLoading, forceRefresh: refreshPapers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'previousYearPapers') : null, [firestore]));
     const { data: liveClassesData, isLoading: liveClassesLoading, forceRefresh: refreshLiveClasses } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'live_classes') : null, [firestore]));
+    const { data: booksData, isLoading: booksLoading, forceRefresh: refreshBooks } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'books') : null, [firestore]));
+    const { data: couponsData, isLoading: couponsLoading, forceRefresh: refreshCoupons } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'coupons') : null, [firestore]));
+
 
     const dataMap = {
         courses: { data: coursesData, loading: coursesLoading, refresh: refreshCourses },
@@ -1579,6 +1587,8 @@ function ManageContent() {
         test_series: { data: testSeriesData, loading: testSeriesLoading, refresh: refreshTestSeries },
         previousYearPapers: { data: papersData, loading: papersLoading, refresh: refreshPapers },
         live_classes: { data: liveClassesData, loading: liveClassesLoading, refresh: refreshLiveClasses },
+        books: { data: booksData, loading: booksLoading, refresh: refreshBooks },
+        coupons: { data: couponsData, loading: couponsLoading, refresh: refreshCoupons },
     };
 
     const handleDelete = async (collectionPath: string, docId: string, refreshFunc: () => void) => {
@@ -1606,7 +1616,7 @@ function ManageContent() {
     };
     
     const handleFreeToggle = async (collectionPath: string, item: any, refreshFunc: () => void) => {
-        if (!firestore) return;
+        if (!firestore || !item.hasOwnProperty('isFree')) return;
         try {
             const itemRef = doc(firestore, collectionPath, item.id);
             const newIsFree = !item.isFree;
@@ -1621,7 +1631,7 @@ function ManageContent() {
 
     return (
         <Tabs defaultValue="courses" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 h-auto">
+            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 h-auto">
                 {collections.map(c => <TabsTrigger key={c.path} value={c.path}>{c.name}</TabsTrigger>)}
             </TabsList>
             {collections.map(c => {
@@ -1639,25 +1649,29 @@ function ManageContent() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>Title</TableHead>
-                                                    <TableHead>Price</TableHead>
+                                                    <TableHead>{c.path === 'coupons' ? 'Code' : 'Title'}</TableHead>
+                                                    <TableHead>{c.path === 'coupons' ? 'Value' : 'Price'}</TableHead>
                                                     <TableHead>Actions</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {data.map(item => (
                                                     <TableRow key={item.id}>
-                                                        <TableCell className="font-medium">{item.title}</TableCell>
+                                                        <TableCell className="font-medium">{item.title || item.code}</TableCell>
                                                         <TableCell>
-                                                            {item.isFree ? <Badge variant="secondary">Free</Badge> : `₹${item.price}`}
+                                                             {item.hasOwnProperty('isFree') && item.isFree ? <Badge variant="secondary">Free</Badge> : item.hasOwnProperty('price') ? `₹${item.price}`: `₹${item.discountValue}`}
                                                         </TableCell>
                                                         <TableCell className="flex gap-2">
-                                                            <Button variant="ghost" size="icon" onClick={() => handleFreeToggle(c.path, item, refresh)}>
-                                                                <Tag className="h-4 w-4" />
-                                                            </Button>
-                                                            <Button variant="ghost" size="icon" onClick={() => { setEditingItem({...item, path: c.path}); setNewPrice(item.price); }}>
-                                                                <DollarSign className="h-4 w-4" />
-                                                            </Button>
+                                                            {item.hasOwnProperty('isFree') && (
+                                                                <Button variant="ghost" size="icon" onClick={() => handleFreeToggle(c.path, item, refresh)}>
+                                                                    <Tag className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                            {item.hasOwnProperty('price') && (
+                                                                <Button variant="ghost" size="icon" onClick={() => { setEditingItem({...item, path: c.path}); setNewPrice(item.price); }}>
+                                                                    <DollarSign className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                                                                 <AlertDialogContent>
@@ -1710,7 +1724,6 @@ const settingsSchema = z.object({
   logo: z.any().optional(),
   mobileNumber: z.string().optional(),
   upiId: z.string().optional(),
-  onlineScholarshipFee: z.coerce.number().min(0).optional(),
   offlineScholarshipFee: z.coerce.number().min(0).optional(),
 });
 
@@ -1726,17 +1739,15 @@ function AppSettingsForm() {
     defaultValues: {
       mobileNumber: '',
       upiId: '',
-      onlineScholarshipFee: 30,
       offlineScholarshipFee: 60,
     }
   });
   
-  useState(() => {
+  useEffect(() => {
     if (settings) {
       form.reset({
         mobileNumber: settings.mobileNumber || '',
         upiId: settings.upiId || '',
-        onlineScholarshipFee: settings.onlineScholarshipFee ?? 30,
         offlineScholarshipFee: settings.offlineScholarshipFee ?? 60,
       });
     }
@@ -1763,12 +1774,10 @@ function AppSettingsForm() {
           qrCodeImageUrl?: string; 
           logoUrl?: string;
           upiId?: string; 
-          onlineScholarshipFee?: number,
           offlineScholarshipFee?: number,
         } = {
         mobileNumber: values.mobileNumber,
         upiId: values.upiId,
-        onlineScholarshipFee: values.onlineScholarshipFee,
         offlineScholarshipFee: values.offlineScholarshipFee
       };
 
@@ -1849,17 +1858,6 @@ function AppSettingsForm() {
                 <Image src={settings.qrCodeImageUrl} alt="Current QR Code" width={150} height={150} className="rounded-md border"/>
             </div>
         )}
-        <FormField
-          control={form.control}
-          name="onlineScholarshipFee"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Online Scholarship Fee (₹)</FormLabel>
-              <FormControl><Input type="number" placeholder="e.g., 30" {...field} /></FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
          <FormField
           control={form.control}
           name="offlineScholarshipFee"
@@ -2051,25 +2049,10 @@ function ScholarshipManagement() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const paymentQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarshipPayments'), where('status', '==', 'pending')) : null, [firestore]);
-  const { data: payments, isLoading: isLoadingPayments, forceRefresh: refreshPayments } = useCollection(paymentQuery);
-  
-  const applicationQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarshipApplications'), where('status', '==', 'submitted')) : null, [firestore]);
+  const applicationQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarshipApplications'), where('examMode', '==', 'offline')) : null, [firestore]);
   const { data: applications, isLoading: isLoadingApps, forceRefresh: refreshApps } = useCollection(applicationQuery);
 
   const { data: centers } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]));
-
-  const handlePaymentApproval = async (id: string, approve: boolean) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'scholarshipPayments', id);
-    try {
-      await updateDoc(docRef, { status: approve ? 'approved' : 'rejected' });
-      toast({ title: 'Success', description: `Payment ${approve ? 'approved' : 'rejected'}.` });
-      refreshPayments();
-    } catch(e) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update payment status.' });
-    }
-  };
 
   const handleApplicationApproval = async (id: string, approve: boolean, centerId?: string) => {
     if (!firestore) return;
@@ -2078,6 +2061,9 @@ function ScholarshipManagement() {
         const updateData: any = { status: approve ? 'approved' : 'rejected' };
         if (approve && centerId) {
             updateData.allottedCenterId = centerId;
+        } else if (approve && !centerId) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Please allot a center before approving.' });
+             return;
         }
       await updateDoc(docRef, updateData);
       toast({ title: 'Success', description: `Application ${approve ? 'approved' : 'rejected'}.` });
@@ -2088,78 +2074,45 @@ function ScholarshipManagement() {
   };
 
   return (
-    <Tabs defaultValue="payments">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="payments">Fee Payments</TabsTrigger>
-        <TabsTrigger value="applications">Applications</TabsTrigger>
-      </TabsList>
-      <TabsContent value="payments">
         <Card>
           <CardHeader>
-            <CardTitle>Pending Payments</CardTitle>
-            <CardDescription>Approve or reject scholarship fee payments.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoadingPayments ? <Loader2 className="animate-spin" /> : payments && payments.length > 0 ? (
-              payments.map(payment => (
-                <Card key={payment.id}>
-                  <CardContent className="p-4 space-y-2">
-                    <p><strong>Student ID:</strong> {payment.userId}</p>
-                    <p><strong>Amount:</strong> ₹{payment.amount}</p>
-                    <p><strong>Mobile:</strong> {payment.paymentMobileNumber}</p>
-                    <div className="flex gap-2 pt-2">
-                      <Button size="sm" onClick={() => handlePaymentApproval(payment.id, true)}>Approve</Button>
-                      <Button size="sm" variant="destructive" onClick={() => handlePaymentApproval(payment.id, false)}>Reject</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : <p>No pending payments.</p>}
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="applications">
-        <Card>
-          <CardHeader>
-            <CardTitle>Submitted Applications</CardTitle>
+            <CardTitle>Offline Applications</CardTitle>
             <CardDescription>Approve applications and allot centers.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoadingApps ? <Loader2 className="animate-spin" /> : applications && applications.length > 0 ? (
               applications.map(app => (
                 <Card key={app.id}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{app.fullName}</CardTitle>
+                    <CardDescription>Status: <span className="font-bold capitalize">{app.status}</span></CardDescription>
+                  </CardHeader>
                   <CardContent className="p-4 space-y-3">
-                    <p><strong>Name:</strong> {app.fullName}</p>
                     <p><strong>Class:</strong> {app.currentClass}</p>
-                    <p><strong>Exam Mode:</strong> {app.examMode}</p>
-                    {app.examMode === 'offline' && (
                         <div className="space-y-2">
                             <p><strong>Center Choices:</strong></p>
                             <ul className="list-disc list-inside text-sm">
-                                <li>1: {centers?.find(c => c.id === app.center1)?.name}</li>
-                                <li>2: {centers?.find(c => c.id === app.center2)?.name}</li>
-                                <li>3: {centers?.find(c => c.id === app.center3)?.name}</li>
+                                <li>1: {centers?.find(c => c.id === app.center1)?.name || 'N/A'}</li>
+                                <li>2: {centers?.find(c => c.id === app.center2)?.name || 'N/A'}</li>
+                                <li>3: {centers?.find(c => c.id === app.center3)?.name || 'N/A'}</li>
                             </ul>
-                            <Select onValueChange={(centerId) => handleApplicationApproval(app.id, true, centerId)}>
-                                <SelectTrigger><SelectValue placeholder="Allot Center & Approve" /></SelectTrigger>
-                                <SelectContent>
-                                    {centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            
+                             <div className="flex items-center gap-2">
+                                <Select onValueChange={(centerId) => handleApplicationApproval(app.id, true, centerId)} disabled={app.status === 'approved'}>
+                                    <SelectTrigger><SelectValue placeholder={app.status === 'approved' ? centers?.find(c=> c.id === app.allottedCenterId)?.name : "Allot Center & Approve"} /></SelectTrigger>
+                                    <SelectContent>
+                                        {centers?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                 <Button size="sm" variant="destructive" onClick={() => handleApplicationApproval(app.id, false)}>Reject</Button>
+                            </div>
                         </div>
-                    )}
-                     <div className="flex gap-2 pt-2">
-                      {app.examMode === 'online' && <Button size="sm" onClick={() => handleApplicationApproval(app.id, true)}>Approve Online</Button>}
-                      <Button size="sm" variant="destructive" onClick={() => handleApplicationApproval(app.id, false)}>Reject</Button>
-                    </div>
                   </CardContent>
                 </Card>
               ))
-            ) : <p>No submitted applications.</p>}
+            ) : <p>No offline applications found.</p>}
           </CardContent>
         </Card>
-      </TabsContent>
-    </Tabs>
   );
 }
 
@@ -2173,10 +2126,6 @@ const centerSchema = z.object({
   examTime: z.string(),
   admitCardDate: z.string(),
   resultDate: z.string(),
-  onlineExamStartDate: z.string(),
-  onlineExamEndDate: z.string(),
-  onlineExamStartTime: z.string(),
-  onlineExamEndTime: z.string(),
 });
 
 function AddCenterForm() {
@@ -2238,34 +2187,19 @@ function AddCenterForm() {
                 <h3 className="font-semibold pt-4 border-t">Offline Exam Schedule</h3>
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="examDate" render={({ field }) => (
-                        <FormItem><FormLabel>Exam Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Exam Date</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="examTime" render={({ field }) => (
-                        <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                </div>
-                 <h3 className="font-semibold pt-4 border-t">Online Exam Schedule</h3>
-                 <div className="grid grid-cols-2 gap-4">
-                    <FormField control={form.control} name="onlineExamStartDate" render={({ field }) => (
-                        <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="onlineExamEndDate" render={({ field }) => (
-                        <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="onlineExamStartTime" render={({ field }) => (
-                        <FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="onlineExamEndTime" render={({ field }) => (
-                        <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                  <h3 className="font-semibold pt-4 border-t">Result &amp; Admit Card Schedule</h3>
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="admitCardDate" render={({ field }) => (
-                        <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="resultDate" render={({ field }) => (
-                        <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <Button type="submit" disabled={isSubmitting}>
@@ -2276,6 +2210,153 @@ function AddCenterForm() {
         </Form>
     );
 }
+
+function ManageCenters() {
+    const firestore = useFirestore();
+    const centersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'scholarship_centers'), orderBy('createdAt', 'desc')) : null, [firestore]);
+    const { data: centers, isLoading, forceRefresh } = useCollection(centersQuery);
+    const { toast } = useToast();
+    const [editingCenter, setEditingCenter] = useState<any>(null);
+
+    const handleDelete = async (centerId: string) => {
+        if (!firestore) return;
+        const centerRef = doc(firestore, "scholarship_centers", centerId);
+        try {
+            await deleteDoc(centerRef);
+            toast({ title: 'Success', description: 'Center deleted successfully.' });
+            forceRefresh();
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete center.' });
+        }
+    };
+    
+    if (isLoading) return <Loader2 className="animate-spin" />;
+
+    return (
+        <div className="space-y-4">
+            {centers && centers.length > 0 ? (
+                centers.map(center => (
+                    <Card key={center.id}>
+                        <CardHeader>
+                            <CardTitle>{center.name}</CardTitle>
+                            <CardDescription>{center.city}, {center.state}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingCenter(center)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/> Delete</Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>This action will permanently delete the center.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(center.id)}>Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </CardContent>
+                    </Card>
+                ))
+            ) : <p>No centers added yet.</p>}
+
+            <Sheet open={!!editingCenter} onOpenChange={(isOpen) => !isOpen && setEditingCenter(null)}>
+                <SheetContent>
+                    <SheetHeader>
+                        <SheetTitle>Edit Center</SheetTitle>
+                        <SheetDescription>Update the details for this scholarship center.</SheetDescription>
+                    </SheetHeader>
+                    <div className="py-4">
+                       {editingCenter && <EditCenterForm centerData={editingCenter} onFinished={() => { setEditingCenter(null); forceRefresh(); }}/>}
+                    </div>
+                </SheetContent>
+            </Sheet>
+        </div>
+    );
+}
+
+function EditCenterForm({ centerData, onFinished }: { centerData: any, onFinished: () => void }) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+    const firestore = useFirestore();
+
+    const form = useForm<z.infer<typeof centerSchema>>({
+        resolver: zodResolver(centerSchema),
+        defaultValues: {
+            name: centerData.name || '',
+            address: centerData.address || '',
+            city: centerData.city || '',
+            state: centerData.state || '',
+            pincode: centerData.pincode || '',
+            examDate: centerData.examDate || '',
+            examTime: centerData.examTime || '',
+            admitCardDate: centerData.admitCardDate || '',
+            resultDate: centerData.resultDate || '',
+        }
+    });
+
+    async function onSubmit(values: z.infer<typeof centerSchema>) {
+        setIsSubmitting(true);
+        if (!firestore) return;
+
+        const centerRef = doc(firestore, 'scholarship_centers', centerData.id);
+        try {
+            await updateDoc(centerRef, values);
+            toast({ title: 'Success', description: 'Center updated.'});
+            onFinished();
+        } catch(e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update center.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                 <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Center Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <FormField control={form.control} name="address" render={({ field }) => (
+                    <FormItem><FormLabel>Full Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="city" render={({ field }) => (
+                    <FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="state" render={({ field }) => (
+                    <FormItem><FormLabel>State</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="pincode" render={({ field }) => (
+                    <FormItem><FormLabel>Pincode</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <h3 className="font-semibold pt-4 border-t">Exam Schedule</h3>
+                <FormField control={form.control} name="examDate" render={({ field }) => (
+                    <FormItem><FormLabel>Exam Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="examTime" render={({ field }) => (
+                    <FormItem><FormLabel>Exam Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <h3 className="font-semibold pt-4 border-t">Result & Admit Card</h3>
+                <FormField control={form.control} name="admitCardDate" render={({ field }) => (
+                    <FormItem><FormLabel>Admit Card Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="resultDate" render={({ field }) => (
+                    <FormItem><FormLabel>Result Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
+                </Button>
+            </form>
+        </Form>
+    )
+}
+
 
 function ManageUsers() {
     const firestore = useFirestore();
@@ -2298,7 +2379,9 @@ function ManageUsers() {
                         <TableRow>
                             <TableHead>Name</TableHead>
                             <TableHead>Email</TableHead>
-                            <TableHead>Last Sign In</TableHead>
+                             <TableHead>Mobile</TableHead>
+                            <TableHead>DOB</TableHead>
+                            <TableHead>Preparing For</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2306,11 +2389,13 @@ function ManageUsers() {
                             <TableRow key={user.id}>
                                 <TableCell className="font-medium">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                 <TableCell>{user.metadata?.lastSignInTime ? new Date(user.metadata.lastSignInTime).toLocaleString() : 'N/A'}</TableCell>
+                                <TableCell>{user.mobileNumber || 'N/A'}</TableCell>
+                                <TableCell>{user.dob || 'N/A'}</TableCell>
+                                <TableCell>{user.preparingFor || 'N/A'}</TableCell>
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={3} className="text-center">No users found.</TableCell>
+                                <TableCell colSpan={5} className="text-center">No users found.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>
@@ -2319,6 +2404,68 @@ function ManageUsers() {
         </Card>
     );
 }
+
+const motivationSchema = z.object({
+    quote: z.string().optional(),
+    author: z.string().optional(),
+    videoUrl: z.string().optional(),
+}).refine(data => data.quote || data.videoUrl, {
+    message: "Either a quote or a video URL is required.",
+    path: ['quote'],
+});
+
+function MotivationAdmin() {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+    const firestore = useFirestore();
+
+    const form = useForm<z.infer<typeof motivationSchema>>({
+        resolver: zodResolver(motivationSchema),
+        defaultValues: { quote: '', author: '', videoUrl: ''},
+    });
+
+    async function onSubmit(values: z.infer<typeof motivationSchema>) {
+        setIsSubmitting(true);
+        if (!firestore) return;
+        
+        let dataToAdd = {};
+        if (values.videoUrl) {
+            dataToAdd = { type: 'video', url: values.videoUrl, createdAt: serverTimestamp() };
+            const docRef = doc(collection(firestore, 'motivational_content'));
+            await setDoc(docRef, dataToAdd);
+        }
+        if (values.quote) {
+            dataToAdd = { type: 'quote', text: values.quote, author: values.author, createdAt: serverTimestamp() };
+             const docRef = doc(collection(firestore, 'motivational_content'));
+            await setDoc(docRef, dataToAdd);
+        }
+
+        toast({ title: 'Success', description: 'Content added.'});
+        form.reset();
+        setIsSubmitting(false);
+    }
+    
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                 <FormField control={form.control} name="quote" render={({ field }) => (
+                    <FormItem><FormLabel>Quote (in Hindi)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <FormField control={form.control} name="author" render={({ field }) => (
+                    <FormItem><FormLabel>Author</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                 <p className="text-center text-muted-foreground font-bold">OR</p>
+                 <FormField control={form.control} name="videoUrl" render={({ field }) => (
+                    <FormItem><FormLabel>YouTube Video URL</FormLabel><FormControl><Input type="url" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Add Content
+                </Button>
+            </form>
+        </Form>
+    )
+}
+
 
 
 const componentMap: { [key: string]: React.FC } = {
@@ -2336,10 +2483,12 @@ const componentMap: { [key: string]: React.FC } = {
   'add-coupon': AddCouponForm,
   'scholarship-management': ScholarshipManagement,
   'add-center': AddCenterForm,
+  'manage-centers': ManageCenters,
   'manage-content': ManageContent,
   'manage-users': ManageUsers,
   'app-settings': AppSettingsForm,
   'vidya-search-admin': VidyaSearchAdmin,
+  'motivation-admin': MotivationAdmin,
 };
 
 
@@ -2363,7 +2512,7 @@ export default function AdminDashboardPage() {
             Manage your application content and users.
           </p>
         </header>
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {adminNavItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -2372,9 +2521,9 @@ export default function AdminDashboardPage() {
               className="cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => setActiveDrawer(item.value)}
             >
-              <CardContent className="flex flex-col items-center justify-center p-6">
+              <CardContent className="flex flex-col items-center justify-center p-4 text-center">
                 <Icon className="h-8 w-8 mb-2 text-primary"/>
-                <p className="font-semibold text-center">{item.label}</p>
+                <p className="font-semibold text-sm">{item.label}</p>
               </CardContent>
             </Card>
           )
@@ -2396,3 +2545,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

@@ -1,14 +1,15 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Gift, Share2, Star } from 'lucide-react';
+import { Gift, Share2, Star, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReferPage() {
 
     const handleRefer = () => {
-        const message = "नमस्ते! मैंने यह शानदार लर्निंग ऐप खोजा है। मुझे लगता है कि यह आपके लिए भी बहुत उपयोगी होगा। इसे देखें: [Your App Link Here]";
+        const message = "नमस्ते! मैंने यह शानदार लर्निंग ऐप 'Learn with Munedra' खोजा है। मुझे लगता है कि यह आपके लिए भी बहुत उपयोगी होगा। इसे देखें: [Your App Link Here]";
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, '_blank');
     };
@@ -50,3 +51,5 @@ export default function ReferPage() {
         </div>
     );
 }
+
+    

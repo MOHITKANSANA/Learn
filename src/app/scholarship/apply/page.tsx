@@ -29,34 +29,18 @@ const finalSchema = z.object({
   currentClass: z.string().min(1, "Please select your current class."),
   school: z.string().min(2, "School name is required."),
   previousMarks: z.coerce.number().min(0, "Marks must be between 0 and 100.").max(100, "Marks must be between 0 and 100."),
-  examMode: z.enum(['online', 'offline'], { required_error: 'Please select an exam mode.' }),
-  center1: z.string().optional(),
-  center2: z.string().optional(),
-  center3: z.string().optional(),
-  paymentMobileNumber: z.string().optional(),
+  examMode: z.literal('offline'),
+  center1: z.string().min(1, 'Please select a center.'),
+  center2: z.string().min(1, 'Please select a center.'),
+  center3: z.string().min(1, 'Please select a center.'),
 }).superRefine((data, ctx) => {
-    if (data.examMode === 'offline') {
-        if (!data.center1) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a center.', path: ['center1'] });
-        if (!data.center2) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a center.', path: ['center2'] });
-        if (!data.center3) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a center.', path: ['center3'] });
-
-        const centers = [data.center1, data.center2, data.center3];
-        if (centers.some(c => c) && new Set(centers.filter(Boolean)).size !== centers.filter(Boolean).length) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Please select three different centers.",
-                path: ["center1"],
-            });
-        }
-    }
-    if (data.examMode === 'online') {
-        if (!data.paymentMobileNumber || !/^\d{10}$/.test(data.paymentMobileNumber)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Please enter a valid 10-digit UPI mobile number.',
-                path: ['paymentMobileNumber'],
-            });
-        }
+    const centers = [data.center1, data.center2, data.center3];
+    if (new Set(centers).size !== centers.length) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please select three different centers.",
+            path: ["center1"],
+        });
     }
 });
 
@@ -69,9 +53,6 @@ export default function ScholarshipApplyPage() {
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
-
-  const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'payment') : null, [firestore]);
-  const { data: settings, isLoading: isLoadingSettings } = useDoc(settingsRef);
 
   const centersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'scholarship_centers') : null, [firestore]);
   const { data: centers, isLoading: isLoadingCenters } = useCollection(centersQuery);
@@ -93,32 +74,19 @@ export default function ScholarshipApplyPage() {
       center1: '',
       center2: '',
       center3: '',
-      paymentMobileNumber: '',
     }
   });
 
-  const watchExamMode = methods.watch('examMode');
-  const fee = watchExamMode === 'online' ? settings?.onlineScholarshipFee : settings?.offlineScholarshipFee;
-  
   const personalInfoFields: (keyof z.infer<typeof finalSchema>)[] = ['fullName', 'fatherName', 'dob', 'gender', 'mobile', 'email'];
   const academicInfoFields: (keyof z.infer<typeof finalSchema>)[] = ['currentClass', 'school', 'previousMarks'];
-  const examModeFields: (keyof z.infer<typeof finalSchema>)[] = ['examMode'];
   const centerChoiceFields: (keyof z.infer<typeof finalSchema>)[] = ['center1', 'center2', 'center3'];
-  const paymentFields: (keyof z.infer<typeof finalSchema>)[] = ['paymentMobileNumber'];
 
-
-  const steps = useMemo(() => [
+  const steps = [
     { id: 1, title: 'Personal Information', fields: personalInfoFields },
     { id: 2, title: 'Academic Information', fields: academicInfoFields },
-    { id: 3, title: 'Choose Exam Mode', fields: examModeFields },
-    ...(watchExamMode === 'offline' ? [
-        { id: 4, title: 'Exam Center Choice', fields: centerChoiceFields },
-        { id: 5, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
-    ] : [
-        { id: 4, title: 'Payment', fields: paymentFields },
-        { id: 5, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
-    ]),
-  ], [watchExamMode]);
+    { id: 3, title: 'Exam Center Choice', fields: centerChoiceFields },
+    { id: 4, title: 'Review & Submit', fields: [] as (keyof z.infer<typeof finalSchema>)[]},
+  ];
 
   const nextStep = async () => {
     const currentStepConfig = steps[currentStep - 1];
@@ -164,40 +132,11 @@ export default function ScholarshipApplyPage() {
     
     setIsSubmitting(true);
     try {
-      let paymentId: string | null = null;
-
-      if (data.examMode === 'online') {
-          if (fee === undefined) {
-              toast({ variant: 'destructive', title: 'Error', description: 'Fee is not defined. Cannot proceed with payment.' });
-              setIsSubmitting(false);
-              return;
-            }
-          if (!data.paymentMobileNumber || data.paymentMobileNumber.length !== 10) {
-             methods.setError('paymentMobileNumber', {type: 'manual', message: 'Please enter a valid 10-digit UPI mobile number for verification.'});
-             toast({ variant: 'destructive', title: 'Error', description: 'Invalid UPI mobile number.'});
-             setIsSubmitting(false);
-             return;
-          }
-
-          const paymentRef = doc(collection(firestore, 'scholarshipPayments'));
-          const paymentData = {
-              id: paymentRef.id,
-              userId: user.uid,
-              examMode: data.examMode,
-              amount: fee,
-              paymentMobileNumber: data.paymentMobileNumber,
-              status: 'pending', 
-              createdAt: serverTimestamp(),
-          };
-          await setDoc(paymentRef, paymentData);
-          paymentId = paymentRef.id;
-      }
-      
       const newAppId = await generateUniqueAppId();
       const applicationData: any = {
         id: String(newAppId),
         userId: user.uid,
-        paymentId: paymentId,
+        paymentId: null, // Offline only
         fullName: data.fullName,
         fatherName: data.fatherName,
         dob: data.dob,
@@ -207,24 +146,16 @@ export default function ScholarshipApplyPage() {
         currentClass: data.currentClass,
         school: data.school,
         previousMarks: data.previousMarks,
-        examMode: data.examMode,
-        center1: data.center1 || null,
-        center2: data.center2 || null,
-        center3: data.center3 || null,
-        status: data.examMode === 'offline' ? 'approved' : 'submitted',
+        examMode: 'offline',
+        center1: data.center1,
+        center2: data.center2,
+        center3: data.center3,
+        status: 'submitted',
         createdAt: serverTimestamp(),
       };
       
-      if (data.examMode === 'offline') {
-          delete applicationData.paymentMobileNumber;
-      }
-
       await setDoc(doc(firestore, "scholarshipApplications", String(newAppId)), applicationData);
       
-      if (paymentId) {
-        await updateDoc(doc(firestore, 'scholarshipPayments', paymentId), { applicationId: String(newAppId) });
-      }
-
       setSubmittedAppId(String(newAppId));
     } catch (error) {
         console.error("Application submission error:", error);
@@ -233,10 +164,6 @@ export default function ScholarshipApplyPage() {
         setIsSubmitting(false);
     }
   };
-
-  if(isLoadingSettings) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-16 w-16 animate-spin"/></div>;
-  }
   
   if (submittedAppId) {
     return (
@@ -322,29 +249,8 @@ export default function ScholarshipApplyPage() {
                   )} />
                 </>
               )}
-
-              {steps.find(s => s.id === currentStep)?.title === 'Choose Exam Mode' && (
-                 <FormField control={methods.control} name="examMode" render={({ field }) => (
-                    <FormItem className="space-y-3">
-                    <FormLabel>Choose Exam Mode</FormLabel>
-                    <FormControl>
-                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center gap-4">
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl><RadioGroupItem value="offline" /></FormControl>
-                            <FormLabel className="font-normal">Offline</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl><RadioGroupItem value="online" /></FormControl>
-                            <FormLabel className="font-normal">Online (Fee: ₹{settings?.onlineScholarshipFee || 30})</FormLabel>
-                        </FormItem>
-                        </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )} />
-              )}
               
-              {steps.find(s => s.id === currentStep)?.title === 'Exam Center Choice' && watchExamMode === 'offline' && (
+              {currentStep === 3 && (
                  <>
                     {isLoadingCenters ? <Loader2 className="animate-spin" /> :
                     <>
@@ -362,53 +268,30 @@ export default function ScholarshipApplyPage() {
                  </>
               )}
                
-               {steps.find(s => s.id === currentStep)?.title === 'Payment' && watchExamMode === 'online' && (
-                 <div className="space-y-6">
-                    <div className="text-sm font-semibold text-center bg-primary/20 p-3 rounded-md border border-primary/30">
-                        <p>You need to pay ₹{fee || '...'} as application fee.</p>
-                    </div>
-                     {settings?.qrCodeImageUrl && (
-                            <div className='flex flex-col items-center gap-2'>
-                                <Image src={settings.qrCodeImageUrl} alt="Payment QR Code" width={150} height={150} className="rounded-md border p-1"/>
-                                <p className="text-xs text-muted-foreground text-center">1. Scan this QR to pay ₹{fee || '...'}</p>
-                            </div>
-                     )}
-                     <FormField
-                        control={methods.control}
-                        name="paymentMobileNumber"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>2. Enter your 10-digit UPI Mobile Number for verification</FormLabel>
-                            <FormControl>
-                            <Input type="tel" placeholder="10-Digit Mobile Number" {...field} maxLength={10} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                 </div>
-               )}
-
-              {steps.find(s => s.id === currentStep)?.title === 'Review & Submit' && (
+              {currentStep === 4 && (
                  <div className="space-y-4">
                     <h3 className="font-semibold">Review your application details.</h3>
                     <Card>
                         <CardContent className="p-4 space-y-2 text-sm">
                             {Object.entries(methods.getValues()).map(([key, value]) => {
-                                if (value instanceof FileList || typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0) return null;
                                 if (value === '' || value === undefined || value === null) return null;
+                                let displayValue = String(value);
+                                if(key.startsWith('center')) {
+                                    const center = centers?.find(c => c.id === value);
+                                    displayValue = center ? `${center.name}, ${center.city}` : String(value);
+                                }
                                 const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
-                                const file = value instanceof FileList ? value[0]?.name : String(value);
 
                                 return (
                                     <div key={key} className="flex justify-between">
                                         <span className="font-medium capitalize">{formattedKey}:</span>
-                                        <span>{file}</span>
+                                        <span>{displayValue}</span>
                                     </div>
                                 );
                             })}
                         </CardContent>
                     </Card>
+                    <p className="text-sm text-muted-foreground">आपको परीक्षा केंद्र पर ₹60 का शुल्क नकद जमा करना होगा।</p>
                  </div>
               )}
 
@@ -432,3 +315,5 @@ export default function ScholarshipApplyPage() {
     </div>
   );
 }
+
+    
