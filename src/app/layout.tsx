@@ -11,7 +11,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { MobileSidebar } from '@/components/layout/mobile-sidebar';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase, useAuth } from '@/firebase';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { doc } from 'firebase/firestore';
@@ -63,8 +63,12 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(true);
 
   // Use a separate hook/state to track profile data from Firestore
-  const userDocRef = useMemoFirebase(() => user ? doc(useFirestore(), 'users', user.uid) : null, [user]);
+  const firestore = useFirestore(); // Get firestore instance
+  const userDocRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+  
+  // A new state to determine if initial checks are complete
+  const [isInitialCheckComplete, setIsInitialCheckComplete] = useState(false);
 
   // Checks if the user's profile is complete based on Firestore data.
   const isProfileComplete = !!userProfile?.name && !!userProfile?.mobileNumber;
@@ -72,7 +76,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Automatically sign in users anonymously if they aren't logged in.
     const handleAnonymousSignIn = async () => {
-        if (!user && !isUserLoading) {
+        if (!user && !isUserLoading && !auth.currentUser) {
             try {
                 await signInAnonymously(auth);
             } catch (error) {
@@ -93,13 +97,20 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Redirect logic after splash screen and loading is complete
-    if (showSplash || isUserLoading || isProfileLoading) return;
+    // This effect runs once all loading is done.
+    if (!showSplash && !isUserLoading && !isProfileLoading) {
+      setIsInitialCheckComplete(true);
+    }
+  }, [showSplash, isUserLoading, isProfileLoading]);
+
+  useEffect(() => {
+    // This effect handles redirection once the initial checks are complete.
+    if (!isInitialCheckComplete) return;
 
     if (user && !isProfileComplete && pathname !== '/profile-setup') {
         router.replace('/profile-setup');
     }
-  }, [showSplash, isUserLoading, isProfileLoading, user, isProfileComplete, pathname, router]);
+  }, [isInitialCheckComplete, user, isProfileComplete, pathname, router]);
 
   useEffect(() => {
     // PWA and theme setup
@@ -116,11 +127,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === '/signup' || pathname === '/admin/login' || pathname === '/profile-setup';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
 
-  if (showSplash || (isUserLoading && !user)) {
+  if (showSplash || !isInitialCheckComplete) {
     return <SplashScreen />;
   }
   
-  if (isAuthPage) {
+  if (isAuthPage && pathname !== '/profile-setup') {
     return (
       <div className="flex flex-col min-h-screen">
         <main className="flex items-center flex-1 justify-center">
@@ -129,6 +140,18 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+  
+  // This allows the profile setup page to render within the main layout if needed, or standalone.
+  if (pathname === '/profile-setup' && !isProfileComplete) {
+       return (
+            <div className="flex flex-col min-h-screen">
+                <main className="flex items-center flex-1 justify-center p-4">
+                    {children}
+                </main>
+            </div>
+       );
+  }
+
 
   return (
     <SidebarProvider>
