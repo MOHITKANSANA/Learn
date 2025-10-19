@@ -40,7 +40,7 @@ function SplashScreen() {
                       className="rounded-full object-cover p-2 animate-pulse"
                   /> :
                   <Image 
-                      src="/icons/logo-192.png" 
+                      src="/icons/logo-512.png" 
                       alt="App Logo" 
                       width={160} 
                       height={160} 
@@ -54,7 +54,6 @@ function SplashScreen() {
   );
 }
 
-
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -63,7 +62,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState('dark');
   const [showSplash, setShowSplash] = useState(true);
 
+  // Checks if the user's profile is complete.
+  const isProfileComplete = !!user?.displayName && !!user?.mobileNumber;
+
   useEffect(() => {
+    // Automatically sign in users anonymously if they aren't logged in.
     const handleAnonymousSignIn = async () => {
         if (!user && !isUserLoading) {
             try {
@@ -77,37 +80,41 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, [user, isUserLoading, auth]);
 
   useEffect(() => {
+    // Show splash screen and then redirect if profile is incomplete.
+    const timer = setTimeout(() => {
+        setShowSplash(false);
+        if (!isUserLoading && user && !isProfileComplete && pathname !== '/profile-setup') {
+            router.replace('/profile-setup');
+        }
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [isUserLoading, user, isProfileComplete, pathname, router]);
+
+  useEffect(() => {
+    // PWA and theme setup
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => console.log('Service Worker registered with scope:', registration.scope))
         .catch((error) => console.log('Service Worker registration failed:', error));
     }
-
     const storedTheme = localStorage.getItem('theme') || 'dark';
     setTheme(storedTheme);
     document.documentElement.className = storedTheme;
-
-    const timer = setTimeout(() => {
-        setShowSplash(false);
-    }, 2500);
-
-    return () => clearTimeout(timer);
   }, []);
 
-  const isAuthPage = pathname === '/signup';
+  const isAuthPage = pathname === '/signup' || pathname === '/admin/login' || pathname === '/profile-setup';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
 
-  if (showSplash || isUserLoading) {
+  if (showSplash || (isUserLoading && !user)) {
     return <SplashScreen />;
   }
   
   if (isAuthPage) {
     return (
       <div className="flex flex-col min-h-screen">
-        <main className="flex items-center flex-1">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full">
+        <main className="flex items-center flex-1 justify-center">
             {children}
-          </div>
         </main>
       </div>
     );

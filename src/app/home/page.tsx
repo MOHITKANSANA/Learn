@@ -71,11 +71,24 @@ export default function Home() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!user || !firestore) {
-      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to enroll.' });
-      return;
+    if (!user) {
+        toast({
+            title: "Please complete your profile",
+            description: "To enroll in courses, please complete your profile first.",
+            action: <Button onClick={() => router.push('/profile-setup')}>Complete Profile</Button>
+        });
+        return;
     }
-    // Prevent re-enrollment
+
+    if (user.isAnonymous) {
+        toast({
+            title: "Please Sign Up",
+            description: "To enroll in courses, please create an account first.",
+            action: <Button onClick={() => router.push('/signup')}>Sign Up</Button>
+        })
+        return;
+    }
+
     const q = query(collection(firestore, 'enrollments'), where('studentId', '==', user.uid), where('itemId', '==', course.id));
     const existingEnrollment = await getDocs(q);
     if (!existingEnrollment.empty) {
@@ -120,6 +133,24 @@ export default function Home() {
     );
   }
 
+  const handlePaidCourseClick = (courseId: string) => {
+    if (!user) {
+         toast({
+            title: "Please complete your profile",
+            description: "To purchase courses, please complete your profile first.",
+            action: <Button onClick={() => router.push('/profile-setup')}>Complete Profile</Button>
+        });
+    } else if (user.isAnonymous) {
+        toast({
+            title: "Please Sign Up",
+            description: "To purchase courses, please create an account first.",
+            action: <Button onClick={() => router.push('/signup')}>Sign Up</Button>
+        })
+    } else {
+        router.push(`/checkout/${courseId}?type=course`);
+    }
+  }
+
   const renderPaidCourseButton = (course: any) => {
     const status = enrollmentStatus.get(course.id);
     if (status === 'approved') {
@@ -131,7 +162,7 @@ export default function Home() {
         return <Button disabled size="sm">Pending Approval</Button>;
     }
     return (
-        <Button size="sm" asChild><Link href={`/checkout/${course.id}?type=course`}>Buy Now</Link></Button>
+        <Button size="sm" onClick={() => handlePaidCourseClick(course.id)}>Buy Now</Button>
     );
   };
   
@@ -152,7 +183,7 @@ export default function Home() {
     <div className="space-y-6">
       <section className='space-y-2'>
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Hello {user?.isAnonymous ? 'Guest' : user?.displayName?.split(' ')[0] || 'Student'}!</h1>
+          <h1 className="text-2xl font-bold">Hello {user?.displayName || 'Student'}!</h1>
           <Button>Support</Button>
         </div>
         {isLoadingPromotions ? (
@@ -187,7 +218,7 @@ export default function Home() {
       </section>
 
       <section>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-3">
           {dashboardItems.map((item, index) => {
             const Icon = item.icon;
             return (

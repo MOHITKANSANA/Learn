@@ -57,22 +57,20 @@ export default function SignupPage() {
         const credential = EmailAuthProvider.credential(values.email, values.password);
         
         // Link the anonymous account with the new email/password credential
-        await linkWithCredential(auth.currentUser, credential);
+        const result = await linkWithCredential(auth.currentUser, credential);
         
-        const upgradedUser = auth.currentUser;
+        const upgradedUser = result.user;
 
         // Update profile display name
         await updateProfile(upgradedUser, { displayName: values.name });
 
         // Update or create the user document in Firestore
         const userDocRef = doc(firestore, 'users', upgradedUser.uid);
-        const userDoc = await getDoc(userDocRef);
-
+        
         const userData = {
             id: upgradedUser.uid,
             name: values.name,
             email: values.email,
-            profileImageUrl: userDoc.exists() ? userDoc.data().profileImageUrl : `https://picsum.photos/seed/${upgradedUser.uid}/100/100`,
         };
 
         await setDoc(userDocRef, userData, { merge: true });
@@ -81,21 +79,15 @@ export default function SignupPage() {
             title: 'Account Upgraded!',
             description: "You've successfully created your account.",
         });
-        router.push('/');
+        router.push('/home');
     } catch (error: any) {
         console.error('Signup error:', error);
-        if (error.code === 'auth/email-already-in-use') {
+        if (error.code === 'auth/email-already-in-use' || error.code === 'auth/credential-already-in-use') {
             toast({
                 variant: 'destructive',
                 title: 'Signup Failed',
-                description: 'This email is already in use. Please use a different email.',
+                description: 'This email is already in use. Please log in instead.',
             });
-        } else if (error.code === 'auth/credential-already-in-use') {
-             toast({
-                variant: 'destructive',
-                title: 'Account Linked',
-                description: 'This account is already linked. Please try logging in normally.',
-             });
         } else {
             toast({
                 variant: 'destructive',
@@ -164,6 +156,12 @@ export default function SignupPage() {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Account
               </Button>
+               <p className="text-xs text-muted-foreground">
+                Already have an account?{' '}
+                <Button variant="link" asChild className="p-0 h-auto">
+                  <Link href="/admin/login">Log In</Link>
+                </Button>
+              </p>
             </CardFooter>
           </form>
         </Form>
