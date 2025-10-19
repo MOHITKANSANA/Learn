@@ -65,10 +65,16 @@ function AppLayout({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!isUserLoading && !user && pathname !== '/login' && pathname !== '/signup') {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, pathname, router]);
+
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
 
-  if (showSplash || isUserLoading) {
+  if (showSplash || isUserLoading || (!user && !isAuthPage)) {
     return <SplashScreen />;
   }
   
@@ -83,12 +89,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-
-  if (!user && !isUserLoading) {
-    router.push('/login');
-    return <SplashScreen />; // Or some other loading state
-  }
-
 
   return (
     <SidebarProvider>
