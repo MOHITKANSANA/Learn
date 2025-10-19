@@ -1,3 +1,4 @@
+
 'use client';
 import type { Metadata } from 'next';
 import { Toaster } from '@/components/ui/toaster';
@@ -7,7 +8,7 @@ import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { MobileSidebar } from '@/components/layout/mobile-sidebar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -48,6 +49,7 @@ function SplashScreen() {
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const pathname = usePathname();
+  const router = useRouter();
   const [theme, setTheme] = useState('dark');
   const [showSplash, setShowSplash] = useState(true);
 
