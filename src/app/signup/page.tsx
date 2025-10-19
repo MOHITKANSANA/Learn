@@ -63,14 +63,22 @@ export default function SignupPage() {
         title: 'Account Created!',
         description: "You're now logged in.",
       });
-      router.push('/install');
+      router.push('/');
     } catch (error: any) {
       console.error('Signup error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Signup Failed',
-        description: error.message || 'An unexpected error occurred. Please try again.',
-      });
+       if (error.code === 'auth/email-already-in-use') {
+        toast({
+          variant: 'destructive',
+          title: 'Signup Failed',
+          description: 'This email is already in use. Please log in or use a different email.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Signup Failed',
+          description: error.message || 'An unexpected error occurred. Please try again.',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

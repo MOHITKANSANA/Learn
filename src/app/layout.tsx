@@ -79,20 +79,19 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!isUserLoading && !user && !['/login', '/signup', '/install'].includes(pathname)) {
+    if (!isUserLoading && !user && !['/login', '/signup'].includes(pathname)) {
       router.push('/signup');
     }
   }, [user, isUserLoading, pathname, router]);
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
-  const isInstallPage = pathname === '/install';
   const isVideoPage = pathname.startsWith('/courses/video/') || pathname.startsWith('/live-classes/');
 
-  if (showSplash || isUserLoading || (!user && !isAuthPage && !isInstallPage)) {
+  if (showSplash || (isUserLoading && !isAuthPage)) {
     return <SplashScreen />;
   }
   
-  if (isAuthPage || isInstallPage) {
+  if (isAuthPage) {
     return (
       <div className="flex flex-col min-h-screen">
         <main className="flex items-center flex-1">
